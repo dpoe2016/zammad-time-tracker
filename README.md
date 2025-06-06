@@ -1,317 +1,111 @@
-# Zammad Timetracking Extension
+# Zammad Time Tracker Fix
 
-Eine Chrome Extension für automatische Zeiterfassung in Zammad Tickets.
+## Problem
+The start and stop buttons in the Zammad Time Tracker Chrome extension were not working properly. The issue was that the popup.html file was not properly communicating with the content.js file to start and stop tracking.
 
-## 📋 Funktionen
+## Solution
+The solution involves two main changes:
 
-- ⏱️ **Zeiterfassung** - Start/Stop Timer für Zammad Tickets
-- 🎯 **Automatische Ticket-Erkennung** - Erkennt Ticket-IDs automatisch
-- 💾 **Persistente Zeiterfassung** - Timer läuft auch bei Tab-Wechsel weiter
-- 🔧 **Automatisches Eintragen** - Trägt Zeit automatisch in Zammad ein
-- 🔔 **Browser-Benachrichtigungen** - Informiert über Start/Stop
-- 🐛 **Debug-Modus** - Umfassendes Logging für Fehlerbehebung
+1. Added handlers for 'getTicketInfo' and 'submitTime' actions in content.js
+2. Modified popup.html to send 'startTracking' and 'stopTracking' messages to content.js
 
-## 🚀 Installation
-
-### Voraussetzungen
-
-- Google Chrome Browser (Version 88+)
-- Zugriff auf eine Zammad-Installation
-- Aktivierte Zeiterfassung in Zammad
-
-### Schritt 1: Extension-Dateien herunterladen
-
-Erstellen Sie einen neuen Ordner `zammad-timetracking` und laden Sie folgende Dateien herunter:
-
-```
-zammad-timetracking/
-├── manifest.json          # Extension-Konfiguration
-├── background.js           # Background Service Worker
-├── content.js             # Content Script für Zammad-Integration
-├── popup.html             # Popup-Interface
-├── style.css              # Styling
-└── icons/                 # Extension-Icons
-    ├── icon16.png
-    ├── icon48.png
-    └── icon128.png
-```
-
-### Schritt 2: Icons erstellen
-
-**Option A: Automatisch generieren**
-1. Öffnen Sie den Icon-Generator (falls bereitgestellt)
-2. Laden Sie alle drei PNG-Icons herunter
-3. Speichern Sie sie im `icons/` Ordner
-
-**Option B: Eigene Icons verwenden**
-- Erstellen Sie PNG-Icons in den Größen 16x16, 48x48 und 128x128 Pixel
-- Benennen Sie sie: `icon16.png`, `icon48.png`, `icon128.png`
-
-### Schritt 3: Extension in Chrome installieren
-
-1. **Chrome Extensions-Seite öffnen:**
-   ```
-   chrome://extensions/
-   ```
-
-2. **Entwicklermodus aktivieren:**
-   - Toggle "Entwicklermodus" oben rechts aktivieren
-
-3. **Extension laden:**
-   - Klicken Sie auf "Entpackte Erweiterung laden"
-   - Wählen Sie den `zammad-timetracking` Ordner aus
-   - Klicken Sie "Ordner auswählen"
-
-4. **Installation verifizieren:**
-   - Extension sollte in der Liste erscheinen
-   - Icon sollte in der Chrome-Toolbar sichtbar sein
-   - Status sollte "Aktiviert" anzeigen
-
-## 📖 Verwendung
-
-### Grundlegende Nutzung
-
-1. **Zammad-Ticket öffnen**
-   - Navigieren Sie zu einem beliebigen Ticket in Ihrer Zammad-Installation
-
-2. **Zeiterfassung starten**
-   - Klicken Sie auf das Extension-Icon in der Chrome-Toolbar
-   - Klicken Sie den blauen "Start"-Button
-   - Timer beginnt automatisch zu laufen
-
-3. **Zeiterfassung beenden**
-   - Öffnen Sie das Popup erneut
-   - Klicken Sie den roten "Stop"-Button
-   - Zeit wird automatisch in Zammad eingetragen
-
-### Erweiterte Funktionen
-
-#### Debug-Modus aktivieren
-- **Doppelklick** auf "Zammad Timetracking" im Popup-Header
-- Gelbe Debug-Box wird angezeigt
-- Zeigt detaillierte Informationen über alle Vorgänge
-
-#### Einstellungen anpassen
-- **Benachrichtigungen:** Ein/Aus schalten
-- **Auto-Submit:** Automatisches Eintragen aktivieren/deaktivieren
-
-#### Persistente Zeiterfassung
-- Timer läuft auch bei geschlossenem Popup weiter
-- Timer läuft auch bei Tab-Wechsel oder Browser-Neustart weiter
-- Rotes Badge (⏱) im Extension-Icon zeigt aktive Zeiterfassung
-
-## 🔧 Konfiguration
-
-### Zammad-URL-Erkennung anpassen
-
-Falls Ihre Zammad-Installation nicht automatisch erkannt wird, passen Sie die URL-Patterns in `content.js` an:
+### Changes in content.js
+Added handlers for 'getTicketInfo' and 'submitTime' actions in the message listener:
 
 ```javascript
-// Zeile ~15-25 in content.js
-isZammadPage() {
-  const indicators = [
-    // Fügen Sie Ihre spezifischen URL-Patterns hinzu
-    () => /ihre-zammad-domain\.de/i.test(window.location.href),
-    () => /support\.ihr-unternehmen\.com/i.test(window.location.href),
-    // ... bestehende Patterns
-  ];
+case 'getTicketInfo':
+  // Handle getTicketInfo action from popup
+  const currentTicketId = this.getCurrentTicketId();
+  console.log('Ticket-Info abgefragt:', currentTicketId);
+  
+  // Get ticket title from page if possible
+  let title = '';
+  try {
+    const titleElement = document.querySelector('.ticket-title, .ticketZoom-header .ticket-number + div, h1, h2');
+    if (titleElement) {
+      title = titleElement.textContent.trim();
+    }
+  } catch (e) {
+    console.error('Fehler beim Extrahieren des Titels:', e);
+  }
+  
+  // Get time spent if available
+  let timeSpent = 0;
+  try {
+    const timeField = document.querySelector('input[name="time_unit"], input[id*="time"], .time-accounting input');
+    if (timeField && timeField.value) {
+      timeSpent = parseFloat(timeField.value) || 0;
+    }
+  } catch (e) {
+    console.error('Fehler beim Extrahieren der Zeit:', e);
+  }
+  
+  sendResponse({ 
+    ticketId: currentTicketId,
+    title: title,
+    timeSpent: timeSpent
+  });
+  break;
+case 'submitTime':
+  // Handle submitTime action from popup
+  console.log('Zeit eintragen:', request.duration, 'Minuten für Ticket', request.ticketId);
+  
+  let success = false;
+  if (request.duration > 0) {
+    // Convert minutes to seconds for submitTimeEntry
+    success = this.submitTimeEntry(request.duration * 60);
+  }
+  
+  sendResponse({ success: success });
+  break;
+```
+
+### Changes in popup.html
+Modified the startTracking and stopTracking methods to communicate with content.js:
+
+#### In startTracking method:
+Added code to send a message to content.js to start tracking:
+
+```javascript
+// Content Script benachrichtigen, um Tracking zu starten
+try {
+    const trackingResponse = await chrome.tabs.sendMessage(tab.id, { 
+        action: 'startTracking'
+    });
+    
+    if (!trackingResponse || !trackingResponse.success) {
+        this.debug('Content Script konnte Tracking nicht starten');
+    } else {
+        this.debug('Content Script hat Tracking gestartet');
+    }
+} catch (error) {
+    this.debug('Fehler beim Starten des Trackings im Content Script: ' + error.message);
 }
 ```
 
-### Zeiterfassungsfelder anpassen
-
-Falls die automatische Felderkennung nicht funktioniert, passen Sie die Selektoren in `content.js` an:
+#### In stopTracking method:
+Added code to send a message to content.js to stop tracking:
 
 ```javascript
-// Zeile ~200+ in content.js
-submitTimeEntry(durationInSeconds) {
-  const timeFields = [
-    'input[name="time_unit"]',           // Standard Zammad
-    'input[name="ihre_zeit_feld"]',      // Ihr custom Feld
-    '.ihre-zeit-klasse input',           // Ihr CSS-Selektor
-    // ... weitere Selektoren
-  ];
+// Content Script benachrichtigen, um Tracking zu stoppen
+try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const stopResponse = await chrome.tabs.sendMessage(tab.id, { 
+        action: 'stopTracking'
+    });
+    
+    if (!stopResponse || !stopResponse.success) {
+        this.debug('Content Script konnte Tracking nicht stoppen');
+    } else {
+        this.debug('Content Script hat Tracking gestoppt');
+    }
+} catch (error) {
+    this.debug('Fehler beim Stoppen des Trackings im Content Script: ' + error.message);
 }
 ```
 
-## 🐛 Fehlerbehebung
+## How to Apply the Fix
+1. Replace the content.js file with the fixed version
+2. Replace the popup.html file with popup_fixed.html
 
-### Extension lädt nicht
-
-**Problem:** Extension erscheint nicht in Chrome
-```bash
-# Lösung:
-1. Überprüfen Sie die Ordnerstruktur
-2. Stellen Sie sicher, dass manifest.json vorhanden ist
-3. Prüfen Sie chrome://extensions/ auf Fehlermeldungen
-4. Entwicklermodus aktiviert?
-```
-
-**Problem:** Service Worker Fehler
-```bash
-# Lösung:
-1. chrome://extensions/ → Extension Details
-2. Prüfen Sie "Service worker" Status
-3. Bei Fehlern: Extension neu laden (Reload-Button)
-4. Browser neu starten
-```
-
-### Timer startet nicht
-
-**Problem:** Start-Button reagiert nicht
-```bash
-# Lösung:
-1. Debug-Modus aktivieren (Doppelklick auf Header)
-2. Prüfen Sie Debug-Meldungen
-3. Browser-Konsole öffnen (F12)
-4. Extension neu laden
-```
-
-**Problem:** Ticket-ID nicht gefunden
-```bash
-# Lösung:
-1. Sind Sie in einem Zammad-Ticket?
-2. URL enthält Ticket-Nummer?
-3. Zammad-Seite vollständig geladen?
-4. Content Script funktioniert? (Debug-Modus prüfen)
-```
-
-### Zeit wird nicht eingetragen
-
-**Problem:** Automatisches Eintragen fehlgeschlagen
-```bash
-# Lösung:
-1. Ist Zeiterfassung in Zammad aktiviert?
-2. Haben Sie Berechtigung für Zeiterfassung?
-3. Sind Zeiterfassungsfelder sichtbar auf der Seite?
-4. Manuelle Feldkonfiguration nötig? (siehe Konfiguration)
-```
-
-### Häufige Lösungsansätze
-
-```bash
-# 1. Hard Refresh
-Ctrl+Shift+R auf Zammad-Seite
-
-# 2. Extension neu laden
-chrome://extensions/ → Reload-Button
-
-# 3. Browser Cache leeren
-Ctrl+Shift+Del → Bilder und Dateien im Cache
-
-# 4. Extension neu installieren
-Extension löschen → Neu laden → Neu installieren
-```
-
-## 📊 Debug-Informationen sammeln
-
-Bei Problemen sammeln Sie folgende Informationen:
-
-### 1. Browser-Informationen
-```bash
-# Chrome-Version prüfen:
-chrome://version/
-
-# Extension-Status prüfen:
-chrome://extensions/
-```
-
-### 2. Debug-Logs sammeln
-```bash
-1. Debug-Modus aktivieren (Doppelklick auf Popup-Header)
-2. Aktion durchführen (Start/Stop)
-3. Debug-Meldungen kopieren
-4. Browser-Konsole öffnen (F12) → Console Tab
-5. Fehlermeldungen kopieren
-```
-
-### 3. Zammad-Informationen
-```bash
-- Zammad-Version
-- URL-Schema (z.B. https://support.company.com/ticket/zoom/123)
-- Zeiterfassungs-Konfiguration
-- Browser-Berechtigungen
-```
-
-## 🔄 Updates
-
-### Extension aktualisieren
-1. Neue Dateien in den Extension-Ordner kopieren
-2. `chrome://extensions/` öffnen
-3. Reload-Button bei der Extension klicken
-4. Neue Features sind sofort verfügbar
-
-### Änderungen verfolgen
-- Prüfen Sie die `manifest.json` Version
-- Neue Features werden im Debug-Modus angezeigt
-- Background Script zeigt Versionsinformationen
-
-## ⚙️ Entwicklung
-
-### Voraussetzungen für Entwicklung
-- Node.js (optional, für erweiterte Features)
-- Chrome Developer Tools
-- Code Editor (z.B. VS Code, IntelliJ)
-
-### Entwicklung in IntelliJ IDEA
-
-1. **Projekt öffnen:**
-   ```bash
-   File → Open → zammad-timetracking Ordner wählen
-   ```
-
-2. **Chrome Extension APIs aktivieren:**
-   ```bash
-   Settings → Languages & Frameworks → JavaScript → Libraries
-   → Add... → Download... → "chrome" suchen und installieren
-   ```
-
-3. **TypeScript Support (optional):**
-   ```bash
-   npm install --save-dev @types/chrome
-   ```
-
-4. **Live Development:**
-   ```bash
-   # Datei-Watcher einrichten für automatisches Reload
-   Settings → Tools → File Watchers
-   ```
-
-### Code-Qualität
-
-```bash
-# ESLint Setup
-npm install --save-dev eslint
-
-# .eslintrc.js
-module.exports = {
-  env: { webextensions: true },
-  globals: { chrome: 'readonly' }
-};
-```
-
-## 📝 Lizenz
-
-MIT License - Freie Nutzung und Anpassung erlaubt.
-
-## 🤝 Support
-
-Bei Problemen oder Fragen:
-
-1. **Debug-Modus verwenden** - Zeigt detaillierte Fehlermeldungen
-2. **Browser-Konsole prüfen** - `F12` → Console Tab
-3. **Extension neu laden** - Oft löst das bereits Probleme
-4. **Dokumentation prüfen** - Alle wichtigen Informationen sind hier
-
-## 📈 Roadmap
-
-Geplante Funktionen:
-- [ ] Zeiterfassung-Berichte
-- [ ] Projektzeit-Kategorien
-- [ ] Team-Statistiken
-- [ ] Export-Funktionen
-- [ ] Mobile Browser Support
-
----
-
-**Viel Erfolg mit der Zammad Timetracking Extension! ⏱️**
+After making these changes, the start and stop buttons should work properly, and time tracking should be recorded correctly.
