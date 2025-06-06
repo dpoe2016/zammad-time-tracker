@@ -171,7 +171,6 @@ class ZammadTimetracker {
             sendResponse({ success: false, error: error.message });
           });
           return true; // Indicate we'll send response asynchronously
-          break;
         case 'getStatus':
           sendResponse({
             isTracking: this.isTracking,
@@ -237,7 +236,6 @@ class ZammadTimetracker {
             sendResponse({ success: false, error: 'Invalid duration' });
           }
           return true; // Indicate we'll send response asynchronously
-          break;
       }
       return true; // Async response
     });
