@@ -725,3 +725,4 @@ const zammadApi = new ZammadAPI();
 
 // Make it available globally
 window.zammadApi = zammadApi;
+console.log('Zammad API singleton instance created and available globally');

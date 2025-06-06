@@ -36,12 +36,23 @@ class ZammadTimetracker {
 
       if (apiSettings.baseUrl && apiSettings.token) {
         console.log('Initializing Zammad API with saved settings');
+
+        // Check if zammadApi is available globally
         if (window.zammadApi) {
           window.zammadApi.init(apiSettings.baseUrl, apiSettings.token);
           this.apiInitialized = true;
           console.log('Zammad API initialized successfully');
         } else {
-          console.error('Zammad API not available');
+          console.log('Global Zammad API not available, creating local instance');
+          try {
+            // Create and use a local instance
+            window.zammadApi = new ZammadAPI();
+            window.zammadApi.init(apiSettings.baseUrl, apiSettings.token);
+            this.apiInitialized = true;
+            console.log('Local Zammad API instance created and initialized');
+          } catch (apiError) {
+            console.error('Error creating local Zammad API instance:', apiError);
+          }
         }
       } else {
         console.log('No API settings found, API not initialized');
@@ -549,111 +560,113 @@ class ZammadTimetracker {
             console.error('API time entry failed:', apiError);
             // Continue to fallback method
           }
-        }
-
-        // Fallback to DOM method if API failed or not initialized
-        console.log('Falling back to DOM method for time entry');
-
-        // Try to find and fill the Zammad Time Accounting field
-        const timeFields = [
-          'input[name="time_unit"]',
-          'input[id*="time"]',
-          '.time-accounting input',
-          '[data-attribute-name="time_unit"] input'
-        ];
-
-        let timeField = null;
-        for (const selector of timeFields) {
-          try {
-            timeField = document.querySelector(selector);
-            if (timeField) {
-              console.log(`Found time field with selector: ${selector}`);
-              break;
-            }
-          } catch (error) {
-            console.error(`Error finding time field with selector ${selector}:`, error);
-            // Continue to next selector
-          }
-        }
-
-        if (timeField) {
-          try {
-            console.log(`Setting time field value to: ${durationInMinutes}`);
-            timeField.value = durationInMinutes;
-            timeField.dispatchEvent(new Event('input', { bubbles: true }));
-            timeField.dispatchEvent(new Event('change', { bubbles: true }));
-
-            // Optional: Also set the Activity field if available
-            try {
-              const activityField = document.querySelector('select[name="type_id"], select[id*="activity"]');
-              if (activityField && activityField.options.length > 1) {
-                console.log('Setting activity field');
-                activityField.selectedIndex = 1; // Select first available option
-                activityField.dispatchEvent(new Event('change', { bubbles: true }));
-              }
-            } catch (activityError) {
-              console.error('Error setting activity field:', activityError);
-              // Continue even if activity field fails
-            }
-
-            // Submit the form if there's a submit button
-            const submitButton = document.querySelector('button[type="submit"], input[type="submit"], .js-submit, .form-submit, [data-type="update"]');
-            if (submitButton) {
-              console.log('Found submit button, clicking it');
-
-              // Create a listener for form submission completion
-              const formSubmitPromise = new Promise((formResolve) => {
-                // Listen for form submission events
-                const formSubmitListener = () => {
-                  console.log('Form submission detected');
-                  formResolve();
-                };
-
-                // Add listeners to potential form submission events
-                document.addEventListener('submit', formSubmitListener, { once: true });
-
-                // Also set a timeout in case the event doesn't fire
-                setTimeout(() => {
-                  document.removeEventListener('submit', formSubmitListener);
-                  console.log('Form submission timeout - assuming success');
-                  formResolve();
-                }, 2000);
-              });
-
-              // Click the button
-              submitButton.click();
-
-              // Wait for form submission to complete (or timeout)
-              formSubmitPromise.then(() => {
-                // Show alert and resolve with success after form submission
-                const message = `${t('tracking_ended')}\n${t('ticket_id')}: #${this.ticketId}\n${t('duration')}: ${this.formatDuration(durationInSeconds)}\n${t('minutes_entered')}: ${durationInMinutes}`;
-                this.showNotification(message);
-                console.log('Time entry submitted successfully via DOM');
-                resolve(true); // Time successfully entered
-              }).catch((error) => {
-                console.error('Error during form submission:', error);
-                reject(error);
-              });
-            } else {
-              // No submit button found, still consider it a success
-              // Show alert and resolve with success
-              const message = `${t('tracking_ended')}\n${t('ticket_id')}: #${this.ticketId}\n${t('duration')}: ${this.formatDuration(durationInSeconds)}\n${t('minutes_entered')}: ${durationInMinutes}`;
-              this.showNotification(message);
-              console.log('Time entry submitted successfully (no submit button)');
-              resolve(true); // Time successfully entered
-            }
-          } catch (fieldError) {
-            console.error('Error setting time field value:', fieldError);
-            reject(fieldError);
-          }
         } else {
-          console.log('No time field found, showing manual entry message');
-          // Fallback: Manually inform user
-          const message = `${t('tracking_ended')}\n\n${t('ticket_id')}: #${this.ticketId}\n${t('duration')}: ${this.formatDuration(durationInSeconds)}\n${t('min')}: ${durationInMinutes}\n\n${t('manual_entry_message')}`;
-          this.showNotification(message);
-          console.log('Manual time entry required');
-          resolve(false); // Time could not be automatically entered
+          console.log('API not initialized or not available');
         }
+
+        // // Fallback to DOM method if API failed or not initialized
+        // console.log('Falling back to DOM method for time entry');
+        //
+        // // Try to find and fill the Zammad Time Accounting field
+        // const timeFields = [
+        //   'input[name="time_unit"]',
+        //   'input[id*="time"]',
+        //   '.time-accounting input',
+        //   '[data-attribute-name="time_unit"] input'
+        // ];
+        //
+        // let timeField = null;
+        // for (const selector of timeFields) {
+        //   try {
+        //     timeField = document.querySelector(selector);
+        //     if (timeField) {
+        //       console.log(`Found time field with selector: ${selector}`);
+        //       break;
+        //     }
+        //   } catch (error) {
+        //     console.error(`Error finding time field with selector ${selector}:`, error);
+        //     // Continue to next selector
+        //   }
+        // }
+        //
+        // if (timeField) {
+        //   try {
+        //     console.log(`Setting time field value to: ${durationInMinutes}`);
+        //     timeField.value = durationInMinutes;
+        //     timeField.dispatchEvent(new Event('input', { bubbles: true }));
+        //     timeField.dispatchEvent(new Event('change', { bubbles: true }));
+        //
+        //     // Optional: Also set the Activity field if available
+        //     try {
+        //       const activityField = document.querySelector('select[name="type_id"], select[id*="activity"]');
+        //       if (activityField && activityField.options.length > 1) {
+        //         console.log('Setting activity field');
+        //         activityField.selectedIndex = 1; // Select first available option
+        //         activityField.dispatchEvent(new Event('change', { bubbles: true }));
+        //       }
+        //     } catch (activityError) {
+        //       console.error('Error setting activity field:', activityError);
+        //       // Continue even if activity field fails
+        //     }
+        //
+        //     // Submit the form if there's a submit button
+        //     const submitButton = document.querySelector('button[type="submit"], input[type="submit"], .js-submit, .form-submit, [data-type="update"]');
+        //     if (submitButton) {
+        //       console.log('Found submit button, clicking it');
+        //
+        //       // Create a listener for form submission completion
+        //       const formSubmitPromise = new Promise((formResolve) => {
+        //         // Listen for form submission events
+        //         const formSubmitListener = () => {
+        //           console.log('Form submission detected');
+        //           formResolve();
+        //         };
+        //
+        //         // Add listeners to potential form submission events
+        //         document.addEventListener('submit', formSubmitListener, { once: true });
+        //
+        //         // Also set a timeout in case the event doesn't fire
+        //         setTimeout(() => {
+        //           document.removeEventListener('submit', formSubmitListener);
+        //           console.log('Form submission timeout - assuming success');
+        //           formResolve();
+        //         }, 2000);
+        //       });
+        //
+        //       // Click the button
+        //       submitButton.click();
+        //
+        //       // Wait for form submission to complete (or timeout)
+        //       formSubmitPromise.then(() => {
+        //         // Show alert and resolve with success after form submission
+        //         const message = `${t('tracking_ended')}\n${t('ticket_id')}: #${this.ticketId}\n${t('duration')}: ${this.formatDuration(durationInSeconds)}\n${t('minutes_entered')}: ${durationInMinutes}`;
+        //         this.showNotification(message);
+        //         console.log('Time entry submitted successfully via DOM');
+        //         resolve(true); // Time successfully entered
+        //       }).catch((error) => {
+        //         console.error('Error during form submission:', error);
+        //         reject(error);
+        //       });
+        //     } else {
+        //       // No submit button found, still consider it a success
+        //       // Show alert and resolve with success
+        //       const message = `${t('tracking_ended')}\n${t('ticket_id')}: #${this.ticketId}\n${t('duration')}: ${this.formatDuration(durationInSeconds)}\n${t('minutes_entered')}: ${durationInMinutes}`;
+        //       this.showNotification(message);
+        //       console.log('Time entry submitted successfully (no submit button)');
+        //       resolve(true); // Time successfully entered
+        //     }
+        //   } catch (fieldError) {
+        //     console.error('Error setting time field value:', fieldError);
+        //     reject(fieldError);
+        //   }
+        // } else {
+        //   console.log('No time field found, showing manual entry message');
+        //   // Fallback: Manually inform user
+        //   const message = `${t('tracking_ended')}\n\n${t('ticket_id')}: #${this.ticketId}\n${t('duration')}: ${this.formatDuration(durationInSeconds)}\n${t('min')}: ${durationInMinutes}\n\n${t('manual_entry_message')}`;
+        //   this.showNotification(message);
+        //   console.log('Manual time entry required');
+        //   resolve(false); // Time could not be automatically entered
+        // }
       } catch (error) {
         console.error('Critical error in submitTimeEntry:', error);
         reject(error);
@@ -787,4 +800,82 @@ if (!window.zammadTrackerInstance) {
   }).observe(document, { subtree: true, childList: true });
 } else {
   console.log('Zammad Timetracker already initialized');
+}
+
+// Define a minimal ZammadAPI class if the full one is not available
+class ZammadAPI {
+  constructor() {
+    this.baseUrl = null;
+    this.token = null;
+    this.initialized = false;
+  }
+
+  init(baseUrl, token) {
+    if (!baseUrl) {
+      throw new Error('Base URL is required');
+    }
+
+    this.baseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+    this.token = token;
+    this.initialized = true;
+    console.log('Local Zammad API initialized with base URL:', this.baseUrl);
+    return true;
+  }
+
+  isInitialized() {
+    return this.initialized && this.baseUrl && this.token;
+  }
+
+  async request(endpoint, method = 'GET', data = null) {
+    if (!this.isInitialized()) {
+      throw new Error('API not initialized. Call init() first.');
+    }
+
+    if (!endpoint.startsWith('/')) {
+      endpoint = '/' + endpoint;
+    }
+
+    const url = `${this.baseUrl}${endpoint}`;
+
+    const options = {
+      method: method,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Token token=${this.token}`
+      }
+    };
+
+    if (data && (method === 'POST' || method === 'PUT')) {
+      options.body = JSON.stringify(data);
+    }
+
+    const response = await fetch(url, options);
+
+    if (!response.ok) {
+      throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+    }
+
+    return await response.json();
+  }
+
+  async getTicket(ticketId) {
+    return this.request(`/api/v1/tickets/${ticketId}`);
+  }
+
+  async getTimeEntries(ticketId) {
+    return this.request(`/api/v1/tickets/${ticketId}/time_accounting`);
+  }
+
+  async submitTimeEntry(ticketId, timeSpent, comment = '') {
+    const data = {
+      time_unit: timeSpent,
+      ticket_id: ticketId
+    };
+
+    if (comment) {
+      data.comment = comment;
+    }
+
+    return this.request('/api/v1/tickets/'+ ticketId + '/time_accountings/1', 'POST', data);
+  }
 }
