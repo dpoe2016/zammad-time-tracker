@@ -536,7 +536,19 @@ class ZammadAPI {
       data.comment = comment;
     }
 
-    // If we have a successful endpoint cached, try it first
+    // If we have a successful endpoint for time entries, try to use the same pattern for submission
+    if (this.successfulEndpoints.timeEntries) {
+      try {
+        console.log(`Using time entries endpoint pattern for submission: ${this.successfulEndpoints.timeEntries}`);
+        const endpoint = this.successfulEndpoints.timeEntries.replace('{ticketId}', ticketId);
+        return await this.request(endpoint, 'POST', data);
+      } catch (error) {
+        console.error('Time entries endpoint pattern failed for submission:', error);
+        // Continue to other methods
+      }
+    }
+
+    // If we have a successful endpoint cached, try it next
     if (this.successfulEndpoints.timeSubmission) {
       try {
         console.log(`Using cached successful time submission endpoint: ${this.successfulEndpoints.timeSubmission}`);
