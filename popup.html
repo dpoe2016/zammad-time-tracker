@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="de">
+<html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Zammad Timetracking</title>
+    <script src="translations.js"></script>
     <style>
         body {
             width: 320px;
@@ -238,12 +239,22 @@
             display: none;
             word-wrap: break-word;
         }
+
+        .language-select {
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: 1px solid #ced4da;
+            background-color: #fff;
+            font-size: 13px;
+            color: #495057;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
 <div class="header">
-    <h1>⏱ Zammad Timetracking</h1>
-    <div>Zeiterfassung für Tickets</div>
+    <h1>⏱ <span id="extensionTitle">Zammad Timetracking</span></h1>
+    <div id="subtitle">Zeiterfassung für Tickets</div>
 </div>
 
 <div class="status">
@@ -255,8 +266,8 @@
     <div class="ticket-info" id="ticketInfo" style="display: none;">
         <div class="ticket-title" id="ticketTitle">Ticket wird geladen...</div>
         <div class="ticket-details">
-            <span>Ticket: <span id="ticketId">-</span></span>
-            <span class="time-spent">Erfasst: <span id="timeSpent">0</span> Min</span>
+            <span><span id="ticketLabel">Ticket</span>: <span id="ticketId">-</span></span>
+            <span class="time-spent"><span id="timeSpentLabel">Erfasst</span>: <span id="timeSpent">0</span> <span id="minLabel">Min</span></span>
         </div>
     </div>
 
@@ -273,10 +284,10 @@
 </div>
 
 <div class="settings">
-    <div class="settings-title">Einstellungen</div>
+    <div class="settings-title" id="settingsTitle">Einstellungen</div>
 
     <div class="setting-item">
-        <span>Benachrichtigungen</span>
+        <span id="notificationsLabel">Benachrichtigungen</span>
         <label class="switch">
             <input type="checkbox" id="notificationsToggle" checked>
             <span class="slider"></span>
@@ -284,11 +295,19 @@
     </div>
 
     <div class="setting-item">
-        <span>Auto-Submit</span>
+        <span id="autoSubmitLabel">Auto-Submit</span>
         <label class="switch">
             <input type="checkbox" id="autoSubmitToggle" checked>
             <span class="slider"></span>
         </label>
+    </div>
+
+    <div class="setting-item">
+        <span id="languageLabel">Sprache</span>
+        <select id="languageSelect" class="language-select">
+            <option value="de">Deutsch</option>
+            <option value="en">English</option>
+        </select>
     </div>
 </div>
 
@@ -297,6 +316,32 @@
 </div>
 
 <script>
+    // Function to update UI language - called from translations.js
+    function updateUILanguage() {
+        // Update static UI elements
+        document.getElementById('extensionTitle').textContent = t('extension_title');
+        document.getElementById('subtitle').textContent = t('subtitle');
+        document.getElementById('statusText').textContent = t(document.querySelector('.status-dot').classList.contains('active') ? 'status_active' : 'status_inactive');
+        document.getElementById('ticketTitle').textContent = t('ticket_loading');
+        document.getElementById('ticketLabel').textContent = t('ticket');
+        document.getElementById('timeSpentLabel').textContent = t('time_spent');
+        document.getElementById('minLabel').textContent = t('min');
+        document.getElementById('startBtn').textContent = t('btn_start');
+        document.getElementById('stopBtn').textContent = t('btn_stop');
+        document.getElementById('infoText').textContent = t('checking_page');
+        document.getElementById('settingsTitle').textContent = t('settings');
+        document.getElementById('notificationsLabel').textContent = t('notifications');
+        document.getElementById('autoSubmitLabel').textContent = t('auto_submit');
+        document.getElementById('languageLabel').textContent = t('language');
+        document.getElementById('debugInfo').textContent = t('debug_mode');
+
+        // Set language selector to current language
+        document.getElementById('languageSelect').value = getCurrentLanguage();
+
+        // Update document title
+        document.title = t('extension_title');
+    }
+
     class TimetrackingPopup {
         constructor() {
             console.log('Popup wird initialisiert...');
@@ -311,6 +356,9 @@
             this.initElements();
             this.initEventListeners();
             this.loadState();
+
+            // Update UI language
+            updateUILanguage();
         }
 
         initElements() {
@@ -353,6 +401,16 @@
 
             this.autoSubmitToggle.addEventListener('change', () => {
                 console.log('Auto-Submit geändert:', this.autoSubmitToggle.checked);
+                this.saveSettings();
+            });
+
+            // Language selector
+            document.getElementById('languageSelect').addEventListener('change', (e) => {
+                const newLang = e.target.value;
+                console.log('Sprache geändert:', newLang);
+                setLanguage(newLang);
+                // Ensure UI is updated immediately with the new language
+                updateUILanguage();
                 this.saveSettings();
             });
 
@@ -407,12 +465,12 @@
                     if (state.title) {
                         this.ticketTitle.textContent = state.title;
                     } else {
-                        this.ticketTitle.textContent = 'Titel nicht verfügbar';
+                        this.ticketTitle.textContent = t('title_not_available');
                     }
 
                     this.timeSpent.textContent = Math.round(state.timeSpent || 0);
                     this.ticketInfo.style.display = 'block';
-                    this.infoText.textContent = 'Zeiterfassung läuft...';
+                    this.infoText.textContent = t('tracking_running');
                     this.infoText.className = 'info success';
 
                     this.debug('Tracking wiederhergestellt für Ticket: ' + state.ticketId);
@@ -455,18 +513,18 @@
                     // Ticket-Informationen laden
                     await this.loadTicketInfo(tab);
 
-                    this.infoText.textContent = 'Bereit für Zeiterfassung';
+                    this.infoText.textContent = t('ready_for_tracking');
                     this.infoText.className = 'info';
                     this.startBtn.disabled = false;
                 } else {
                     this.debug('Keine Zammad-Seite');
-                    this.infoText.textContent = 'Öffnen Sie ein Zammad-Ticket';
+                    this.infoText.textContent = t('open_ticket');
                     this.infoText.className = 'info';
                     this.startBtn.disabled = true;
                 }
             } catch (error) {
                 this.debug('Fehler bei Seitenprüfung: ' + error.message);
-                this.infoText.textContent = 'Fehler beim Überprüfen der Seite';
+                this.infoText.textContent = t('page_check_error');
                 this.infoText.className = 'info error';
             }
         }
@@ -490,7 +548,7 @@
                         this.currentTicketTitle = response.title;
                         this.debug('Ticket-Titel: ' + response.title);
                     } else {
-                        this.ticketTitle.textContent = 'Titel nicht verfügbar';
+                        this.ticketTitle.textContent = t('title_not_available');
                     }
 
                     if (response.timeSpent !== undefined && response.timeSpent > 0) {
@@ -537,14 +595,14 @@
                 this.debug('Tab URL: ' + tab.url);
 
                 if (!this.isZammadUrl(tab.url)) {
-                    this.infoText.textContent = 'Bitte öffnen Sie ein Zammad-Ticket.';
+                    this.infoText.textContent = t('open_ticket');
                     this.infoText.className = 'info error';
                     this.debug('Keine Zammad-URL');
                     return;
                 }
 
                 this.startBtn.disabled = true;
-                this.infoText.textContent = 'Starte Zeiterfassung...';
+                this.infoText.textContent = t('starting_tracking');
                 this.infoText.className = 'info';
 
                 // Content Script injizieren
@@ -613,7 +671,7 @@
                 if (this.currentTicketTitle) {
                     this.ticketTitle.textContent = this.currentTicketTitle;
                 } else {
-                    this.ticketTitle.textContent = 'Titel wird geladen...';
+                    this.ticketTitle.textContent = t('title_loading');
                 }
 
                 if (this.currentTimeSpent > 0) {
@@ -623,7 +681,7 @@
                 }
 
                 this.ticketInfo.style.display = 'block';
-                this.infoText.textContent = 'Zeiterfassung gestartet!';
+                this.infoText.textContent = t('tracking_started');
                 this.infoText.className = 'info success';
 
                 // Background Script benachrichtigen
@@ -703,7 +761,7 @@
 
                 if (!this.isTracking || !this.startTime) {
                     this.debug('Keine aktive Zeiterfassung');
-                    this.infoText.textContent = 'Keine aktive Zeiterfassung';
+                    this.infoText.textContent = t('no_active_tracking');
                     this.infoText.className = 'info error';
                     return;
                 }
@@ -751,10 +809,10 @@
                 // UI Feedback
                 this.ticketInfo.style.display = 'none';
                 if (autoSubmitSuccess) {
-                    this.infoText.textContent = 'Zeit eingetragen: ' + durationMinutes + ' Min';
+                    this.infoText.textContent = t('time_recorded') + ': ' + durationMinutes + ' ' + t('min');
                     this.infoText.className = 'info success';
                 } else {
-                    this.infoText.textContent = 'Bitte ' + durationMinutes + ' Min manuell eintragen';
+                    this.infoText.textContent = t('manual_entry_required', [durationMinutes]);
                     this.infoText.className = 'info error';
                 }
 
@@ -786,7 +844,7 @@
             } catch (error) {
                 this.debug('Stopp-Fehler: ' + error.message);
                 console.error('Stopp-Fehler:', error);
-                this.infoText.textContent = 'Fehler beim Stoppen: ' + error.message;
+                this.infoText.textContent = t('stop_error') + ': ' + error.message;
                 this.infoText.className = 'info error';
             }
         }
@@ -862,11 +920,12 @@
         async saveSettings() {
             const settings = {
                 notifications: this.notificationsToggle.checked,
-                autoSubmit: this.autoSubmitToggle.checked
+                autoSubmit: this.autoSubmitToggle.checked,
+                language: getCurrentLanguage()
             };
 
             await chrome.storage.local.set({ zammadSettings: settings });
-            this.debug('Einstellungen gespeichert');
+            this.debug(t('settings_saved'));
         }
     }
 
