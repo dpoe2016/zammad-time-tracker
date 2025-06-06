@@ -1,17 +1,17 @@
-// Minimales Background Script für Zammad Timetracking Extension
-console.log('Zammad Timetracking Background Script geladen');
+// Minimal Background Script for Zammad Timetracking Extension
+console.log('Zammad Timetracking Background Script loaded');
 
 // Import translations
 importScripts('translations.js');
 
 // Installation Event
 chrome.runtime.onInstalled.addListener(function(details) {
-  console.log('Extension installiert/aktualisiert:', details.reason);
+  console.log('Extension installed/updated:', details.reason);
 
   if (details.reason === 'install') {
-    console.log('Erste Installation - zeige Willkommensnachricht');
+    console.log('First installation - showing welcome message');
 
-    // Notification nur wenn möglich
+    // Notification only if possible
     if (chrome.notifications && chrome.notifications.create) {
       chrome.notifications.create({
         type: 'basic',
@@ -20,16 +20,16 @@ chrome.runtime.onInstalled.addListener(function(details) {
         message: t('extension_installed')
       }, function(notificationId) {
         if (chrome.runtime.lastError) {
-          console.log('Notification nicht möglich:', chrome.runtime.lastError.message);
+          console.log('Notification not possible:', chrome.runtime.lastError.message);
         }
       });
     }
   }
 });
 
-// Message Handler - Hauptkommunikation
+// Message Handler - Main communication
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
-  console.log('Nachricht empfangen:', request.action);
+  console.log('Message received:', request.action);
 
   try {
     switch (request.action) {
@@ -58,22 +58,22 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
         break;
 
       default:
-        console.log('Unbekannte Aktion:', request.action);
+        console.log('Unknown action:', request.action);
         sendResponse({ error: 'Unknown action: ' + request.action });
     }
   } catch (error) {
-    console.error('Fehler in Message Handler:', error);
+    console.error('Error in message handler:', error);
     sendResponse({ error: error.message });
   }
 
-  return true; // Asynchrone Antworten erlauben
+  return true; // Allow asynchronous responses
 });
 
 // Tracking Started Handler
 function handleTrackingStarted(data) {
-  console.log('Zeiterfassung gestartet für Ticket:', data.ticketId);
+  console.log('Time tracking started for ticket:', data.ticketId);
 
-  // Badge setzen
+  // Set badge
   if (chrome.action && chrome.action.setBadgeText) {
     chrome.action.setBadgeText({ text: '⏱' });
     chrome.action.setBadgeBackgroundColor({ color: '#dc3545' });
@@ -88,14 +88,14 @@ function handleTrackingStarted(data) {
 
 // Tracking Stopped Handler
 function handleTrackingStopped(data) {
-  console.log('Zeiterfassung beendet für Ticket:', data.ticketId);
+  console.log('Time tracking ended for ticket:', data.ticketId);
 
-  // Badge entfernen
+  // Remove badge
   if (chrome.action && chrome.action.setBadgeText) {
     chrome.action.setBadgeText({ text: '' });
   }
 
-  // Notification mit Status
+  // Notification with status
   var message = t('ticket_id') + ' #' + (data.ticketId || t('unknown')) + 
                 ' - ' + t('duration') + ': ' + (data.duration || '?');
 
@@ -111,7 +111,7 @@ function handleTrackingStopped(data) {
 // Notification Helper
 function showNotification(title, message) {
   if (!chrome.notifications || !chrome.notifications.create) {
-    console.log('Notifications nicht verfügbar');
+    console.log('Notifications not available');
     return;
   }
 
@@ -124,36 +124,36 @@ function showNotification(title, message) {
       requireInteraction: false
     }, function(notificationId) {
       if (chrome.runtime.lastError) {
-        console.log('Notification Fehler:', chrome.runtime.lastError.message);
+        console.log('Notification error:', chrome.runtime.lastError.message);
       } else {
-        console.log('Notification erstellt:', notificationId);
+        console.log('Notification created:', notificationId);
       }
     });
   } catch (error) {
-    console.error('Fehler beim Erstellen der Notification:', error);
+    console.error('Error creating notification:', error);
   }
 }
 
-// Tab Updates für Content Script Injection
+// Tab Updates for Content Script Injection
 chrome.tabs.onUpdated.addListener(function(tabId, changeInfo, tab) {
-  // Nur bei vollständig geladenen Seiten
+  // Only for fully loaded pages
   if (changeInfo.status !== 'complete' || !tab.url) {
     return;
   }
 
-  // Zammad-URLs erkennen
+  // Detect Zammad URLs
   if (isZammadUrl(tab.url)) {
-    console.log('Zammad-Seite erkannt:', tab.url);
+    console.log('Zammad page detected:', tab.url);
 
-    // Content Script injizieren (mit Error Handling)
+    // Inject content script (with error handling)
     if (chrome.scripting && chrome.scripting.executeScript) {
       chrome.scripting.executeScript({
         target: { tabId: tabId },
         files: ['content.js']
       }).then(function() {
-        console.log('Content Script erfolgreich injiziert');
+        console.log('Content script successfully injected');
       }).catch(function(error) {
-        console.log('Content Script Injection Fehler (normal wenn bereits vorhanden):', error.message);
+        console.log('Content script injection error (normal if already exists):', error.message);
       });
     }
   }
@@ -179,7 +179,7 @@ function isZammadUrl(url) {
 
 // Startup Event
 chrome.runtime.onStartup.addListener(function() {
-  console.log('Browser gestartet - Extension reaktiviert');
+  console.log('Browser started - Extension reactivated');
 });
 
-console.log('Background Script vollständig geladen');
+console.log('Background script fully loaded');

@@ -1,4 +1,4 @@
-// Content Script für Zammad Timetracking - Nur Popup-Version
+// Content Script for Zammad Timetracking - Popup version only
 
 class ZammadTimetracker {
   constructor() {
@@ -10,10 +10,10 @@ class ZammadTimetracker {
   }
 
   init() {
-    // Warten bis Zammad geladen ist
+    // Wait until Zammad is loaded
     this.waitForZammad(() => {
       this.loadTrackingState();
-      // Message Listener für Popup-Kommunikation
+      // Message listener for popup communication
       this.setupMessageListener();
     });
   }
@@ -61,14 +61,14 @@ class ZammadTimetracker {
       }
     });
 
-    console.log('Zammad-Seite erkannt:', isZammad, 'URL:', window.location.href);
+    console.log('Zammad page detected:', isZammad, 'URL:', window.location.href);
     return isZammad;
   }
 
   getCurrentTicketId() {
-    // Verschiedene Methoden zur Ticket-ID-Extraktion versuchen
+    // Try different methods for ticket ID extraction
 
-    // 1. Aus der URL extrahieren
+    // 1. Extract from URL
     const urlPatterns = [
       /\/ticket\/zoom\/(\d+)/,
       /\/tickets\/(\d+)/,
@@ -79,12 +79,12 @@ class ZammadTimetracker {
     for (const pattern of urlPatterns) {
       const urlMatch = window.location.href.match(pattern);
       if (urlMatch && urlMatch[1]) {
-        console.log(`Ticket-ID aus URL gefunden: ${urlMatch[1]}`);
+        console.log(`Ticket ID found in URL: ${urlMatch[1]}`);
         return urlMatch[1];
       }
     }
 
-    // 2. Aus DOM-Elementen extrahieren
+    // 2. Extract from DOM elements
     const selectors = [
       '[data-ticket-id]',
       '.ticket-number',
@@ -93,66 +93,66 @@ class ZammadTimetracker {
       '[class*="ticket"]',
       '.ticket-title',
       '.ticket-info',
-      'h1', 'h2', 'h3'  // Headers die oft Ticket-Info enthalten
+      'h1', 'h2', 'h3'  // Headers that often contain ticket info
     ];
 
     for (const selector of selectors) {
       const elements = document.querySelectorAll(selector);
       for (const element of elements) {
-        // data-ticket-id Attribut prüfen
+        // Check data-ticket-id attribute
         const dataId = element.getAttribute('data-ticket-id');
         if (dataId && /^\d+$/.test(dataId)) {
-          console.log(`Ticket-ID aus data-attribute gefunden: ${dataId}`);
+          console.log(`Ticket ID found in data attribute: ${dataId}`);
           return dataId;
         }
 
-        // Text-Inhalt nach Zahlen durchsuchen
+        // Search text content for numbers
         const text = element.textContent || element.innerText || '';
         const textMatch = text.match(/(?:ticket|#)\s*(\d+)/i);
         if (textMatch && textMatch[1]) {
-          console.log(`Ticket-ID aus Text gefunden: ${textMatch[1]}`);
+          console.log(`Ticket ID found in text: ${textMatch[1]}`);
           return textMatch[1];
         }
 
-        // Nur Zahlen im Text
+        // Only numbers in text
         const numberMatch = text.match(/^\s*(\d{3,})\s*$/);
         if (numberMatch && numberMatch[1]) {
-          console.log(`Ticket-ID als Nummer gefunden: ${numberMatch[1]}`);
+          console.log(`Ticket ID found as number: ${numberMatch[1]}`);
           return numberMatch[1];
         }
       }
     }
 
-    // 3. Fallback: Aus Title oder Meta-Tags
+    // 3. Fallback: From title or meta tags
     const title = document.title;
     const titleMatch = title.match(/(?:ticket|#)\s*(\d+)/i);
     if (titleMatch && titleMatch[1]) {
-      console.log(`Ticket-ID aus Title gefunden: ${titleMatch[1]}`);
+      console.log(`Ticket ID found in title: ${titleMatch[1]}`);
       return titleMatch[1];
     }
 
-    // 4. Für Debug: Aktuelle URL loggen
-    console.log('Keine Ticket-ID gefunden. Aktuelle URL:', window.location.href);
+    // 4. For debug: Log current URL
+    console.log('No ticket ID found. Current URL:', window.location.href);
     console.log('Document title:', document.title);
 
     return null;
   }
 
   createTrackingUI() {
-    // Kein UI auf der Seite erstellen - nur Popup verwenden
-    console.log('Zammad Timetracker initialisiert - verwende nur Popup');
+    // Don't create UI on the page - use popup only
+    console.log('Zammad Timetracker initialized - using popup only');
   }
 
   setupMessageListener() {
-    // Sicherstellen dass nur ein Listener aktiv ist
+    // Ensure only one listener is active
     if (window.zammadListenerActive) {
       return;
     }
     window.zammadListenerActive = true;
 
-    // Nachrichten vom Popup empfangen
+    // Receive messages from popup
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-      console.log('Content Script empfängt Nachricht:', request.action);
+      console.log('Content script receiving message:', request.action);
 
       switch (request.action) {
         case 'startTracking':
@@ -173,13 +173,13 @@ class ZammadTimetracker {
           break;
         case 'getTicketId':
           const ticketId = this.getCurrentTicketId();
-          console.log('Ticket-ID abgefragt:', ticketId);
+          console.log('Ticket ID requested:', ticketId);
           sendResponse({ ticketId: ticketId });
           break;
         case 'getTicketInfo':
           // Handle getTicketInfo action from popup
           const currentTicketId = this.getCurrentTicketId();
-          console.log('Ticket-Info abgefragt:', currentTicketId);
+          console.log('Ticket info requested:', currentTicketId);
 
           // Get ticket title from page if possible
           let title = '';
@@ -189,7 +189,7 @@ class ZammadTimetracker {
               title = titleElement.textContent.trim();
             }
           } catch (e) {
-            console.error('Fehler beim Extrahieren des Titels:', e);
+            console.error('Error extracting title:', e);
           }
 
           // Get time spent if available
@@ -200,7 +200,7 @@ class ZammadTimetracker {
               timeSpent = parseFloat(timeField.value) || 0;
             }
           } catch (e) {
-            console.error('Fehler beim Extrahieren der Zeit:', e);
+            console.error('Error extracting time:', e);
           }
 
           sendResponse({ 
@@ -211,7 +211,7 @@ class ZammadTimetracker {
           break;
         case 'submitTime':
           // Handle submitTime action from popup
-          console.log('Zeit eintragen:', request.duration, 'Minuten für Ticket', request.ticketId);
+          console.log('Recording time:', request.duration, 'minutes for ticket', request.ticketId);
 
           let success = false;
           if (request.duration > 0) {
@@ -225,7 +225,7 @@ class ZammadTimetracker {
       return true; // Async response
     });
 
-    console.log('Message Listener eingerichtet für Zammad Timetracker');
+    console.log('Message listener set up for Zammad Timetracker');
   }
 
   toggleTracking() {
@@ -240,10 +240,10 @@ class ZammadTimetracker {
     this.ticketId = this.getCurrentTicketId();
 
     if (!this.ticketId) {
-      // Nachricht an Background Script für Benachrichtigung
+      // Message to background script for notification
       chrome.runtime.sendMessage({
         action: 'showNotification',
-        title: 'Fehler',
+        title: 'Error',
         message: t('no_ticket_id')
       });
       return false;
@@ -252,16 +252,16 @@ class ZammadTimetracker {
     this.isTracking = true;
     this.startTime = new Date();
 
-    // Status speichern
+    // Save status
     this.saveTrackingState();
 
-    // Background Script benachrichtigen
+    // Notify background script
     chrome.runtime.sendMessage({
       action: 'trackingStarted',
       data: { ticketId: this.ticketId, startTime: this.startTime.toISOString() }
     });
 
-    console.log(`Zeittracking gestartet für Ticket #${this.ticketId}`);
+    console.log(`Time tracking started for ticket #${this.ticketId}`);
     return true;
   }
 
@@ -269,17 +269,17 @@ class ZammadTimetracker {
     if (!this.isTracking) return false;
 
     const endTime = new Date();
-    const duration = Math.round((endTime - this.startTime) / 1000); // Sekunden
+    const duration = Math.round((endTime - this.startTime) / 1000); // Seconds
 
     this.isTracking = false;
 
-    // Zeit in Zammad eintragen
+    // Enter time in Zammad
     const success = this.submitTimeEntry(duration);
 
-    // Status löschen
+    // Delete status
     this.clearTrackingState();
 
-    // Background Script benachrichtigen
+    // Notify background script
     chrome.runtime.sendMessage({
       action: 'trackingStopped',
       data: { 
@@ -289,16 +289,16 @@ class ZammadTimetracker {
       }
     });
 
-    console.log(`Zeittracking beendet für Ticket #${this.ticketId}. Dauer: ${this.formatDuration(duration)}`);
+    console.log(`Time tracking ended for ticket #${this.ticketId}. Duration: ${this.formatDuration(duration)}`);
     return true;
   }
 
   startTimer() {
-    // Timer wird nur im Popup angezeigt - hier nicht benötigt
+    // Timer is only displayed in the popup - not needed here
   }
 
   stopTimer() {
-    // Timer wird nur im Popup angezeigt - hier nicht benötigt
+    // Timer is only displayed in the popup - not needed here
   }
 
   formatDuration(seconds) {
@@ -312,7 +312,7 @@ class ZammadTimetracker {
   submitTimeEntry(durationInSeconds) {
     const durationInMinutes = Math.round(durationInSeconds / 60);
 
-    // Versuchen, das Zammad Time Accounting Feld zu finden und auszufüllen
+    // Try to find and fill the Zammad Time Accounting field
     const timeFields = [
       'input[name="time_unit"]',
       'input[id*="time"]',
@@ -331,20 +331,20 @@ class ZammadTimetracker {
       timeField.dispatchEvent(new Event('input', { bubbles: true }));
       timeField.dispatchEvent(new Event('change', { bubbles: true }));
 
-      // Optional: Auch das Activity-Feld setzen falls vorhanden
+      // Optional: Also set the Activity field if available
       const activityField = document.querySelector('select[name="type_id"], select[id*="activity"]');
       if (activityField && activityField.options.length > 1) {
-        activityField.selectedIndex = 1; // Erste verfügbare Option wählen
+        activityField.selectedIndex = 1; // Select first available option
         activityField.dispatchEvent(new Event('change', { bubbles: true }));
       }
 
       alert(`${t('tracking_ended')}\n${t('ticket_id')}: #${this.ticketId}\n${t('duration')}: ${this.formatDuration(durationInSeconds)}\n${t('minutes_entered')}: ${durationInMinutes}`);
-      return true; // Zeit erfolgreich eingetragen
+      return true; // Time successfully entered
     } else {
-      // Fallback: Benutzer manuell informieren
+      // Fallback: Manually inform user
       const message = `${t('tracking_ended')}\n\n${t('ticket_id')}: #${this.ticketId}\n${t('duration')}: ${this.formatDuration(durationInSeconds)}\n${t('min')}: ${durationInMinutes}\n\n${t('manual_entry_message')}`;
 
-      // Versuchen, eine Notification zu zeigen oder Alert zu verwenden
+      // Try to show a notification or use alert
       if ('Notification' in window && Notification.permission === 'granted') {
         new Notification(t('extension_title'), {
           body: message,
@@ -353,7 +353,7 @@ class ZammadTimetracker {
       } else {
         alert(message);
       }
-      return false; // Zeit konnte nicht automatisch eingetragen werden
+      return false; // Time could not be automatically entered
     }
   }
 
@@ -373,7 +373,7 @@ class ZammadTimetracker {
       const state = result.zammadTrackingState;
 
       if (state && state.isTracking && state.startTime) {
-        // Prüfen ob wir noch im gleichen Ticket sind
+        // Check if we're still in the same ticket
         const currentTicketId = this.getCurrentTicketId();
 
         if (currentTicketId === state.ticketId) {
@@ -381,9 +381,9 @@ class ZammadTimetracker {
           this.startTime = new Date(state.startTime);
           this.ticketId = state.ticketId;
 
-          console.log(`Zeittracking fortgesetzt für Ticket #${this.ticketId}`);
+          console.log(`Time tracking continued for ticket #${this.ticketId}`);
         } else {
-          // Anderes Ticket - State löschen
+          // Different ticket - delete state
           this.clearTrackingState();
         }
       }
@@ -397,36 +397,36 @@ class ZammadTimetracker {
   }
 }
 
-// Extension initialisieren wenn DOM geladen ist
-console.log('Zammad Timetracker Content Script wird geladen...');
+// Initialize extension when DOM is loaded
+console.log('Zammad Timetracker Content Script is loading...');
 
-// Vermeiden von mehreren Instanzen
+// Avoid multiple instances
 if (!window.zammadTrackerInstance) {
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
-      console.log('DOM geladen, initialisiere Zammad Timetracker');
+      console.log('DOM loaded, initializing Zammad Timetracker');
       window.zammadTrackerInstance = new ZammadTimetracker();
     });
   } else {
-    console.log('DOM bereits geladen, initialisiere Zammad Timetracker');
+    console.log('DOM already loaded, initializing Zammad Timetracker');
     window.zammadTrackerInstance = new ZammadTimetracker();
   }
 
-  // Auch bei Navigation innerhalb von Zammad neu initialisieren
+  // Also reinitialize when navigating within Zammad
   let lastUrl = location.href;
   new MutationObserver(() => {
     const url = location.href;
     if (url !== lastUrl) {
       lastUrl = url;
-      console.log('URL geändert zu:', url);
+      console.log('URL changed to:', url);
       setTimeout(() => {
         if (!window.zammadTrackerInstance || window.zammadTrackerInstance.needsReinit) {
-          console.log('Reinitialisiere nach URL-Änderung');
+          console.log('Reinitializing after URL change');
           window.zammadTrackerInstance = new ZammadTimetracker();
         }
       }, 1000);
     }
   }).observe(document, { subtree: true, childList: true });
 } else {
-  console.log('Zammad Timetracker bereits initialisiert');
+  console.log('Zammad Timetracker already initialized');
 }
