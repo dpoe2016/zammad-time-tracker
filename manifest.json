@@ -16,7 +16,7 @@
   "content_scripts": [
     {
       "matches": ["*://*/*"],
-      "js": ["translations.js", "content.js"],
+      "js": ["translations.js", "zammad-api.js", "content.js"],
       "css": ["style.css"]
     }
   ],
@@ -25,7 +25,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["translations.js", "popup.js"],
+      "resources": ["translations.js", "zammad-api.js", "popup.js"],
       "matches": ["<all_urls>"]
     }
   ],

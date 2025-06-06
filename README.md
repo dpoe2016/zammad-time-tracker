@@ -9,6 +9,7 @@ Eine Chrome Extension für automatische Zeiterfassung in Zammad Tickets.
 - 💾 **Persistente Zeiterfassung** - Timer läuft auch bei Tab-Wechsel weiter
 - 🔧 **Automatisches Eintragen** - Trägt Zeit automatisch in Zammad ein
 - 🔔 **Browser-Benachrichtigungen** - Informiert über Start/Stop
+- 🌐 **REST API Integration** - Kommuniziert direkt mit der Zammad API
 - 🐛 **Debug-Modus** - Umfassendes Logging für Fehlerbehebung
 
 ## 🚀 Installation
@@ -94,6 +95,21 @@ zammad-time-tracker/
 #### Einstellungen anpassen
 - **Benachrichtigungen:** Ein/Aus schalten
 - **Auto-Submit:** Automatisches Eintragen aktivieren/deaktivieren
+- **Sprache:** Deutsch oder Englisch auswählen
+
+#### API Einstellungen konfigurieren
+- Klicken Sie auf "Bearbeiten" neben "API Einstellungen"
+- **Base URL:** Die URL Ihrer Zammad-Installation (z.B. https://zammad.example.com)
+- **API Token:** Ihr persönlicher Zammad API Token
+- Klicken Sie auf "Speichern", um die Einstellungen zu übernehmen
+
+#### Zammad API Token erstellen
+1. Melden Sie sich in Ihrer Zammad-Installation an
+2. Gehen Sie zu Ihrem Profil (Klick auf Ihren Namen oben rechts)
+3. Wählen Sie "Token-Zugriff" oder "API Tokens"
+4. Klicken Sie auf "Neuen Token erstellen"
+5. Geben Sie einen Namen ein (z.B. "Timetracking Extension")
+6. Kopieren Sie den generierten Token und fügen Sie ihn in die Extension ein
 
 #### Persistente Zeiterfassung
 - Timer läuft auch bei geschlossenem Popup weiter
@@ -102,7 +118,24 @@ zammad-time-tracker/
 
 ## 🔧 Konfiguration
 
-### Zammad-URL-Erkennung anpassen
+### REST API Konfiguration (empfohlen)
+
+Die Extension kann direkt mit der Zammad REST API kommunizieren, was zuverlässiger ist als die DOM-basierte Methode:
+
+1. **API Einstellungen öffnen:**
+   - Klicken Sie auf "Bearbeiten" neben "API Einstellungen" im Popup
+
+2. **Einstellungen konfigurieren:**
+   - **Base URL:** Die URL Ihrer Zammad-Installation (z.B. https://zammad.example.com)
+   - **API Token:** Ihr persönlicher Zammad API Token (siehe "Zammad API Token erstellen" oben)
+
+3. **Vorteile der API-Methode:**
+   - Zuverlässigere Ticket-Informationen
+   - Funktioniert auch bei Änderungen am Zammad UI
+   - Direktes Eintragen der Zeit ohne DOM-Manipulation
+   - Funktioniert auch wenn das Ticket nicht geöffnet ist
+
+### Zammad-URL-Erkennung anpassen (Fallback-Methode)
 
 Falls Ihre Zammad-Installation nicht automatisch erkannt wird, passen Sie die URL-Patterns in `content.js` an:
 
@@ -119,9 +152,9 @@ function isZammadPage() {
 }
 ```
 
-### Zeiterfassungsfelder anpassen
+### Zeiterfassungsfelder anpassen (Fallback-Methode)
 
-Falls die automatische Felderkennung nicht funktioniert, passen Sie die Selektoren in `content.js` an:
+Falls die automatische Felderkennung nicht funktioniert und Sie die API-Methode nicht nutzen können, passen Sie die Selektoren in `content.js` an:
 
 ```javascript
 // Zeile ~200+ in content.js
@@ -181,11 +214,27 @@ function submitTimeEntry(durationInSeconds) {
 
 **Problem:** Automatisches Eintragen fehlgeschlagen
 ```bash
-# Lösung:
+# Lösung bei API-Methode:
+1. Sind API Einstellungen korrekt konfiguriert?
+2. Ist der API Token gültig und hat ausreichende Berechtigungen?
+3. Debug-Modus aktivieren und API-Fehler prüfen
+4. Prüfen Sie die Netzwerk-Anfragen in den Browser-Entwicklertools
+
+# Lösung bei DOM-Methode:
 1. Ist Zeiterfassung in Zammad aktiviert?
 2. Haben Sie Berechtigung für Zeiterfassung?
 3. Sind Zeiterfassungsfelder sichtbar auf der Seite?
 4. Manuelle Feldkonfiguration nötig? (siehe Konfiguration)
+```
+
+**Problem:** API Fehler
+```bash
+# Lösung:
+1. Prüfen Sie die Base URL (z.B. https://zammad.example.com ohne abschließenden /)
+2. Stellen Sie sicher, dass der API Token gültig ist
+3. Prüfen Sie, ob der Token die nötigen Berechtigungen hat
+4. Prüfen Sie, ob die Zammad-API erreichbar ist (keine Firewall-Blockierung)
+5. CORS-Probleme? Prüfen Sie die Browser-Konsole auf entsprechende Fehler
 ```
 
 ### Häufige Lösungsansätze
@@ -226,11 +275,23 @@ chrome://extensions/
 5. Fehlermeldungen kopieren
 ```
 
-### 3. Zammad-Informationen
+### 3. API-Informationen
+```bash
+# API-Konfiguration prüfen:
+1. Debug-Modus aktivieren
+2. API-Einstellungen öffnen und prüfen
+3. Netzwerk-Tab in den Entwicklertools öffnen (F12)
+4. Aktion durchführen (Start/Stop)
+5. API-Anfragen und Antworten prüfen
+6. Fehler in der Konsole notieren
+```
+
+### 4. Zammad-Informationen
 ```bash
 - Zammad-Version
 - URL-Schema (z.B. https://support.company.com/ticket/zoom/123)
 - Zeiterfassungs-Konfiguration
+- API-Konfiguration und Berechtigungen
 - Browser-Berechtigungen
 ```
 
@@ -307,6 +368,7 @@ Bei Problemen oder Fragen:
 ## 📈 Roadmap
 
 Geplante Funktionen:
+- [x] REST API Integration
 - [ ] Zeiterfassung-Berichte
 - [ ] Projektzeit-Kategorien
 - [ ] Team-Statistiken

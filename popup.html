@@ -309,12 +309,37 @@
             <option value="en">English</option>
         </select>
     </div>
+
+    <div class="setting-item">
+        <span id="apiSettingsLabel">API Einstellungen</span>
+        <button id="apiSettingsBtn" class="btn btn-sm">Bearbeiten</button>
+    </div>
+</div>
+
+<div class="api-settings" id="apiSettings" style="display: none;">
+    <div class="settings-title" id="apiSettingsTitle">Zammad API Einstellungen</div>
+
+    <div class="setting-item">
+        <label for="apiBaseUrl" id="apiBaseUrlLabel">Base URL</label>
+        <input type="text" id="apiBaseUrl" placeholder="https://zammad.example.com" class="form-control">
+    </div>
+
+    <div class="setting-item">
+        <label for="apiToken" id="apiTokenLabel">API Token</label>
+        <input type="password" id="apiToken" placeholder="Your API token" class="form-control">
+    </div>
+
+    <div class="setting-actions">
+        <button id="apiSaveBtn" class="btn btn-primary btn-sm">Speichern</button>
+        <button id="apiCancelBtn" class="btn btn-secondary btn-sm">Abbrechen</button>
+    </div>
 </div>
 
 <div class="debug" id="debugInfo">
     Debug-Modus aktiviert
 </div>
 
+<script src="zammad-api.js"></script>
 <script src="popup.js"></script>
 </body>
 </html>
