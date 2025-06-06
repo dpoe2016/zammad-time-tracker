@@ -21,12 +21,12 @@ Eine Chrome Extension für automatische Zeiterfassung in Zammad Tickets.
 
 ### Schritt 1: Extension-Dateien herunterladen
 
-Erstellen Sie einen neuen Ordner `zammad-timetracking` und laden Sie folgende Dateien herunter:
+Klonen oder laden Sie dieses Repository herunter. Die wichtigsten Dateien sind:
 
 ```
-zammad-timetracking/
+zammad-time-tracker/
 ├── manifest.json          # Extension-Konfiguration
-├── background.js           # Background Service Worker
+├── background.js          # Background Service Worker
 ├── content.js             # Content Script für Zammad-Integration
 ├── popup.html             # Popup-Interface
 ├── style.css              # Styling
@@ -108,13 +108,14 @@ Falls Ihre Zammad-Installation nicht automatisch erkannt wird, passen Sie die UR
 
 ```javascript
 // Zeile ~15-25 in content.js
-isZammadPage() {
+function isZammadPage() {
   const indicators = [
     // Fügen Sie Ihre spezifischen URL-Patterns hinzu
     () => /ihre-zammad-domain\.de/i.test(window.location.href),
-    () => /support\.ihr-unternehmen\.com/i.test(window.location.href),
+    () => /support\.ihr-unternehmen\.com/i.test(window.location.href)
     // ... bestehende Patterns
   ];
+  return indicators.some(check => check());
 }
 ```
 
@@ -124,11 +125,11 @@ Falls die automatische Felderkennung nicht funktioniert, passen Sie die Selektor
 
 ```javascript
 // Zeile ~200+ in content.js
-submitTimeEntry(durationInSeconds) {
+function submitTimeEntry(durationInSeconds) {
   const timeFields = [
     'input[name="time_unit"]',           // Standard Zammad
     'input[name="ihre_zeit_feld"]',      // Ihr custom Feld
-    '.ihre-zeit-klasse input',           // Ihr CSS-Selektor
+    '.ihre-zeit-klasse input'            // Ihr CSS-Selektor
     // ... weitere Selektoren
   ];
 }
