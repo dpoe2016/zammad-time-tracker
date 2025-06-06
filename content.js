@@ -338,6 +338,7 @@ class ZammadTimetracker {
       }
 
       alert(`Zeiterfassung beendet!\nTicket: #${this.ticketId}\nDauer: ${this.formatDuration(durationInSeconds)}\nMinuten eingetragen: ${durationInMinutes}`);
+      return true; // Zeit erfolgreich eingetragen
     } else {
       // Fallback: Benutzer manuell informieren
       const message = `Zeiterfassung beendet!\n\nTicket: #${this.ticketId}\nDauer: ${this.formatDuration(durationInSeconds)}\nMinuten: ${durationInMinutes}\n\nBitte tragen Sie die Zeit manuell in das Zeiterfassungsfeld ein.`;
@@ -351,6 +352,7 @@ class ZammadTimetracker {
       } else {
         alert(message);
       }
+      return false; // Zeit konnte nicht automatisch eingetragen werden
     }
   }
 
