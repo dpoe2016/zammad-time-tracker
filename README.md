@@ -9,7 +9,7 @@ Eine Chrome Extension für automatische Zeiterfassung in Zammad Tickets.
 - 💾 **Persistente Zeiterfassung** - Timer läuft auch bei Tab-Wechsel weiter
 - 🔧 **Automatisches Eintragen** - Trägt Zeit automatisch in Zammad ein
 - 🔔 **Browser-Benachrichtigungen** - Informiert über Start/Stop
-- 🌐 **REST API Integration** - Kommuniziert direkt mit der Zammad API
+- 🌐 **Direkte Zammad API-Anbindung** - Zuverlässige Kommunikation über die Zammad REST API
 - 🐛 **Debug-Modus** - Umfassendes Logging für Fehlerbehebung
 
 ## 🚀 Installation
@@ -29,7 +29,10 @@ zammad-time-tracker/
 ├── manifest.json          # Extension-Konfiguration
 ├── background.js          # Background Service Worker
 ├── content.js             # Content Script für Zammad-Integration
+├── zammad-api.js          # API-Service für direkte Zammad-Anbindung
 ├── popup.html             # Popup-Interface
+├── popup.js               # Popup-Logik und Zeiterfassung
+├── translations.js        # Mehrsprachige Übersetzungen
 ├── style.css              # Styling
 └── icons/                 # Extension-Icons
     ├── icon16.png
@@ -120,7 +123,7 @@ zammad-time-tracker/
 
 ### REST API Konfiguration (empfohlen)
 
-Die Extension kann direkt mit der Zammad REST API kommunizieren, was zuverlässiger ist als die DOM-basierte Methode:
+Die Extension nutzt die direkte Zammad REST API-Anbindung für eine zuverlässige und robuste Zeiterfassung:
 
 1. **API Einstellungen öffnen:**
    - Klicken Sie auf "Bearbeiten" neben "API Einstellungen" im Popup
@@ -129,11 +132,13 @@ Die Extension kann direkt mit der Zammad REST API kommunizieren, was zuverlässi
    - **Base URL:** Die URL Ihrer Zammad-Installation (z.B. https://zammad.example.com)
    - **API Token:** Ihr persönlicher Zammad API Token (siehe "Zammad API Token erstellen" oben)
 
-3. **Vorteile der API-Methode:**
-   - Zuverlässigere Ticket-Informationen
-   - Funktioniert auch bei Änderungen am Zammad UI
-   - Direktes Eintragen der Zeit ohne DOM-Manipulation
-   - Funktioniert auch wenn das Ticket nicht geöffnet ist
+3. **Vorteile der direkten API-Anbindung:**
+   - **Zuverlässigkeit:** Unabhängig von Änderungen am Zammad UI
+   - **Genauigkeit:** Präzise Ticket-Informationen direkt aus der Datenbank
+   - **Effizienz:** Direktes Eintragen der Zeit ohne DOM-Manipulation
+   - **Flexibilität:** Funktioniert auch wenn das Ticket nicht geöffnet ist
+   - **Robustheit:** Weniger anfällig für Fehler durch UI-Änderungen
+   - **Vollständigkeit:** Zugriff auf alle Ticket-Informationen und Zeiteinträge
 
 ### Zammad-URL-Erkennung anpassen (Fallback-Methode)
 
