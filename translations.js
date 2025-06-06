@@ -273,6 +273,28 @@ const translations = {
   'manual_time_entry': {
     [LANGUAGES.DE]: 'Bitte Zeit manuell eintragen.',
     [LANGUAGES.EN]: 'Please enter time manually.'
+  },
+
+  // New API status messages
+  'api_not_initialized': {
+    [LANGUAGES.DE]: 'API nicht initialisiert. Bitte API-Einstellungen konfigurieren.',
+    [LANGUAGES.EN]: 'API not initialized. Please configure API settings.'
+  },
+  'loading_ticket_info': {
+    [LANGUAGES.DE]: 'Lade Ticket-Informationen...',
+    [LANGUAGES.EN]: 'Loading ticket information...'
+  },
+  'ticket_loaded': {
+    [LANGUAGES.DE]: 'Ticket erfolgreich geladen',
+    [LANGUAGES.EN]: 'Ticket successfully loaded'
+  },
+  'no_ticket_data': {
+    [LANGUAGES.DE]: 'Keine Ticket-Daten erhalten',
+    [LANGUAGES.EN]: 'No ticket data received'
+  },
+  'ticket_load_error': {
+    [LANGUAGES.DE]: 'Fehler beim Laden des Tickets',
+    [LANGUAGES.EN]: 'Error loading ticket'
   }
 };
 

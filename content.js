@@ -72,6 +72,8 @@ class ZammadTimetracker {
     const urlPatterns = [
       /\/ticket\/zoom\/(\d+)/,
       /\/tickets\/(\d+)/,
+      /\/helpdesk\/ticket\/(\d+)/,
+      /\/ticket\/(\d+)/,
       /ticket[_-]?id[=:](\d+)/i,
       /id[=:](\d+)/
     ];
@@ -160,8 +162,15 @@ class ZammadTimetracker {
           sendResponse({ success: startResult });
           break;
         case 'stopTracking':
-          const stopResult = this.stopTracking();
-          sendResponse({ success: stopResult });
+          // Handle async stopTracking
+          this.stopTracking().then(stopResult => {
+            console.log('Stop tracking result:', stopResult);
+            sendResponse({ success: stopResult });
+          }).catch(error => {
+            console.error('Error stopping tracking:', error);
+            sendResponse({ success: false, error: error.message });
+          });
+          return true; // Indicate we'll send response asynchronously
           break;
         case 'getStatus':
           sendResponse({
@@ -213,13 +222,21 @@ class ZammadTimetracker {
           // Handle submitTime action from popup
           console.log('Recording time:', request.duration, 'minutes for ticket', request.ticketId);
 
-          let success = false;
+          // Use async/await pattern with Promise to ensure response is sent after time entry is submitted
           if (request.duration > 0) {
             // Convert minutes to seconds for submitTimeEntry
-            success = this.submitTimeEntry(request.duration * 60);
+            this.submitTimeEntry(request.duration * 60).then(success => {
+              console.log('Time entry submission result:', success);
+              sendResponse({ success: success });
+            }).catch(error => {
+              console.error('Error submitting time entry:', error);
+              sendResponse({ success: false, error: error.message });
+            });
+          } else {
+            console.log('Invalid duration, not submitting time entry');
+            sendResponse({ success: false, error: 'Invalid duration' });
           }
-
-          sendResponse({ success: success });
+          return true; // Indicate we'll send response asynchronously
           break;
       }
       return true; // Async response
@@ -265,7 +282,7 @@ class ZammadTimetracker {
     return true;
   }
 
-  stopTracking() {
+  async stopTracking() {
     if (!this.isTracking) return false;
 
     const endTime = new Date();
@@ -273,24 +290,41 @@ class ZammadTimetracker {
 
     this.isTracking = false;
 
-    // Enter time in Zammad
-    const success = this.submitTimeEntry(duration);
+    try {
+      // Enter time in Zammad
+      const success = await this.submitTimeEntry(duration);
 
-    // Delete status
-    this.clearTrackingState();
+      // Delete status
+      this.clearTrackingState();
 
-    // Notify background script
-    chrome.runtime.sendMessage({
-      action: 'trackingStopped',
-      data: { 
-        ticketId: this.ticketId, 
-        duration: this.formatDuration(duration),
-        success: success
-      }
-    });
+      // Notify background script
+      chrome.runtime.sendMessage({
+        action: 'trackingStopped',
+        data: { 
+          ticketId: this.ticketId, 
+          duration: this.formatDuration(duration),
+          success: success
+        }
+      });
 
-    console.log(`Time tracking ended for ticket #${this.ticketId}. Duration: ${this.formatDuration(duration)}`);
-    return true;
+      console.log(`Time tracking ended for ticket #${this.ticketId}. Duration: ${this.formatDuration(duration)}`);
+      return true;
+    } catch (error) {
+      console.error('Error submitting time entry:', error);
+
+      // Still notify background script about the stop, but with success=false
+      chrome.runtime.sendMessage({
+        action: 'trackingStopped',
+        data: { 
+          ticketId: this.ticketId, 
+          duration: this.formatDuration(duration),
+          success: false,
+          error: error.message
+        }
+      });
+
+      return false;
+    }
   }
 
   startTimer() {
@@ -309,52 +343,72 @@ class ZammadTimetracker {
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   }
 
-  submitTimeEntry(durationInSeconds) {
-    const durationInMinutes = Math.round(durationInSeconds / 60);
+  async submitTimeEntry(durationInSeconds) {
+    return new Promise((resolve) => {
+      const durationInMinutes = Math.round(durationInSeconds / 60);
+      console.log(`Submitting time entry: ${durationInMinutes} minutes`);
 
-    // Try to find and fill the Zammad Time Accounting field
-    const timeFields = [
-      'input[name="time_unit"]',
-      'input[id*="time"]',
-      '.time-accounting input',
-      '[data-attribute-name="time_unit"] input'
-    ];
+      // Try to find and fill the Zammad Time Accounting field
+      const timeFields = [
+        'input[name="time_unit"]',
+        'input[id*="time"]',
+        '.time-accounting input',
+        '[data-attribute-name="time_unit"] input'
+      ];
 
-    let timeField = null;
-    for (const selector of timeFields) {
-      timeField = document.querySelector(selector);
-      if (timeField) break;
-    }
-
-    if (timeField) {
-      timeField.value = durationInMinutes;
-      timeField.dispatchEvent(new Event('input', { bubbles: true }));
-      timeField.dispatchEvent(new Event('change', { bubbles: true }));
-
-      // Optional: Also set the Activity field if available
-      const activityField = document.querySelector('select[name="type_id"], select[id*="activity"]');
-      if (activityField && activityField.options.length > 1) {
-        activityField.selectedIndex = 1; // Select first available option
-        activityField.dispatchEvent(new Event('change', { bubbles: true }));
+      let timeField = null;
+      for (const selector of timeFields) {
+        timeField = document.querySelector(selector);
+        if (timeField) {
+          console.log(`Found time field with selector: ${selector}`);
+          break;
+        }
       }
 
-      alert(`${t('tracking_ended')}\n${t('ticket_id')}: #${this.ticketId}\n${t('duration')}: ${this.formatDuration(durationInSeconds)}\n${t('minutes_entered')}: ${durationInMinutes}`);
-      return true; // Time successfully entered
-    } else {
-      // Fallback: Manually inform user
-      const message = `${t('tracking_ended')}\n\n${t('ticket_id')}: #${this.ticketId}\n${t('duration')}: ${this.formatDuration(durationInSeconds)}\n${t('min')}: ${durationInMinutes}\n\n${t('manual_entry_message')}`;
+      if (timeField) {
+        console.log(`Setting time field value to: ${durationInMinutes}`);
+        timeField.value = durationInMinutes;
+        timeField.dispatchEvent(new Event('input', { bubbles: true }));
+        timeField.dispatchEvent(new Event('change', { bubbles: true }));
 
-      // Try to show a notification or use alert
-      if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification(t('extension_title'), {
-          body: message,
-          icon: '/favicon.ico'
-        });
-      } else {
+        // Optional: Also set the Activity field if available
+        const activityField = document.querySelector('select[name="type_id"], select[id*="activity"]');
+        if (activityField && activityField.options.length > 1) {
+          console.log('Setting activity field');
+          activityField.selectedIndex = 1; // Select first available option
+          activityField.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        // Submit the form if there's a submit button
+        const submitButton = document.querySelector('button[type="submit"], input[type="submit"], .js-submit, .form-submit, [data-type="update"]');
+        if (submitButton) {
+          console.log('Found submit button, clicking it');
+          submitButton.click();
+        }
+
+        // Show alert and resolve with success
+        const message = `${t('tracking_ended')}\n${t('ticket_id')}: #${this.ticketId}\n${t('duration')}: ${this.formatDuration(durationInSeconds)}\n${t('minutes_entered')}: ${durationInMinutes}`;
         alert(message);
+        console.log('Time entry submitted successfully');
+        resolve(true); // Time successfully entered
+      } else {
+        console.log('No time field found, showing manual entry message');
+        // Fallback: Manually inform user
+        const message = `${t('tracking_ended')}\n\n${t('ticket_id')}: #${this.ticketId}\n${t('duration')}: ${this.formatDuration(durationInSeconds)}\n${t('min')}: ${durationInMinutes}\n\n${t('manual_entry_message')}`;
+
+        // Try to show a notification or use alert
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification(t('extension_title'), {
+            body: message,
+            icon: '/favicon.ico'
+          });
+        } else {
+          alert(message);
+        }
+        console.log('Manual time entry required');
+        resolve(false); // Time could not be automatically entered
       }
-      return false; // Time could not be automatically entered
-    }
+    });
   }
 
   saveTrackingState() {

@@ -285,46 +285,73 @@ class TimetrackingPopup {
         try {
             if (!zammadApi.isInitialized()) {
                 this.debug('API not initialized, cannot load ticket info');
+                this.infoText.textContent = t('api_not_initialized');
+                this.infoText.className = 'info warning';
                 return false;
             }
 
             this.debug('Loading ticket information from API for ticket #' + ticketId);
+            this.infoText.textContent = t('loading_ticket_info');
+            this.infoText.className = 'info';
 
             // Get ticket information
-            const ticketData = await zammadApi.getTicket(ticketId);
-            this.debug('Ticket data received from API: ' + JSON.stringify(ticketData));
+            try {
+                const ticketData = await zammadApi.getTicket(ticketId);
+                this.debug('Ticket data received from API: ' + JSON.stringify(ticketData));
 
-            if (ticketData) {
-                // Update ticket title
-                if (ticketData.title) {
-                    this.ticketTitle.textContent = ticketData.title;
-                    this.currentTicketTitle = ticketData.title;
-                    this.debug('Ticket title from API: ' + ticketData.title);
+                if (ticketData) {
+                    // Update ticket title
+                    if (ticketData.title) {
+                        this.ticketTitle.textContent = ticketData.title;
+                        this.currentTicketTitle = ticketData.title;
+                        this.debug('Ticket title from API: ' + ticketData.title);
+                    } else {
+                        this.debug('Ticket data received but no title found');
+                    }
+
+                    // Get time entries
+                    try {
+                        const timeEntries = await zammadApi.getTimeEntries(ticketId);
+                        this.debug('Time entries received from API: ' + JSON.stringify(timeEntries));
+
+                        if (timeEntries && Array.isArray(timeEntries)) {
+                            // Calculate total time spent
+                            const totalTimeSpent = timeEntries.reduce((total, entry) => {
+                                return total + (entry.time_unit || 0);
+                            }, 0);
+
+                            this.timeSpent.textContent = Math.round(totalTimeSpent);
+                            this.currentTimeSpent = totalTimeSpent;
+                            this.debug('Total time from API: ' + totalTimeSpent + ' min');
+                        } else {
+                            this.debug('No time entries found or invalid format');
+                        }
+                    } catch (timeError) {
+                        this.debug('Error loading time entries: ' + timeError.message);
+                        // Continue with ticket info even if time entries fail
+                    }
+
+                    // Show ticket info
+                    this.ticketInfo.style.display = 'block';
+                    this.infoText.textContent = t('ticket_loaded');
+                    this.infoText.className = 'info success';
+                    return true;
+                } else {
+                    this.debug('No ticket data received from API');
+                    this.infoText.textContent = t('no_ticket_data');
+                    this.infoText.className = 'info error';
                 }
-
-                // Get time entries
-                const timeEntries = await zammadApi.getTimeEntries(ticketId);
-                this.debug('Time entries received from API: ' + JSON.stringify(timeEntries));
-
-                if (timeEntries && Array.isArray(timeEntries)) {
-                    // Calculate total time spent
-                    const totalTimeSpent = timeEntries.reduce((total, entry) => {
-                        return total + (entry.time_unit || 0);
-                    }, 0);
-
-                    this.timeSpent.textContent = Math.round(totalTimeSpent);
-                    this.currentTimeSpent = totalTimeSpent;
-                    this.debug('Total time from API: ' + totalTimeSpent + ' min');
-                }
-
-                // Show ticket info
-                this.ticketInfo.style.display = 'block';
-                return true;
+            } catch (ticketError) {
+                this.debug('Error loading ticket: ' + ticketError.message);
+                this.infoText.textContent = t('ticket_load_error') + ': ' + ticketError.message;
+                this.infoText.className = 'info error';
+                throw ticketError; // Re-throw to be caught by outer catch
             }
 
             return false;
         } catch (error) {
             this.debug('Error loading ticket info from API: ' + error.message);
+            // Error message already set in inner catch
             return false;
         }
     }
