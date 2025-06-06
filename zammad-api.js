@@ -256,37 +256,60 @@ class ZammadAPI {
     if (isLikelyTicketNumber) {
       // Prioritize endpoints that work well with ticket numbers
       endpoints = [
-        `/api/v1/tickets/by_number/${ticketId}`,   // Standard by_number endpoint
-        `/api/v1/ticket/by_number/${ticketId}`,    // by_number without 's'
-        `/helpdesk/ticket/${ticketId}`,            // Helpdesk path (matches error URL)
-        `/helpdesk/tickets/${ticketId}`,           // Helpdesk with 's'
-        `/helpdesk/api/ticket/${ticketId}`,        // Helpdesk with api
-        `/helpdesk/api/tickets/${ticketId}`,       // Helpdesk with api and 's'
-        `/api/helpdesk/ticket/${ticketId}`,        // API with helpdesk
-        `/api/helpdesk/tickets/${ticketId}`,       // API with helpdesk and 's'
-        `/api/v1/tickets/number/${ticketId}`,      // Alternative number endpoint
-        `/api/v1/ticket/number/${ticketId}`,       // Alternative without 's'
-        `/api/v1/tickets/search?number=${ticketId}`, // Search by number
-        `/api/v1/tickets?number=${ticketId}`,      // Query parameter
-        `/api/v1/tickets/${ticketId}`,             // Try standard anyway
-        `/api/v1/ticket/${ticketId}`,              // Standard without 's'
-        `/tickets/${ticketId}`,                    // Simple path
-        `/ticket/${ticketId}`                      // Simple path without 's'
+        // Official Zammad API endpoints for ticket numbers
+        `/api/v1/tickets/search?number=${ticketId}`, // Official: Search by number
+        `/api/v1/tickets/by_number/${ticketId}`,     // Official: By number endpoint
+
+        // Alternative official endpoints
+        `/api/v1/tickets?number=${ticketId}`,        // Query parameter
+
+        // Legacy and alternative endpoints
+        `/api/v1/ticket/by_number/${ticketId}`,      // by_number without 's'
+        `/api/v1/tickets/number/${ticketId}`,        // Alternative number endpoint
+        `/api/v1/ticket/number/${ticketId}`,         // Alternative without 's'
+        `/api/v1/tickets/${ticketId}`,               // Try standard anyway
+        `/api/v1/ticket/${ticketId}`,                // Standard without 's'
+
+        // Simple paths (less likely to work)
+        `/tickets/${ticketId}`,                      // Simple path
+        `/ticket/${ticketId}`,                       // Simple path without 's'
+
+        // Helpdesk variations (least likely to work)
+        `/helpdesk/ticket/${ticketId}`,              // Helpdesk path
+        `/helpdesk/tickets/${ticketId}`,             // Helpdesk with 's'
+        `/helpdesk/api/ticket/${ticketId}`,          // Helpdesk with api
+        `/helpdesk/api/tickets/${ticketId}`,         // Helpdesk with api and 's'
+        `/api/helpdesk/ticket/${ticketId}`,          // API with helpdesk
+        `/api/helpdesk/tickets/${ticketId}`          // API with helpdesk and 's'
       ];
     } else {
       // Standard endpoints for ticket IDs
       endpoints = [
-        `/api/v1/tickets/${ticketId}`,             // Standard endpoint
+        // Official Zammad API endpoints for ticket IDs
+        `/api/v1/tickets/${ticketId}`,             // Official: Standard endpoint
+
+        // Alternative official endpoints
+        `/api/v1/ticket_articles?ticket_id=${ticketId}`, // Official: Get ticket articles
+
+        // Legacy and alternative endpoints
         `/api/v1/ticket/${ticketId}`,              // Without 's' in 'tickets'
-        `/tickets/${ticketId}`,                    // Different base path
         `/api/tickets/${ticketId}`,                // Without version
-        `/ticket/${ticketId}`,                     // Simple path
-        `/api/v1/ticket_articles/${ticketId}`,     // Try ticket_articles
-        `/ticket_articles/${ticketId}`,            // Simple ticket_articles path
         `/api/v1.0/tickets/${ticketId}`,           // Explicit v1.0 version
         `/api/v1.0/ticket/${ticketId}`,            // v1.0 without 's'
+
+        // Related resources
+        `/api/v1/ticket_articles/${ticketId}`,     // Try ticket_articles
+
+        // Simple paths (less likely to work)
+        `/tickets/${ticketId}`,                    // Different base path
+        `/ticket/${ticketId}`,                     // Simple path
+        `/ticket_articles/${ticketId}`,            // Simple ticket_articles path
+
+        // Zammad prefix variations (less likely to work)
         `/zammad/api/tickets/${ticketId}`,         // With zammad prefix
         `/zammad/api/ticket/${ticketId}`,          // With zammad prefix, no 's'
+
+        // Helpdesk variations (least likely to work)
         `/helpdesk/tickets/${ticketId}`,           // Helpdesk prefix
         `/helpdesk/ticket/${ticketId}`,            // Helpdesk prefix, no 's'
         `/helpdesk/api/tickets/${ticketId}`,       // Helpdesk with api path
@@ -358,40 +381,92 @@ class ZammadAPI {
     if (isLikelyTicketNumber) {
       // Prioritize endpoints that work well with ticket numbers
       endpoints = [
-        `/api/v1/tickets/by_number/${ticketId}/time_accounting`,   // By number endpoint
-        `/api/v1/ticket/by_number/${ticketId}/time_accounting`,    // By number without 's'
-        `/helpdesk/ticket/${ticketId}/time_accounting`,            // Helpdesk path (matches error URL)
-        `/helpdesk/tickets/${ticketId}/time_accounting`,           // Helpdesk with 's'
-        `/helpdesk/api/ticket/${ticketId}/time_accounting`,        // Helpdesk with api
-        `/helpdesk/api/tickets/${ticketId}/time_accounting`,       // Helpdesk with api and 's'
-        `/api/helpdesk/ticket/${ticketId}/time_accounting`,        // API with helpdesk
-        `/api/helpdesk/tickets/${ticketId}/time_accounting`,       // API with helpdesk and 's'
+        // Official Zammad API endpoints for ticket numbers
+        `/api/v1/tickets/search?number=${ticketId}&expand=true`,   // Official: Search by number with expand
+        `/api/v1/tickets/search?number=${ticketId}`,               // Official: Search by number
+
+        // Time accounting endpoints with ticket number
+        `/api/v1/tickets/by_number/${ticketId}/time_accounting`,   // Official: By number endpoint
+
+        // Alternative official endpoints
         `/api/v1/time_accounting?ticket_number=${ticketId}`,       // Query with number
+
+        // Legacy and alternative endpoints
+        `/api/v1/ticket/by_number/${ticketId}/time_accounting`,    // By number without 's'
         `/api/v1/time_accountings?ticket_number=${ticketId}`,      // Query with number and 's'
         `/api/v1/time_accounting?number=${ticketId}`,              // Simple query with number
         `/api/v1/time_accountings?number=${ticketId}`,             // Simple query with number and 's'
         `/api/v1/time_accounting?ticket_id=${ticketId}`,           // Try standard query anyway
+
+        // Standard endpoints
         `/api/v1/tickets/${ticketId}/time_accounting`,             // Try standard anyway
         `/api/v1/ticket/${ticketId}/time_accounting`,              // Standard without 's'
+
+        // Simple paths (less likely to work)
         `/tickets/${ticketId}/time_accounting`,                    // Simple path
-        `/ticket/${ticketId}/time_accounting`                      // Simple path without 's'
+        `/ticket/${ticketId}/time_accounting`,                     // Simple path without 's'
+
+        // Alternative naming
+        `/api/v1/ticket_time_accounting?ticket_number=${ticketId}`, // Alternative naming with query
+        `/api/v1/ticket_time_accountings?ticket_number=${ticketId}`, // Alternative naming with 's' and query
+
+        // Without version
+        `/api/ticket/${ticketId}/time_accounting`,                 // Without version
+        `/api/tickets/${ticketId}/time_accounting`,                // Without version with 's'
+
+        // Helpdesk variations (least likely to work)
+        `/helpdesk/ticket/${ticketId}/time_accounting`,            // Helpdesk path
+        `/helpdesk/tickets/${ticketId}/time_accounting`,           // Helpdesk with 's'
+        `/helpdesk/api/ticket/${ticketId}/time_accounting`,        // Helpdesk with api
+        `/helpdesk/api/tickets/${ticketId}/time_accounting`,       // Helpdesk with api and 's'
+        `/api/helpdesk/ticket/${ticketId}/time_accounting`,        // API with helpdesk
+        `/api/helpdesk/tickets/${ticketId}/time_accounting`        // API with helpdesk and 's'
       ];
     } else {
       // Standard endpoints for ticket IDs
       endpoints = [
-        `/api/v1/tickets/${ticketId}/time_accounting`,             // Standard endpoint
+        // Official Zammad API endpoints for ticket IDs
+        `/api/v1/tickets/${ticketId}/time_accounting`,             // Official: Standard endpoint
+
+        // Alternative official endpoints
+        `/api/v1/time_accounting?ticket_id=${ticketId}`,           // Official: Query parameter
+
+        // Legacy and alternative endpoints
         `/api/v1/ticket/${ticketId}/time_accounting`,              // Without 's' in 'tickets'
-        `/tickets/${ticketId}/time_accounting`,                    // Different base path
-        `/api/tickets/${ticketId}/time_accounting`,                // Without version
-        `/ticket/${ticketId}/time_accounting`,                     // Simple path
-        `/api/v1/time_accounting?ticket_id=${ticketId}`,           // Query parameter
-        `/time_accounting?ticket_id=${ticketId}`,                  // Simple with query
         `/api/v1/time_accountings?ticket_id=${ticketId}`,          // With 's' and query
+
+        // Version variations
         `/api/v1.0/tickets/${ticketId}/time_accounting`,           // Explicit v1.0 version
         `/api/v1.0/ticket/${ticketId}/time_accounting`,            // v1.0 without 's'
         `/api/v1.0/time_accounting?ticket_id=${ticketId}`,         // v1.0 with query
+
+        // Simple paths (less likely to work)
+        `/tickets/${ticketId}/time_accounting`,                    // Different base path
+        `/ticket/${ticketId}/time_accounting`,                     // Simple path
+        `/api/tickets/${ticketId}/time_accounting`,                // Without version
+        `/time_accounting?ticket_id=${ticketId}`,                  // Simple with query
+
+        // Alternative naming
+        `/api/v1/ticket_time_accounting?ticket_id=${ticketId}`,    // Alternative naming with query
+        `/api/v1/ticket_time_accountings?ticket_id=${ticketId}`,   // Alternative naming with 's' and query
+        `/api/v1/ticket_time_accounting/${ticketId}`,              // Alternative naming
+        `/api/v1/ticket_time_accountings/${ticketId}`,             // Alternative naming with 's'
+
+        // Without version
+        `/api/ticket_time_accounting/${ticketId}`,                 // Without version
+        `/api/ticket_time_accountings/${ticketId}`,                // Without version with 's'
+        `/api/time_accounting/ticket/${ticketId}`,                 // Alternative path structure
+        `/api/time_accounting/tickets/${ticketId}`,                // Alternative with 's'
+
+        // Simple alternatives
+        `/ticket_time_accounting/${ticketId}`,                     // Simple alternative
+        `/ticket_time_accountings/${ticketId}`,                    // Simple alternative with 's'
+
+        // Zammad prefix variations (less likely to work)
         `/zammad/api/tickets/${ticketId}/time_accounting`,         // With zammad prefix
         `/zammad/api/ticket/${ticketId}/time_accounting`,          // With zammad prefix, no 's'
+
+        // Helpdesk variations (least likely to work)
         `/helpdesk/tickets/${ticketId}/time_accounting`,           // Helpdesk prefix
         `/helpdesk/ticket/${ticketId}/time_accounting`,            // Helpdesk prefix, no 's'
         `/helpdesk/api/tickets/${ticketId}/time_accounting`,       // Helpdesk with api path
@@ -483,57 +558,119 @@ class ZammadAPI {
       // For ticket numbers, we might need to use different endpoints
       // or include the ticket number in a different way
       endpoints = [
-        // Ticket number specific endpoints
-        `/api/v1/tickets/by_number/${ticketId}/time_accounting`, // By number endpoint
-        `/api/v1/ticket/by_number/${ticketId}/time_accounting`,  // By number without 's'
-        `/helpdesk/ticket/${ticketId}/time_accounting`,          // Helpdesk path (matches error URL)
-        `/helpdesk/tickets/${ticketId}/time_accounting`,         // Helpdesk with 's'
-        `/helpdesk/api/ticket/${ticketId}/time_accounting`,      // Helpdesk with api
-        `/helpdesk/api/tickets/${ticketId}/time_accounting`,     // Helpdesk with api and 's'
+        // Official Zammad API endpoints for time accounting
+        `/api/v1/time_accounting`,                               // Official: Standard endpoint
 
-        // Standard endpoints with ticket number as parameter
-        `/api/v1/time_accounting`,                               // Standard endpoint
+        // Alternative official endpoints
+        `/api/v1/tickets/by_number/${ticketId}/time_accounting`, // Official: By number endpoint
+
+        // Legacy and alternative endpoints
         `/api/v1/time_accountings`,                              // With 's'
-        `/time_accounting`,                                      // Simple path
-        `/time_accountings`,                                     // Simple with 's'
+        `/api/v1/ticket/by_number/${ticketId}/time_accounting`,  // By number without 's'
 
-        // Ticket-specific endpoints
+        // Standard ticket-specific endpoints
         `/api/v1/tickets/${ticketId}/time_accounting`,           // Standard ticket-specific
         `/api/v1/ticket/${ticketId}/time_accounting`,            // Without 's'
+
+        // Simple paths (less likely to work)
+        `/time_accounting`,                                      // Simple path
+        `/time_accountings`,                                     // Simple with 's'
         `/tickets/${ticketId}/time_accounting`,                  // Simple ticket-specific
         `/ticket/${ticketId}/time_accounting`,                   // Simple without 's'
 
-        // With different prefixes
-        `/api/helpdesk/ticket/${ticketId}/time_accounting`,      // API with helpdesk
-        `/api/helpdesk/tickets/${ticketId}/time_accounting`,     // API with helpdesk and 's'
-        `/helpdesk/time_accounting`,                             // Helpdesk prefix
-        `/helpdesk/time_accountings`,                            // Helpdesk with 's'
+        // Alternative naming
+        `/api/v1/ticket_time_accounting`,                        // Alternative naming
+        `/api/v1/ticket_time_accountings`,                       // Alternative naming with 's'
+
+        // Without version
+        `/api/time_accounting`,                                  // Without version
+        `/api/time_accountings`,                                 // Without version with 's'
+        `/api/ticket/${ticketId}/time_accounting`,               // Without version
+        `/api/tickets/${ticketId}/time_accounting`,              // Without version with 's'
+
+        // Zammad prefix variations (less likely to work)
         `/zammad/api/time_accounting`,                           // Zammad prefix
         `/zammad/api/time_accountings`,                          // Zammad with 's'
         `/zammad/api/ticket/${ticketId}/time_accounting`,        // Zammad ticket-specific
-        `/zammad/api/tickets/${ticketId}/time_accounting`        // Zammad ticket-specific with 's'
+        `/zammad/api/tickets/${ticketId}/time_accounting`,       // Zammad ticket-specific with 's'
+
+        // Alternative path structures
+        `/api/time_accounting/ticket/${ticketId}`,               // Alternative path structure
+        `/api/time_accounting/tickets/${ticketId}`,              // Alternative with 's'
+        `/api/v1/ticket_time_accounting/${ticketId}`,            // Alternative naming with ID
+        `/api/v1/ticket_time_accountings/${ticketId}`,           // Alternative naming with 's' and ID
+        `/api/ticket_time_accounting/${ticketId}`,               // Without version with ID
+        `/api/ticket_time_accountings/${ticketId}`,              // Without version with 's' and ID
+        `/ticket_time_accounting/${ticketId}`,                   // Simple alternative with ID
+        `/ticket_time_accountings/${ticketId}`,                  // Simple alternative with 's' and ID
+
+        // Helpdesk variations (least likely to work)
+        `/helpdesk/time_accounting`,                             // Helpdesk prefix
+        `/helpdesk/time_accountings`,                            // Helpdesk with 's'
+        `/helpdesk/ticket/${ticketId}/time_accounting`,          // Helpdesk path
+        `/helpdesk/tickets/${ticketId}/time_accounting`,         // Helpdesk with 's'
+        `/helpdesk/api/ticket/${ticketId}/time_accounting`,      // Helpdesk with api
+        `/helpdesk/api/tickets/${ticketId}/time_accounting`,     // Helpdesk with api and 's'
+        `/api/helpdesk/ticket/${ticketId}/time_accounting`,      // API with helpdesk
+        `/api/helpdesk/tickets/${ticketId}/time_accounting`      // API with helpdesk and 's'
       ];
     } else {
       // Standard endpoints for ticket IDs
       endpoints = [
-        `/api/v1/time_accountings`,                              // Standard endpoint
-        `/api/v1/time_accounting`,                               // Without 's' in 'time_accountings'
-        `/time_accountings`,                                     // Different base path
-        `/time_accounting`,                                      // Simple path
-        `/api/time_accountings`,                                 // Without version
-        `/api/time_accounting`,                                  // Without version and 's'
-        `/api/v1/tickets/${ticketId}/time_accounting`,           // Ticket-specific endpoint
-        `/tickets/${ticketId}/time_accounting`,                  // Simple ticket-specific
-        `/api/v1.0/time_accountings`,                            // Explicit v1.0 version
-        `/api/v1.0/time_accounting`,                             // v1.0 without 's'
+        // Official Zammad API endpoints for time accounting
+        `/api/v1/time_accounting`,                               // Official: Standard endpoint
+
+        // Alternative official endpoints
+        `/api/v1/tickets/${ticketId}/time_accounting`,           // Official: Ticket-specific endpoint
+
+        // Legacy and alternative endpoints
+        `/api/v1/time_accountings`,                              // With 's'
+        `/api/v1/ticket/${ticketId}/time_accounting`,            // Without 's'
+
+        // Version variations
+        `/api/v1.0/time_accounting`,                             // Explicit v1.0 version
+        `/api/v1.0/time_accountings`,                            // v1.0 with 's'
         `/api/v1.0/tickets/${ticketId}/time_accounting`,         // v1.0 ticket-specific
+        `/api/v1.0/ticket/${ticketId}/time_accounting`,          // v1.0 without 's'
+
+        // Simple paths (less likely to work)
+        `/time_accounting`,                                      // Simple path
+        `/time_accountings`,                                     // Different base path
+        `/tickets/${ticketId}/time_accounting`,                  // Simple ticket-specific
+        `/ticket/${ticketId}/time_accounting`,                   // Simple without 's'
+
+        // Without version
+        `/api/time_accounting`,                                  // Without version
+        `/api/time_accountings`,                                 // Without version with 's'
+        `/api/tickets/${ticketId}/time_accounting`,              // Without version with 's'
+
+        // Alternative naming
+        `/api/v1/ticket_time_accounting`,                        // Alternative naming
+        `/api/v1/ticket_time_accountings`,                       // Alternative naming with 's'
+
+        // Alternative path structures
+        `/api/time_accounting/ticket/${ticketId}`,               // Alternative path structure
+        `/api/time_accounting/tickets/${ticketId}`,              // Alternative with 's'
+        `/api/v1/ticket_time_accounting/${ticketId}`,            // Alternative naming with ID
+        `/api/v1/ticket_time_accountings/${ticketId}`,           // Alternative naming with 's' and ID
+        `/api/ticket_time_accounting/${ticketId}`,               // Without version with ID
+        `/api/ticket_time_accountings/${ticketId}`,              // Without version with 's' and ID
+        `/ticket_time_accounting/${ticketId}`,                   // Simple alternative with ID
+        `/ticket_time_accountings/${ticketId}`,                  // Simple alternative with 's' and ID
+
+        // Zammad prefix variations (less likely to work)
         `/zammad/api/time_accountings`,                          // With zammad prefix
         `/zammad/api/time_accounting`,                           // With zammad prefix, no 's'
         `/zammad/api/tickets/${ticketId}/time_accounting`,       // Zammad prefix ticket-specific
+        `/zammad/api/ticket/${ticketId}/time_accounting`,        // Zammad prefix ticket-specific, no 's'
+
+        // Helpdesk variations (least likely to work)
         `/helpdesk/time_accountings`,                            // Helpdesk prefix
         `/helpdesk/time_accounting`,                             // Helpdesk prefix, no 's'
         `/helpdesk/tickets/${ticketId}/time_accounting`,         // Helpdesk ticket-specific
         `/helpdesk/ticket/${ticketId}/time_accounting`,          // Helpdesk ticket-specific, no 's'
+        `/helpdesk/api/tickets/${ticketId}/time_accounting`,     // Helpdesk with api path
+        `/helpdesk/api/ticket/${ticketId}/time_accounting`,      // Helpdesk with api path, no 's'
         `/api/helpdesk/tickets/${ticketId}/time_accounting`,     // API with helpdesk path
         `/api/helpdesk/ticket/${ticketId}/time_accounting`       // API with helpdesk path, no 's'
       ];
