@@ -1,4 +1,5 @@
 // Content Script für Zammad Timetracking - Nur Popup-Version
+
 class ZammadTimetracker {
   constructor() {
     this.isTracking = false;
@@ -243,7 +244,7 @@ class ZammadTimetracker {
       chrome.runtime.sendMessage({
         action: 'showNotification',
         title: 'Fehler',
-        message: 'Keine Ticket-ID gefunden. Bitte stellen Sie sicher, dass Sie sich in einem Ticket befinden.'
+        message: t('no_ticket_id')
       });
       return false;
     }
@@ -337,15 +338,15 @@ class ZammadTimetracker {
         activityField.dispatchEvent(new Event('change', { bubbles: true }));
       }
 
-      alert(`Zeiterfassung beendet!\nTicket: #${this.ticketId}\nDauer: ${this.formatDuration(durationInSeconds)}\nMinuten eingetragen: ${durationInMinutes}`);
+      alert(`${t('tracking_ended')}\n${t('ticket_id')}: #${this.ticketId}\n${t('duration')}: ${this.formatDuration(durationInSeconds)}\n${t('minutes_entered')}: ${durationInMinutes}`);
       return true; // Zeit erfolgreich eingetragen
     } else {
       // Fallback: Benutzer manuell informieren
-      const message = `Zeiterfassung beendet!\n\nTicket: #${this.ticketId}\nDauer: ${this.formatDuration(durationInSeconds)}\nMinuten: ${durationInMinutes}\n\nBitte tragen Sie die Zeit manuell in das Zeiterfassungsfeld ein.`;
+      const message = `${t('tracking_ended')}\n\n${t('ticket_id')}: #${this.ticketId}\n${t('duration')}: ${this.formatDuration(durationInSeconds)}\n${t('min')}: ${durationInMinutes}\n\n${t('manual_entry_message')}`;
 
       // Versuchen, eine Notification zu zeigen oder Alert zu verwenden
       if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification('Zammad Timetracking', {
+        new Notification(t('extension_title'), {
           body: message,
           icon: '/favicon.ico'
         });
