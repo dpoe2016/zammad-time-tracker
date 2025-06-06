@@ -5,6 +5,7 @@ class ZammadTimetracker {
     this.isTracking = false;
     this.startTime = null;
     this.ticketId = null;
+    this.apiInitialized = false;
 
     this.init();
   }
@@ -12,10 +13,42 @@ class ZammadTimetracker {
   init() {
     // Wait until Zammad is loaded
     this.waitForZammad(() => {
-      this.loadTrackingState();
+      // Initialize API
+      this.initializeApi().then(() => {
+        // Load tracking state after API is initialized
+        this.loadTrackingState();
+      }).catch(error => {
+        console.error('Error initializing API:', error);
+        // Still load tracking state even if API initialization fails
+        this.loadTrackingState();
+      });
+
       // Message listener for popup communication
       this.setupMessageListener();
     });
+  }
+
+  async initializeApi() {
+    try {
+      // Check if API settings are available
+      const result = await chrome.storage.local.get(['zammadApiSettings']);
+      const apiSettings = result.zammadApiSettings || {};
+
+      if (apiSettings.baseUrl && apiSettings.token) {
+        console.log('Initializing Zammad API with saved settings');
+        if (window.zammadApi) {
+          window.zammadApi.init(apiSettings.baseUrl, apiSettings.token);
+          this.apiInitialized = true;
+          console.log('Zammad API initialized successfully');
+        } else {
+          console.error('Zammad API not available');
+        }
+      } else {
+        console.log('No API settings found, API not initialized');
+      }
+    } catch (error) {
+      console.error('Error initializing API:', error);
+    }
   }
 
   waitForZammad(callback) {
@@ -65,10 +98,46 @@ class ZammadTimetracker {
     return isZammad;
   }
 
-  getCurrentTicketId() {
-    // Try different methods for ticket ID extraction
+  async getCurrentTicketId() {
+    // First try to extract from URL for immediate response
+    // This is kept for backward compatibility and quick response
+    const urlTicketId = this.extractTicketIdFromUrl();
 
-    // 1. Extract from URL
+    // If API is initialized, try to get the current ticket ID from the API
+    if (this.apiInitialized && window.zammadApi && window.zammadApi.isInitialized()) {
+      try {
+        console.log('Trying to get ticket ID from API using URL-extracted ID as reference:', urlTicketId);
+
+        // If we have a URL ticket ID, we can use it to get the full ticket data
+        if (urlTicketId) {
+          const ticketData = await window.zammadApi.getTicket(urlTicketId);
+          if (ticketData && ticketData.id) {
+            console.log(`Ticket ID confirmed via API: ${ticketData.id}`);
+            return ticketData.id.toString();
+          }
+        }
+
+        // If we couldn't get the ticket ID from the API using the URL ID,
+        // we'll fall back to DOM extraction
+        console.log('Could not get ticket ID from API, falling back to DOM extraction');
+      } catch (error) {
+        console.error('Error getting ticket ID from API:', error);
+      }
+    } else {
+      console.log('API not initialized, using DOM extraction for ticket ID');
+    }
+
+    // If we already have a URL ticket ID, return it
+    if (urlTicketId) {
+      return urlTicketId;
+    }
+
+    // Fallback to DOM extraction
+    return this.extractTicketIdFromDom();
+  }
+
+  extractTicketIdFromUrl() {
+    // Extract ticket ID from URL
     const urlPatterns = [
       /\/ticket\/zoom\/(\d+)/,
       /\/tickets\/(\d+)/,
@@ -86,7 +155,11 @@ class ZammadTimetracker {
       }
     }
 
-    // 2. Extract from DOM elements
+    return null;
+  }
+
+  extractTicketIdFromDom() {
+    // Extract ticket ID from DOM elements
     const selectors = [
       '[data-ticket-id]',
       '.ticket-number',
@@ -125,7 +198,7 @@ class ZammadTimetracker {
       }
     }
 
-    // 3. Fallback: From title or meta tags
+    // Fallback: From title or meta tags
     const title = document.title;
     const titleMatch = title.match(/(?:ticket|#)\s*(\d+)/i);
     if (titleMatch && titleMatch[1]) {
@@ -133,7 +206,7 @@ class ZammadTimetracker {
       return titleMatch[1];
     }
 
-    // 4. For debug: Log current URL
+    // For debug: Log current URL
     console.log('No ticket ID found. Current URL:', window.location.href);
     console.log('Document title:', document.title);
 
@@ -186,36 +259,102 @@ class ZammadTimetracker {
           break;
         case 'getTicketInfo':
           // Handle getTicketInfo action from popup
-          const currentTicketId = this.getCurrentTicketId();
-          console.log('Ticket info requested:', currentTicketId);
+          // Use async/await pattern with Promise to ensure response is sent after API call
+          (async () => {
+            try {
+              // Get current ticket ID
+              const currentTicketId = await this.getCurrentTicketId();
+              console.log('Ticket info requested:', currentTicketId);
 
-          // Get ticket title from page if possible
-          let title = '';
-          try {
-            const titleElement = document.querySelector('.ticket-title, .ticketZoom-header .ticket-number + div, h1, h2');
-            if (titleElement) {
-              title = titleElement.textContent.trim();
+              if (!currentTicketId) {
+                console.log('No ticket ID found');
+                sendResponse({ 
+                  ticketId: null,
+                  title: '',
+                  timeSpent: 0
+                });
+                return;
+              }
+
+              // Try to get ticket info from API if initialized
+              if (this.apiInitialized && window.zammadApi && window.zammadApi.isInitialized()) {
+                try {
+                  console.log('Getting ticket info from API');
+                  const ticketData = await window.zammadApi.getTicket(currentTicketId);
+
+                  if (ticketData) {
+                    console.log('Ticket data received from API:', ticketData);
+
+                    // Get time entries from API
+                    let timeSpent = 0;
+                    try {
+                      const timeEntries = await window.zammadApi.getTimeEntries(currentTicketId);
+                      console.log('Time entries received from API:', timeEntries);
+
+                      if (timeEntries && Array.isArray(timeEntries)) {
+                        // Calculate total time spent
+                        timeSpent = timeEntries.reduce((total, entry) => {
+                          return total + (entry.time_unit || 0);
+                        }, 0);
+                        console.log('Total time from API:', timeSpent, 'min');
+                      }
+                    } catch (timeError) {
+                      console.error('Error getting time entries from API:', timeError);
+                      // Continue with ticket info even if time entries fail
+                    }
+
+                    sendResponse({ 
+                      ticketId: currentTicketId,
+                      title: ticketData.title || '',
+                      timeSpent: timeSpent
+                    });
+                    return;
+                  }
+                } catch (apiError) {
+                  console.error('Error getting ticket info from API:', apiError);
+                  // Fall back to DOM extraction
+                }
+              }
+
+              // Fallback: Get ticket title from page if possible
+              console.log('Falling back to DOM extraction for ticket info');
+              let title = '';
+              try {
+                const titleElement = document.querySelector('.ticket-title, .ticketZoom-header .ticket-number + div, h1, h2');
+                if (titleElement) {
+                  title = titleElement.textContent.trim();
+                }
+              } catch (e) {
+                console.error('Error extracting title:', e);
+              }
+
+              // Get time spent if available
+              let timeSpent = 0;
+              try {
+                const timeField = document.querySelector('input[name="time_unit"], input[id*="time"], .time-accounting input');
+                if (timeField && timeField.value) {
+                  timeSpent = parseFloat(timeField.value) || 0;
+                }
+              } catch (e) {
+                console.error('Error extracting time:', e);
+              }
+
+              sendResponse({ 
+                ticketId: currentTicketId,
+                title: title,
+                timeSpent: timeSpent
+              });
+            } catch (error) {
+              console.error('Error in getTicketInfo:', error);
+              sendResponse({ 
+                ticketId: null,
+                title: '',
+                timeSpent: 0,
+                error: error.message
+              });
             }
-          } catch (e) {
-            console.error('Error extracting title:', e);
-          }
-
-          // Get time spent if available
-          let timeSpent = 0;
-          try {
-            const timeField = document.querySelector('input[name="time_unit"], input[id*="time"], .time-accounting input');
-            if (timeField && timeField.value) {
-              timeSpent = parseFloat(timeField.value) || 0;
-            }
-          } catch (e) {
-            console.error('Error extracting time:', e);
-          }
-
-          sendResponse({ 
-            ticketId: currentTicketId,
-            title: title,
-            timeSpent: timeSpent
-          });
+          })();
+          return true; // Indicate we'll send response asynchronously
           break;
         case 'submitTime':
           // Handle submitTime action from popup
@@ -223,6 +362,11 @@ class ZammadTimetracker {
 
           // Use async/await pattern with Promise to ensure response is sent after time entry is submitted
           if (request.duration > 0) {
+            // If a specific ticket ID is provided, use it
+            if (request.ticketId) {
+              this.ticketId = request.ticketId;
+            }
+
             // Convert minutes to seconds for submitTimeEntry
             this.submitTimeEntry(request.duration * 60).then(success => {
               console.log('Time entry submission result:', success);
@@ -256,33 +400,64 @@ class ZammadTimetracker {
     }
   }
 
-  startTracking() {
-    this.ticketId = this.getCurrentTicketId();
+  async startTracking() {
+    try {
+      // Get ticket ID using the API if possible
+      this.ticketId = await this.getCurrentTicketId();
 
-    if (!this.ticketId) {
-      // Message to background script for notification
+      if (!this.ticketId) {
+        // Message to background script for notification
+        chrome.runtime.sendMessage({
+          action: 'showNotification',
+          title: 'Error',
+          message: t('no_ticket_id')
+        });
+        return false;
+      }
+
+      this.isTracking = true;
+      this.startTime = new Date();
+
+      // If API is initialized, try to get additional ticket info
+      let ticketTitle = '';
+      if (this.apiInitialized && window.zammadApi && window.zammadApi.isInitialized()) {
+        try {
+          console.log('Getting ticket info from API for tracking start');
+          const ticketData = await window.zammadApi.getTicket(this.ticketId);
+          if (ticketData && ticketData.title) {
+            ticketTitle = ticketData.title;
+            console.log('Got ticket title from API:', ticketTitle);
+          }
+        } catch (error) {
+          console.error('Error getting ticket info from API:', error);
+          // Continue without ticket title
+        }
+      }
+
+      // Save status with additional info if available
+      this.saveTrackingState(ticketTitle);
+
+      // Notify background script
+      chrome.runtime.sendMessage({
+        action: 'trackingStarted',
+        data: { 
+          ticketId: this.ticketId, 
+          startTime: this.startTime.toISOString(),
+          title: ticketTitle
+        }
+      });
+
+      console.log(`Time tracking started for ticket #${this.ticketId}${ticketTitle ? ` (${ticketTitle})` : ''}`);
+      return true;
+    } catch (error) {
+      console.error('Error starting tracking:', error);
       chrome.runtime.sendMessage({
         action: 'showNotification',
         title: 'Error',
-        message: t('no_ticket_id')
+        message: t('start_error') + ': ' + error.message
       });
       return false;
     }
-
-    this.isTracking = true;
-    this.startTime = new Date();
-
-    // Save status
-    this.saveTrackingState();
-
-    // Notify background script
-    chrome.runtime.sendMessage({
-      action: 'trackingStarted',
-      data: { ticketId: this.ticketId, startTime: this.startTime.toISOString() }
-    });
-
-    console.log(`Time tracking started for ticket #${this.ticketId}`);
-    return true;
   }
 
   async stopTracking() {
@@ -347,10 +522,37 @@ class ZammadTimetracker {
   }
 
   async submitTimeEntry(durationInSeconds) {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       try {
         const durationInMinutes = Math.round(durationInSeconds / 60);
-        console.log(`Submitting time entry: ${durationInMinutes} minutes`);
+        console.log(`Submitting time entry: ${durationInMinutes} minutes for ticket #${this.ticketId}`);
+
+        // First try to submit via API if initialized
+        if (this.apiInitialized && window.zammadApi && window.zammadApi.isInitialized()) {
+          try {
+            console.log('Submitting time entry via API');
+            const comment = 'Time tracked via Zammad Timetracking Extension';
+
+            const response = await window.zammadApi.submitTimeEntry(this.ticketId, durationInMinutes, comment);
+
+            if (response) {
+              console.log('API time entry successful:', response);
+
+              // Show success message
+              const message = `${t('tracking_ended')}\n${t('ticket_id')}: #${this.ticketId}\n${t('duration')}: ${this.formatDuration(durationInSeconds)}\n${t('minutes_entered')}: ${durationInMinutes}`;
+              this.showNotification(message);
+
+              resolve(true); // Time successfully entered via API
+              return;
+            }
+          } catch (apiError) {
+            console.error('API time entry failed:', apiError);
+            // Continue to fallback method
+          }
+        }
+
+        // Fallback to DOM method if API failed or not initialized
+        console.log('Falling back to DOM method for time entry');
 
         // Try to find and fill the Zammad Time Accounting field
         const timeFields = [
@@ -425,8 +627,8 @@ class ZammadTimetracker {
               formSubmitPromise.then(() => {
                 // Show alert and resolve with success after form submission
                 const message = `${t('tracking_ended')}\n${t('ticket_id')}: #${this.ticketId}\n${t('duration')}: ${this.formatDuration(durationInSeconds)}\n${t('minutes_entered')}: ${durationInMinutes}`;
-                alert(message);
-                console.log('Time entry submitted successfully');
+                this.showNotification(message);
+                console.log('Time entry submitted successfully via DOM');
                 resolve(true); // Time successfully entered
               }).catch((error) => {
                 console.error('Error during form submission:', error);
@@ -436,7 +638,7 @@ class ZammadTimetracker {
               // No submit button found, still consider it a success
               // Show alert and resolve with success
               const message = `${t('tracking_ended')}\n${t('ticket_id')}: #${this.ticketId}\n${t('duration')}: ${this.formatDuration(durationInSeconds)}\n${t('minutes_entered')}: ${durationInMinutes}`;
-              alert(message);
+              this.showNotification(message);
               console.log('Time entry submitted successfully (no submit button)');
               resolve(true); // Time successfully entered
             }
@@ -448,26 +650,7 @@ class ZammadTimetracker {
           console.log('No time field found, showing manual entry message');
           // Fallback: Manually inform user
           const message = `${t('tracking_ended')}\n\n${t('ticket_id')}: #${this.ticketId}\n${t('duration')}: ${this.formatDuration(durationInSeconds)}\n${t('min')}: ${durationInMinutes}\n\n${t('manual_entry_message')}`;
-
-          // Try to show a notification or use alert
-          try {
-            if ('Notification' in window && Notification.permission === 'granted') {
-              new Notification(t('extension_title'), {
-                body: message,
-                icon: '/favicon.ico'
-              });
-            } else {
-              alert(message);
-            }
-          } catch (notificationError) {
-            console.error('Error showing notification:', notificationError);
-            // Try alert as fallback
-            try {
-              alert(message);
-            } catch (alertError) {
-              console.error('Error showing alert:', alertError);
-            }
-          }
+          this.showNotification(message);
           console.log('Manual time entry required');
           resolve(false); // Time could not be automatically entered
         }
@@ -478,37 +661,91 @@ class ZammadTimetracker {
     });
   }
 
-  saveTrackingState() {
+  showNotification(message) {
+    // Try to show a notification or use alert
+    try {
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(t('extension_title'), {
+          body: message,
+          icon: '/favicon.ico'
+        });
+      } else {
+        alert(message);
+      }
+    } catch (notificationError) {
+      console.error('Error showing notification:', notificationError);
+      // Try alert as fallback
+      try {
+        alert(message);
+      } catch (alertError) {
+        console.error('Error showing alert:', alertError);
+      }
+    }
+  }
+
+  saveTrackingState(ticketTitle = '') {
     const state = {
       isTracking: this.isTracking,
       startTime: this.startTime ? this.startTime.toISOString() : null,
       ticketId: this.ticketId,
+      title: ticketTitle || '',
       url: window.location.href
     };
 
     chrome.storage.local.set({ zammadTrackingState: state });
+    console.log('Saved tracking state:', state);
   }
 
-  loadTrackingState() {
-    chrome.storage.local.get(['zammadTrackingState'], (result) => {
+  async loadTrackingState() {
+    try {
+      const result = await chrome.storage.local.get(['zammadTrackingState']);
       const state = result.zammadTrackingState;
+
+      console.log('Loading tracking state:', state);
 
       if (state && state.isTracking && state.startTime) {
         // Check if we're still in the same ticket
-        const currentTicketId = this.getCurrentTicketId();
+        const currentTicketId = await this.getCurrentTicketId();
+        console.log('Current ticket ID:', currentTicketId, 'Saved ticket ID:', state.ticketId);
 
         if (currentTicketId === state.ticketId) {
           this.isTracking = true;
           this.startTime = new Date(state.startTime);
           this.ticketId = state.ticketId;
 
-          console.log(`Time tracking continued for ticket #${this.ticketId}`);
+          // If we have a title in the state, log it
+          if (state.title) {
+            console.log(`Time tracking continued for ticket #${this.ticketId} (${state.title})`);
+          } else {
+            console.log(`Time tracking continued for ticket #${this.ticketId}`);
+
+            // If API is initialized but we don't have a title, try to get it
+            if (this.apiInitialized && window.zammadApi && window.zammadApi.isInitialized()) {
+              try {
+                console.log('Getting ticket info from API for restored tracking');
+                const ticketData = await window.zammadApi.getTicket(this.ticketId);
+                if (ticketData && ticketData.title) {
+                  // Save the state again with the title
+                  this.saveTrackingState(ticketData.title);
+                  console.log('Updated tracking state with title from API:', ticketData.title);
+                }
+              } catch (error) {
+                console.error('Error getting ticket info from API during state restore:', error);
+                // Continue without ticket title
+              }
+            }
+          }
         } else {
           // Different ticket - delete state
+          console.log('Different ticket detected, clearing tracking state');
           this.clearTrackingState();
         }
+      } else {
+        console.log('No active tracking state found');
       }
-    });
+    } catch (error) {
+      console.error('Error loading tracking state:', error);
+    }
   }
 
   clearTrackingState() {
