@@ -6,7 +6,7 @@
     <title>Zammad Timetracking</title>
     <style>
         body {
-            width: 300px;
+            width: 320px;
             padding: 16px;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             margin: 0;
@@ -65,7 +65,32 @@
         .ticket-info {
             font-size: 14px;
             color: #666;
+            margin-bottom: 12px;
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 4px;
+            border-left: 4px solid #007bff;
+        }
+        
+        .ticket-title {
+            font-weight: 600;
+            color: #333;
             margin-bottom: 8px;
+            font-size: 15px;
+            line-height: 1.3;
+            word-wrap: break-word;
+        }
+        
+        .ticket-details {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            color: #666;
+        }
+        
+        .time-spent {
+            color: #28a745;
+            font-weight: 500;
         }
         
         .timer-display {
@@ -228,7 +253,11 @@
         </div>
         
         <div class="ticket-info" id="ticketInfo" style="display: none;">
-            Ticket: <span id="ticketId">-</span>
+            <div class="ticket-title" id="ticketTitle">Ticket wird geladen...</div>
+            <div class="ticket-details">
+                <span>Ticket: <span id="ticketId">-</span></span>
+                <span class="time-spent">Erfasst: <span id="timeSpent">0</span> Min</span>
+            </div>
         </div>
         
         <div class="timer-display" id="timerDisplay">00:00:00</div>
@@ -268,7 +297,6 @@
     </div>
 
     <script>
-        // Zammad Timetracking Popup Script
         class TimetrackingPopup {
             constructor() {
                 console.log('Popup wird initialisiert...');
@@ -277,6 +305,8 @@
                 this.startTime = null;
                 this.timerInterval = null;
                 this.currentTicketId = null;
+                this.currentTicketTitle = null;
+                this.currentTimeSpent = 0;
                 
                 this.initElements();
                 this.initEventListeners();
@@ -289,7 +319,9 @@
                 this.statusDot = document.getElementById('statusDot');
                 this.statusText = document.getElementById('statusText');
                 this.ticketInfo = document.getElementById('ticketInfo');
+                this.ticketTitle = document.getElementById('ticketTitle');
                 this.ticketId = document.getElementById('ticketId');
+                this.timeSpent = document.getElementById('timeSpent');
                 this.timerDisplay = document.getElementById('timerDisplay');
                 this.startBtn = document.getElementById('startBtn');
                 this.stopBtn = document.getElementById('stopBtn');
@@ -358,16 +390,27 @@
                     
                     // Aktives Tracking wiederherstellen
                     if (state && state.isTracking && state.startTime) {
-                        this.debug('Aktives Tracking gefunden');
+                        this.debug('Aktives Tracking gefunden - stelle wieder her');
                         
                         this.isTracking = true;
                         this.startTime = new Date(state.startTime);
                         this.currentTicketId = state.ticketId;
+                        this.currentTicketTitle = state.title;
+                        this.currentTimeSpent = state.timeSpent || 0;
                         
                         this.updateUI();
                         this.startTimer();
                         
                         this.ticketId.textContent = '#' + state.ticketId;
+                        
+                        // Ticket-Informationen anzeigen
+                        if (state.title) {
+                            this.ticketTitle.textContent = state.title;
+                        } else {
+                            this.ticketTitle.textContent = 'Titel nicht verfügbar';
+                        }
+                        
+                        this.timeSpent.textContent = Math.round(state.timeSpent || 0);
                         this.ticketInfo.style.display = 'block';
                         this.infoText.textContent = 'Zeiterfassung läuft...';
                         this.infoText.className = 'info success';
@@ -393,7 +436,25 @@
                     this.debug('URL: ' + tab.url);
                     
                     if (this.isZammadUrl(tab.url)) {
-                        this.debug('Zammad-Seite erkannt');
+                        this.debug('Zammad-Seite erkannt - lade Ticket-Informationen');
+                        
+                        // Content Script injizieren
+                        try {
+                            await chrome.scripting.executeScript({
+                                target: { tabId: tab.id },
+                                files: ['content.js']
+                            });
+                            this.debug('Content Script injiziert');
+                        } catch (e) {
+                            this.debug('Content Script bereits vorhanden: ' + e.message);
+                        }
+                        
+                        // Kurz warten
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        
+                        // Ticket-Informationen laden
+                        await this.loadTicketInfo(tab);
+                        
                         this.infoText.textContent = 'Bereit für Zeiterfassung';
                         this.infoText.className = 'info';
                         this.startBtn.disabled = false;
@@ -407,6 +468,50 @@
                     this.debug('Fehler bei Seitenprüfung: ' + error.message);
                     this.infoText.textContent = 'Fehler beim Überprüfen der Seite';
                     this.infoText.className = 'info error';
+                }
+            }
+            
+            async loadTicketInfo(tab) {
+                try {
+                    this.debug('Lade Ticket-Informationen...');
+                    
+                    const response = await chrome.tabs.sendMessage(tab.id, { action: 'getTicketInfo' });
+                    
+                    if (response) {
+                        this.debug('Ticket-Info erhalten: ' + JSON.stringify(response));
+                        
+                        if (response.ticketId) {
+                            this.ticketId.textContent = '#' + response.ticketId;
+                            this.currentTicketId = response.ticketId;
+                        }
+                        
+                        if (response.title) {
+                            this.ticketTitle.textContent = response.title;
+                            this.currentTicketTitle = response.title;
+                            this.debug('Ticket-Titel: ' + response.title);
+                        } else {
+                            this.ticketTitle.textContent = 'Titel nicht verfügbar';
+                        }
+                        
+                        if (response.timeSpent !== undefined && response.timeSpent > 0) {
+                            this.timeSpent.textContent = Math.round(response.timeSpent);
+                            this.currentTimeSpent = response.timeSpent;
+                            this.debug('Bereits erfasste Zeit: ' + response.timeSpent + ' Min');
+                        } else {
+                            this.timeSpent.textContent = '0';
+                            this.currentTimeSpent = 0;
+                        }
+                        
+                        // Ticket-Info anzeigen wenn Daten vorhanden
+                        if (response.ticketId || response.title) {
+                            this.ticketInfo.style.display = 'block';
+                        }
+                        
+                    } else {
+                        this.debug('Keine Ticket-Info vom Content Script erhalten');
+                    }
+                } catch (error) {
+                    this.debug('Fehler beim Laden der Ticket-Info: ' + error.message);
                 }
             }
             
@@ -457,8 +562,8 @@
                     // Warten für Content Script
                     await new Promise(resolve => setTimeout(resolve, 2000));
                     
-                    // Ticket-ID versuchen zu finden
-                    let ticketId = await this.getTicketId(tab);
+                    // Ticket-ID und -Info versuchen zu finden
+                    let ticketId = await this.getTicketInfo(tab);
                     
                     if (!ticketId) {
                         this.debug('Keine Ticket-ID - verwende Fallback');
@@ -471,12 +576,14 @@
                     this.startTime = new Date();
                     this.currentTicketId = ticketId;
                     
-                    // Status speichern
+                    // Status speichern (mit erweiterten Informationen)
                     await chrome.storage.local.set({
                         zammadTrackingState: {
                             isTracking: true,
                             startTime: this.startTime.toISOString(),
                             ticketId: ticketId,
+                            title: this.currentTicketTitle || null,
+                            timeSpent: this.currentTimeSpent || 0,
                             url: tab.url
                         }
                     });
@@ -486,6 +593,20 @@
                     this.startTimer();
                     
                     this.ticketId.textContent = '#' + ticketId;
+                    
+                    // Ticket-Titel und bereits erfasste Zeit anzeigen
+                    if (this.currentTicketTitle) {
+                        this.ticketTitle.textContent = this.currentTicketTitle;
+                    } else {
+                        this.ticketTitle.textContent = 'Titel wird geladen...';
+                    }
+                    
+                    if (this.currentTimeSpent > 0) {
+                        this.timeSpent.textContent = Math.round(this.currentTimeSpent);
+                    } else {
+                        this.timeSpent.textContent = '0';
+                    }
+                    
                     this.ticketInfo.style.display = 'block';
                     this.infoText.textContent = 'Zeiterfassung gestartet!';
                     this.infoText.className = 'info success';
@@ -515,16 +636,21 @@
                 }
             }
             
-            async getTicketId(tab) {
+            async getTicketInfo(tab) {
                 // Mehrere Strategien versuchen
                 
-                // 1. Content Script fragen
+                // 1. Content Script fragen - erweiterte Ticket-Info
                 for (let attempt = 1; attempt <= 3; attempt++) {
                     try {
                         this.debug('Content Script Versuch ' + attempt);
-                        const response = await chrome.tabs.sendMessage(tab.id, { action: 'getTicketId' });
+                        const response = await chrome.tabs.sendMessage(tab.id, { action: 'getTicketInfo' });
                         if (response && response.ticketId) {
-                            this.debug('Ticket-ID von Content Script: ' + response.ticketId);
+                            this.debug('Ticket-Info von Content Script: ' + JSON.stringify(response));
+                            
+                            // Ticket-Informationen im Popup speichern
+                            this.currentTicketTitle = response.title;
+                            this.currentTimeSpent = response.timeSpent || 0;
+                            
                             return response.ticketId;
                         }
                     } catch (error) {
@@ -578,7 +704,7 @@
                     // Status zurücksetzen
                     this.isTracking = false;
                     const ticketId = this.currentTicketId;
-                    this.currentTicketId = null;
+                    const ticketTitle = this.currentTicketTitle;
                     
                     // UI aktualisieren
                     this.updateUI();
@@ -607,6 +733,7 @@
                             action: 'trackingStopped',
                             data: { 
                                 ticketId: ticketId, 
+                                title: ticketTitle,
                                 duration: durationText,
                                 success: autoSubmitSuccess
                             }
@@ -616,6 +743,11 @@
                     }
                     
                     this.debug('Zeiterfassung erfolgreich beendet');
+                    
+                    // Reset der lokalen Variablen
+                    this.currentTicketId = null;
+                    this.currentTicketTitle = null;
+                    this.currentTimeSpent = 0;
                     
                     // Popup schließen
                     setTimeout(() => window.close(), 3000);
@@ -709,11 +841,3 @@
         
         // Popup beim Laden initialisieren
         document.addEventListener('DOMContentLoaded', () => {
-            console.log('DOM geladen - initialisiere Popup');
-            new TimetrackingPopup();
-        });
-        
-        console.log('Popup Script geladen');
-    </script>
-</body>
-</html>
