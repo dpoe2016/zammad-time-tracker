@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zammad Timetracking</title>
+    <style>
+        body {
+            width: 300px;
+            padding: 16px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            background: #f8f9fa;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        .header h1 {
+            margin: 0 0 8px 0;
+            font-size: 18px;
+            color: #007bff;
+        }
+        
+        .status {
+            background: white;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+            border: 1px solid #dee2e6;
+        }
+        
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-dot.active {
+            background: #28a745;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-dot.inactive {
+            background: #6c757d;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .ticket-info {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+        
+        .timer-display {
+            font-size: 24px;
+            font-weight: bold;
+            text-align: center;
+            font-family: 'Courier New', monospace;
+            color: #333;
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 4px;
+            margin: 12px 0;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .btn {
+            flex: 1;
+            padding: 10px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #0056b3;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .info {
+            background: #e9ecef;
+            padding: 12px;
+            border-radius: 4px;
+            font-size: 13px;
+            color: #666;
+            text-align: center;
+        }
+        
+        .settings {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid #dee2e6;
+        }
+        
+        .settings-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+        }
+        
+        .setting-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+        
+        .switch {
+            position: relative;
+            width: 40px;
+            height: 20px;
+        }
+        
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 20px;
+        }
+        
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 2px;
+            bottom: 2px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .slider {
+            background-color: #007bff;
+        }
+        
+        input:checked + .slider:before {
+            transform: translateX(20px);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>⏱ Zammad Timetracking</h1>
+        <div>Zeiterfassung für Tickets</div>
+    </div>
+    
+    <div class="status">
+        <div class="status-indicator">
+            <div class="status-dot" id="statusDot"></div>
+            <span id="statusText">Nicht aktiv</span>
+        </div>
+        
+        <div class="ticket-info" id="ticketInfo" style="display: none;">
+            Ticket: <span id="ticketId">-</span>
+        </div>
+        
+        <div class="timer-display" id="timerDisplay">00:00:00</div>
+        
+        <div class="controls">
+            <button class="btn btn-primary" id="startBtn">Start</button>
+            <button class="btn btn-danger" id="stopBtn" disabled>Stop</button>
+        </div>
+    </div>
+    
+    <div class="info" id="infoText">
+        Öffnen Sie ein Zammad-Ticket, um die Zeiterfassung zu starten.
+    </div>
+    
+    <div class="settings">
+        <div class="settings-title">Einstellungen</div>
+        
+        <div class="setting-item">
+            <span>Benachrichtigungen</span>
+            <label class="switch">
+                <input type="checkbox" id="notificationsToggle" checked>
+                <span class="slider"></span>
+            </label>
+        </div>
+        
+        <div class="setting-item">
+            <span>Auto-Submit</span>
+            <label class="switch">
+                <input type="checkbox" id="autoSubmitToggle" checked>
+                <span class="slider"></span>
+            </label>
+        </div>
+    </div>
+
+    <script>
+        // Popup Script
+        class TimetrackingPopup {
+            constructor() {
+                this.isTracking = false;
+                this.startTime = null;
+                this.timerInterval = null;
+                
+                this.initElements();
+                this.initEventListeners();
+                this.loadState();
+            }
+            
+            initElements() {
+                this.statusDot = document.getElementById('statusDot');
+                this.statusText = document.getElementById('statusText');
+                this.ticketInfo = document.getElementById('ticketInfo');
+                this.ticketId = document.getElementById('ticketId');
+                this.timerDisplay = document.getElementById('timerDisplay');
+                this.startBtn = document.getElementById('startBtn');
+                this.stopBtn = document.getElementById('stopBtn');
+                this.infoText = document.getElementById('infoText');
+                this.notificationsToggle = document.getElementById('notificationsToggle');
+                this.autoSubmitToggle = document.getElementById('autoSubmitToggle');
+            }
+            
+            initEventListeners() {
+                this.startBtn.addEventListener('click', () => this.startTracking());
+                this.stopBtn.addEventListener('click', () => this.stopTracking());
+                
+                this.not

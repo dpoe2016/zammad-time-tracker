@@ -1,0 +1,7 @@
+<svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+  <rect width="48" height="48" rx="8" fill="#007bff"/>
+  <circle cx="24" cy="24" r="16" fill="none" stroke="white" stroke-width="3"/>
+  <path d="M24 12v12l8 6" stroke="white" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <circle cx="24" cy="24" r="2" fill="white"/>
+  <text x="24" y="40" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="6" font-weight="bold">TIME</text>
+</svg>

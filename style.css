@@ -1,0 +1,110 @@
+/* Styles für Zammad Timetracking Extension */
+
+.timetracker-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9999;
+  background: white;
+  border: 2px solid #007bff;
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  min-width: 200px;
+}
+
+.timetracker-btn {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.timetracker-btn:hover {
+  background: #0056b3;
+  transform: translateY(-1px);
+}
+
+.timetracker-btn.tracking-active {
+  background: #dc3545;
+  animation: pulse 2s infinite;
+}
+
+.timetracker-btn.tracking-active:hover {
+  background: #c82333;
+}
+
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); }
+  70% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+}
+
+.timetracker-display {
+  text-align: center;
+  font-size: 18px;
+  font-weight: bold;
+  color: #333;
+  font-family: 'Courier New', monospace;
+  background: #f8f9fa;
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid #dee2e6;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .timetracker-container {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    left: 10px;
+    width: auto;
+    min-width: auto;
+  }
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+  .timetracker-container {
+    background: #2d3748;
+    border-color: #4a5568;
+    color: white;
+  }
+  
+  .timetracker-display {
+    background: #1a202c;
+    color: #e2e8f0;
+    border-color: #4a5568;
+  }
+}
+
+/* Integration mit Zammad Themes */
+.content .timetracker-container {
+  position: relative;
+  top: auto;
+  right: auto;
+  margin-bottom: 20px;
+  float: right;
+}
+
+/* Zammad-spezifische Anpassungen */
+.ticketZoom .timetracker-container {
+  margin: 10px 0;
+}
+
+.sidebar .timetracker-container {
+  position: relative;
+  top: auto;
+  right: auto;
+  width: 100%;
+  margin-bottom: 15px;
+}
