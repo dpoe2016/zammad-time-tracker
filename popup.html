@@ -248,10 +248,44 @@
                 this.isTracking = false;
                 this.startTime = null;
                 this.timerInterval = null;
+                this.currentTicketId = null;
                 
                 this.initElements();
                 this.initEventListeners();
+                
+                // Debug-Element hinzufügen
+                this.createDebugElement();
+                
                 this.loadState();
+            }
+            
+            createDebugElement() {
+                // Debug Info Element erstellen falls nicht vorhanden
+                if (!document.getElementById('debugInfo')) {
+                    const debugDiv = document.createElement('div');
+                    debugDiv.id = 'debugInfo';
+                    debugDiv.style.cssText = `
+                        margin-top: 10px;
+                        padding: 8px;
+                        background: #fff3cd;
+                        border-radius: 4px;
+                        font-size: 11px;
+                        color: #856404;
+                        display: none;
+                        word-wrap: break-word;
+                    `;
+                    document.body.appendChild(debugDiv);
+                }
+                this.debugInfo = document.getElementById('debugInfo');
+                
+                // Debug-Modus bei Doppelklick auf Header aktivieren
+                document.querySelector('.header').addEventListener('dblclick', () => {
+                    const isVisible = this.debugInfo.style.display !== 'none';
+                    this.debugInfo.style.display = isVisible ? 'none' : 'block';
+                    if (!isVisible) {
+                        this.debug('Debug-Modus aktiviert');
+                    }
+                });
             }
             
             initElements() {

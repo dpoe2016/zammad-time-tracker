@@ -1,173 +1,182 @@
-// Background Script für Zammad Timetracking Extension - Service Worker Fix
+// Minimales Background Script für Zammad Timetracking Extension
+console.log('Zammad Timetracking Background Script geladen');
 
-console.log('Zammad Timetracking Background Script startet');
-
-// Globale Variablen
-let keepAliveInterval = null;
-
-// Service Worker aktiv halten
-function keepServiceWorkerAlive() {
-  if (keepAliveInterval) {
-    clearInterval(keepAliveInterval);
-  }
-  
-  keepAliveInterval = setInterval(function() {
-    chrome.runtime.getPlatformInfo(function() {
-      // Einfache Aktion um Service Worker aktiv zu halten
-      console.log('Service Worker ping');
-    });
-  }, 20000); // Alle 20 Sekunden
-}
-
-// Service Worker Lifecycle Events
-chrome.runtime.onStartup.addListener(function() {
-  console.log('Service Worker startet');
-  keepServiceWorkerAlive();
-});
-
+// Installation Event
 chrome.runtime.onInstalled.addListener(function(details) {
-  console.log('Service Worker installiert/aktualisiert');
-  keepServiceWorkerAlive();
+  console.log('Extension installiert/aktualisiert:', details.reason);
   
   if (details.reason === 'install') {
-    console.log('Zammad Timetracking Extension installiert');
-    showNotification('Zammad Timetracking', 'Extension erfolgreich installiert!');
-  }
-});
-
-// Sofort beim Laden aktivieren
-keepServiceWorkerAlive();
-
-// Tab-Updates überwachen für persistente Zeiterfassung
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.status === 'complete' && tab.url) {
-    // Prüfen ob es sich um eine Zammad-Seite handelt
-    if (isZammadUrl(tab.url)) {
-      // Content Script injizieren falls nötig
-      chrome.scripting.executeScript({
-        target: { tabId: tabId },
-        files: ['content.js']
-      }).catch(err => {
-        // Fehler ignorieren falls Script bereits injiziert
+    console.log('Erste Installation - zeige Willkommensnachricht');
+    
+    // Notification nur wenn möglich
+    if (chrome.notifications && chrome.notifications.create) {
+      chrome.notifications.create({
+        type: 'basic',
+        iconUrl: 'icons/icon48.png',
+        title: 'Zammad Timetracking',
+        message: 'Extension erfolgreich installiert!'
+      }, function(notificationId) {
+        if (chrome.runtime.lastError) {
+          console.log('Notification nicht möglich:', chrome.runtime.lastError.message);
+        }
       });
     }
   }
 });
 
-// Nachrichten von Content Script verarbeiten
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  switch (request.action) {
-    case 'startTracking':
-      handleStartTracking(request.data);
-      break;
-    case 'stopTracking':
-      handleStopTracking(request.data);
-      break;
-    case 'getTrackingState':
-      getTrackingState(sendResponse);
-      return true; // Async response
-    case 'saveTrackingState':
-      saveTrackingState(request.data);
-      break;
+// Message Handler - Hauptkommunikation
+chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
+  console.log('Nachricht empfangen:', request.action);
+  
+  try {
+    switch (request.action) {
+      case 'ping':
+        // Health Check
+        sendResponse({ 
+          status: 'alive', 
+          timestamp: Date.now(),
+          version: chrome.runtime.getManifest().version
+        });
+        break;
+        
+      case 'trackingStarted':
+        handleTrackingStarted(request.data);
+        sendResponse({ success: true });
+        break;
+        
+      case 'trackingStopped':
+        handleTrackingStopped(request.data);
+        sendResponse({ success: true });
+        break;
+        
+      case 'showNotification':
+        showNotification(request.title, request.message);
+        sendResponse({ success: true });
+        break;
+        
+      default:
+        console.log('Unbekannte Aktion:', request.action);
+        sendResponse({ error: 'Unknown action: ' + request.action });
+    }
+  } catch (error) {
+    console.error('Fehler in Message Handler:', error);
+    sendResponse({ error: error.message });
   }
+  
+  return true; // Asynchrone Antworten erlauben
 });
 
-function isZammadUrl(url) {
-  // Verschiedene Zammad-URL-Patterns erkennen
-  const zammadPatterns = [
-    /\/ticket\/zoom\/\d+/,
-    /\/tickets\//,
-    /zammad/i,
-    /#ticket/,
-    /\/agent\//
-  ];
+// Tracking Started Handler
+function handleTrackingStarted(data) {
+  console.log('Zeiterfassung gestartet für Ticket:', data.ticketId);
   
-  return zammadPatterns.some(pattern => pattern.test(url));
-}
-
-function handleStartTracking(data) {
-  console.log('Zeiterfassung gestartet:', data);
-  
-  // Badge auf Extension-Icon setzen
-  chrome.action.setBadgeText({
-    text: '⏱'
-  });
-  chrome.action.setBadgeBackgroundColor({
-    color: '#dc3545'
-  });
-  
-  // Optional: Notification
-  chrome.notifications.create({
-    type: 'basic',
-    iconUrl: 'icons/icon48.png',
-    title: 'Zeiterfassung gestartet',
-    message: `Ticket #${data.ticketId} - Zeiterfassung läuft`
-  });
-}
-
-function handleStopTracking(data) {
-  console.log('Zeiterfassung beendet:', data);
-  
-  // Badge entfernen
-  chrome.action.setBadgeText({
-    text: ''
-  });
+  // Badge setzen
+  if (chrome.action && chrome.action.setBadgeText) {
+    chrome.action.setBadgeText({ text: '⏱' });
+    chrome.action.setBadgeBackgroundColor({ color: '#dc3545' });
+  }
   
   // Notification
-  chrome.notifications.create({
-    type: 'basic',
-    iconUrl: 'icons/icon48.png',
-    title: 'Zeiterfassung beendet',
-    message: `Ticket #${data.ticketId} - Dauer: ${data.duration}`
-  });
+  showNotification(
+    'Zeiterfassung gestartet', 
+    'Ticket #' + (data.ticketId || 'unbekannt') + ' - Timer läuft'
+  );
 }
 
-function getTrackingState(sendResponse) {
-  chrome.storage.local.get(['zammadTrackingState'], (result) => {
-    sendResponse(result.zammadTrackingState || null);
-  });
-}
-
-function saveTrackingState(state) {
-  chrome.storage.local.set({ zammadTrackingState: state });
-}
-
-// Cleanup bei Browser-Shutdown
-chrome.runtime.onSuspend.addListener(() => {
-  console.log('Extension wird beendet - Tracking-Status beibehalten');
-});
-
-// Context Menu für erweiterte Funktionen
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.contextMenus.create({
-    id: 'zammad-timetracker',
-    title: 'Zammad Zeiterfassung',
-    contexts: ['page'],
-    documentUrlPatterns: ['*://*/*']
-  });
+// Tracking Stopped Handler
+function handleTrackingStopped(data) {
+  console.log('Zeiterfassung beendet für Ticket:', data.ticketId);
   
-  chrome.contextMenus.create({
-    id: 'start-tracking',
-    parentId: 'zammad-timetracker',
-    title: 'Zeiterfassung starten',
-    contexts: ['page']
-  });
+  // Badge entfernen
+  if (chrome.action && chrome.action.setBadgeText) {
+    chrome.action.setBadgeText({ text: '' });
+  }
   
-  chrome.contextMenus.create({
-    id: 'stop-tracking',
-    parentId: 'zammad-timetracker',
-    title: 'Zeiterfassung stoppen',
-    contexts: ['page']
-  });
-});
+  // Notification mit Status
+  var message = 'Ticket #' + (data.ticketId || 'unbekannt') + 
+                ' - Dauer: ' + (data.duration || '?');
+  
+  if (data.success) {
+    message += '\nZeit automatisch eingetragen.';
+  } else {
+    message += '\nBitte Zeit manuell eintragen.';
+  }
+  
+  showNotification('Zeiterfassung beendet', message);
+}
 
-chrome.contextMenus.onClicked.addListener((info, tab) => {
-  switch (info.menuItemId) {
-    case 'start-tracking':
-    case 'stop-tracking':
-      chrome.tabs.sendMessage(tab.id, {
-        action: 'toggleTracking'
+// Notification Helper
+function showNotification(title, message) {
+  if (!chrome.notifications || !chrome.notifications.create) {
+    console.log('Notifications nicht verfügbar');
+    return;
+  }
+  
+  try {
+    chrome.notifications.create({
+      type: 'basic',
+      iconUrl: 'icons/icon48.png',
+      title: title,
+      message: message,
+      requireInteraction: false
+    }, function(notificationId) {
+      if (chrome.runtime.lastError) {
+        console.log('Notification Fehler:', chrome.runtime.lastError.message);
+      } else {
+        console.log('Notification erstellt:', notificationId);
+      }
+    });
+  } catch (error) {
+    console.error('Fehler beim Erstellen der Notification:', error);
+  }
+}
+
+// Tab Updates für Content Script Injection
+chrome.tabs.onUpdated.addListener(function(tabId, changeInfo, tab) {
+  // Nur bei vollständig geladenen Seiten
+  if (changeInfo.status !== 'complete' || !tab.url) {
+    return;
+  }
+  
+  // Zammad-URLs erkennen
+  if (isZammadUrl(tab.url)) {
+    console.log('Zammad-Seite erkannt:', tab.url);
+    
+    // Content Script injizieren (mit Error Handling)
+    if (chrome.scripting && chrome.scripting.executeScript) {
+      chrome.scripting.executeScript({
+        target: { tabId: tabId },
+        files: ['content.js']
+      }).then(function() {
+        console.log('Content Script erfolgreich injiziert');
+      }).catch(function(error) {
+        console.log('Content Script Injection Fehler (normal wenn bereits vorhanden):', error.message);
       });
-      break;
+    }
   }
 });
+
+// Zammad URL Detection
+function isZammadUrl(url) {
+  if (!url || typeof url !== 'string') {
+    return false;
+  }
+  
+  var patterns = [
+    /zammad/i,
+    /\/ticket/i,
+    /\/agent/i,
+    /ticketZoom/i
+  ];
+  
+  return patterns.some(function(pattern) {
+    return pattern.test(url);
+  });
+}
+
+// Startup Event
+chrome.runtime.onStartup.addListener(function() {
+  console.log('Browser gestartet - Extension reaktiviert');
+});
+
+console.log('Background Script vollständig geladen');
