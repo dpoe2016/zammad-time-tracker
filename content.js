@@ -305,7 +305,7 @@ class ZammadTimetracker {
                       if (timeEntries && Array.isArray(timeEntries)) {
                         // Calculate total time spent
                         timeSpent = timeEntries.reduce((total, entry) => {
-                          return total + (entry.time_unit || 0);
+                          return total + (parseFloat(entry.time_unit) || 0);
                         }, 0);
                         console.log('Total time from API:', timeSpent, 'min');
                       }
