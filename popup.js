@@ -317,7 +317,7 @@ class TimetrackingPopup {
                         if (timeEntries && Array.isArray(timeEntries)) {
                             // Calculate total time spent
                             const totalTimeSpent = timeEntries.reduce((total, entry) => {
-                                return total + (entry.time_unit || 0);
+                                return total + (parseFloat(entry.time_unit) || 0);
                             }, 0);
 
                             this.timeSpent.textContent = Math.round(totalTimeSpent);
