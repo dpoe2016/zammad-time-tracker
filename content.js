@@ -150,7 +150,7 @@ class ZammadTimetracker {
   extractTicketIdFromUrl() {
     // Extract ticket ID from URL
     const urlPatterns = [
-      /\/ticket\/zoom\/(\d+)/,
+      /\/#ticket\/zoom\/(\d+)/,
       /\/tickets\/(\d+)/,
       /\/helpdesk\/ticket\/(\d+)/,
       /\/ticket\/(\d+)/,
@@ -802,80 +802,3 @@ if (!window.zammadTrackerInstance) {
   console.log('Zammad Timetracker already initialized');
 }
 
-// Define a minimal ZammadAPI class if the full one is not available
-class ZammadAPI {
-  constructor() {
-    this.baseUrl = null;
-    this.token = null;
-    this.initialized = false;
-  }
-
-  init(baseUrl, token) {
-    if (!baseUrl) {
-      throw new Error('Base URL is required');
-    }
-
-    this.baseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
-    this.token = token;
-    this.initialized = true;
-    console.log('Local Zammad API initialized with base URL:', this.baseUrl);
-    return true;
-  }
-
-  isInitialized() {
-    return this.initialized && this.baseUrl && this.token;
-  }
-
-  async request(endpoint, method = 'GET', data = null) {
-    if (!this.isInitialized()) {
-      throw new Error('API not initialized. Call init() first.');
-    }
-
-    if (!endpoint.startsWith('/')) {
-      endpoint = '/' + endpoint;
-    }
-
-    const url = `${this.baseUrl}${endpoint}`;
-
-    const options = {
-      method: method,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Token token=${this.token}`
-      }
-    };
-
-    if (data && (method === 'POST' || method === 'PUT')) {
-      options.body = JSON.stringify(data);
-    }
-
-    const response = await fetch(url, options);
-
-    if (!response.ok) {
-      throw new Error(`API request failed: ${response.status} ${response.statusText}`);
-    }
-
-    return await response.json();
-  }
-
-  async getTicket(ticketId) {
-    return this.request(`/api/v1/tickets/${ticketId}`);
-  }
-
-  async getTimeEntries(ticketId) {
-    return this.request(`/api/v1/tickets/${ticketId}/time_accounting`);
-  }
-
-  async submitTimeEntry(ticketId, timeSpent, comment = '') {
-    const data = {
-      time_unit: timeSpent,
-      ticket_id: ticketId
-    };
-
-    if (comment) {
-      data.comment = comment;
-    }
-
-    return this.request('/api/v1/tickets/'+ ticketId + '/time_accountings/1', 'POST', data);
-  }
-}

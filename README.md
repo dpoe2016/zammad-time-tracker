@@ -29,7 +29,7 @@ zammad-time-tracker/
 ├── manifest.json          # Extension-Konfiguration
 ├── background.js          # Background Service Worker
 ├── content.js             # Content Script für Zammad-Integration
-├── zammad-api.js          # API-Service für direkte Zammad-Anbindung
+├── api.js          # API-Service für direkte Zammad-Anbindung
 ├── popup.html             # Popup-Interface
 ├── popup.js               # Popup-Logik und Zeiterfassung
 ├── translations.js        # Mehrsprachige Übersetzungen

@@ -7,7 +7,8 @@
     "activeTab",
     "storage",
     "scripting",
-    "notifications"
+    "notifications",
+    "cookies"
   ],
   "host_permissions": [
     "http://*/*",
@@ -16,7 +17,7 @@
   "content_scripts": [
     {
       "matches": ["*://*/*"],
-      "js": ["translations.js", "zammad-api.js", "content.js"],
+      "js": ["translations.js", "api.js", "content.js"],
       "css": ["style.css"]
     }
   ],
