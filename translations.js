@@ -181,6 +181,44 @@ const translations = {
     [LANGUAGES.EN]: 'Settings saved'
   },
 
+  // API Settings
+  'api_settings': {
+    [LANGUAGES.DE]: 'API Einstellungen',
+    [LANGUAGES.EN]: 'API Settings'
+  },
+  'api_settings_title': {
+    [LANGUAGES.DE]: 'Zammad API Einstellungen',
+    [LANGUAGES.EN]: 'Zammad API Settings'
+  },
+  'api_base_url': {
+    [LANGUAGES.DE]: 'Base URL',
+    [LANGUAGES.EN]: 'Base URL'
+  },
+  'api_token': {
+    [LANGUAGES.DE]: 'API Token',
+    [LANGUAGES.EN]: 'API Token'
+  },
+  'api_edit': {
+    [LANGUAGES.DE]: 'Bearbeiten',
+    [LANGUAGES.EN]: 'Edit'
+  },
+  'api_save': {
+    [LANGUAGES.DE]: 'Speichern',
+    [LANGUAGES.EN]: 'Save'
+  },
+  'api_cancel': {
+    [LANGUAGES.DE]: 'Abbrechen',
+    [LANGUAGES.EN]: 'Cancel'
+  },
+  'api_saved': {
+    [LANGUAGES.DE]: 'API Einstellungen gespeichert',
+    [LANGUAGES.EN]: 'API settings saved'
+  },
+  'api_error': {
+    [LANGUAGES.DE]: 'API Fehler',
+    [LANGUAGES.EN]: 'API Error'
+  },
+
   // Content script
   'no_ticket_id': {
     [LANGUAGES.DE]: 'Keine Ticket-ID gefunden. Bitte stellen Sie sicher, dass Sie sich in einem Ticket befinden.',
@@ -235,6 +273,28 @@ const translations = {
   'manual_time_entry': {
     [LANGUAGES.DE]: 'Bitte Zeit manuell eintragen.',
     [LANGUAGES.EN]: 'Please enter time manually.'
+  },
+
+  // New API status messages
+  'api_not_initialized': {
+    [LANGUAGES.DE]: 'API nicht initialisiert. Bitte API-Einstellungen konfigurieren.',
+    [LANGUAGES.EN]: 'API not initialized. Please configure API settings.'
+  },
+  'loading_ticket_info': {
+    [LANGUAGES.DE]: 'Lade Ticket-Informationen...',
+    [LANGUAGES.EN]: 'Loading ticket information...'
+  },
+  'ticket_loaded': {
+    [LANGUAGES.DE]: 'Ticket erfolgreich geladen',
+    [LANGUAGES.EN]: 'Ticket successfully loaded'
+  },
+  'no_ticket_data': {
+    [LANGUAGES.DE]: 'Keine Ticket-Daten erhalten',
+    [LANGUAGES.EN]: 'No ticket data received'
+  },
+  'ticket_load_error': {
+    [LANGUAGES.DE]: 'Fehler beim Laden des Tickets',
+    [LANGUAGES.EN]: 'Error loading ticket'
   }
 };
 
