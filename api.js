@@ -90,18 +90,27 @@ class ZammadAPI {
     try {
       console.log('Fetching CSRF token...');
 
-      // Try to get CSRF token from cookies
-      const cookies = await chrome.cookies.getAll({ url: this.baseUrl });
-      const csrfCookie = cookies.find(cookie => 
-        cookie.name === '_csrf_token' || 
-        cookie.name === 'CSRF-Token' || 
-        cookie.name.toLowerCase().includes('csrf')
-      );
+      // Try to get CSRF token from cookies if chrome.cookies API is available
+      if (typeof chrome !== 'undefined' && chrome.cookies && chrome.cookies.getAll) {
+        try {
+          const cookies = await chrome.cookies.getAll({ url: this.baseUrl });
+          const csrfCookie = cookies.find(cookie => 
+            cookie.name === '_csrf_token' || 
+            cookie.name === 'CSRF-Token' || 
+            cookie.name.toLowerCase().includes('csrf')
+          );
 
-      if (csrfCookie) {
-        this.csrfToken = csrfCookie.value;
-        console.log('CSRF token found in cookies:', this.csrfToken);
-        return this.csrfToken;
+          if (csrfCookie) {
+            this.csrfToken = csrfCookie.value;
+            console.log('CSRF token found in cookies:', this.csrfToken);
+            return this.csrfToken;
+          }
+        } catch (cookieError) {
+          console.warn('Error accessing cookies API:', cookieError);
+          // Continue to alternative method
+        }
+      } else {
+        console.log('chrome.cookies API not available, skipping cookie method');
       }
 
       // If not found in cookies, try to fetch it from the server
