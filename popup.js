@@ -111,7 +111,8 @@ class TimetrackingPopup {
 
         // Debug-Modus Toggle
         document.querySelector('.header').addEventListener('dblclick', () => {
-            const isVisible = this.debugInfo.style.display !== 'none';
+            const computedStyle = window.getComputedStyle(this.debugInfo);
+            const isVisible = computedStyle.display !== 'none';
             this.debugInfo.style.display = isVisible ? 'none' : 'block';
             if (!isVisible) {
                 this.debug('Debug mode activated');
