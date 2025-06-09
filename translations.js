@@ -202,6 +202,10 @@ const translations = {
     [LANGUAGES.DE]: 'Bearbeiten',
     [LANGUAGES.EN]: 'Edit'
   },
+  'api_options': {
+    [LANGUAGES.DE]: 'Optionen',
+    [LANGUAGES.EN]: 'Options'
+  },
   'api_save': {
     [LANGUAGES.DE]: 'Speichern',
     [LANGUAGES.EN]: 'Save'
@@ -275,10 +279,20 @@ const translations = {
     [LANGUAGES.EN]: 'Please enter time manually.'
   },
 
+  // Options page
+  'options_title': {
+    [LANGUAGES.DE]: 'Optionen',
+    [LANGUAGES.EN]: 'Options'
+  },
+
   // New API status messages
   'api_not_initialized': {
     [LANGUAGES.DE]: 'API nicht initialisiert. Bitte API-Einstellungen konfigurieren.',
     [LANGUAGES.EN]: 'API not initialized. Please configure API settings.'
+  },
+  'api_not_configured': {
+    [LANGUAGES.DE]: 'API nicht konfiguriert. Bitte in den Optionen einrichten.',
+    [LANGUAGES.EN]: 'API not configured. Please set up in options.'
   },
   'loading_ticket_info': {
     [LANGUAGES.DE]: 'Lade Ticket-Informationen...',

@@ -19,12 +19,7 @@ function updateUILanguage() {
 
     // API Settings
     document.getElementById('apiSettingsLabel').textContent = t('api_settings');
-    document.getElementById('apiSettingsBtn').textContent = t('api_edit');
-    document.getElementById('apiSettingsTitle').textContent = t('api_settings_title');
-    document.getElementById('apiBaseUrlLabel').textContent = t('api_base_url');
-    document.getElementById('apiTokenLabel').textContent = t('api_token');
-    document.getElementById('apiSaveBtn').textContent = t('api_save');
-    document.getElementById('apiCancelBtn').textContent = t('api_cancel');
+    document.getElementById('apiSettingsBtn').textContent = t('api_options');
 
     // Set language selector to current language
     document.getElementById('languageSelect').value = getCurrentLanguage();
@@ -71,11 +66,6 @@ class TimetrackingPopup {
 
         // API Settings elements
         this.apiSettingsBtn = document.getElementById('apiSettingsBtn');
-        this.apiSettings = document.getElementById('apiSettings');
-        this.apiBaseUrl = document.getElementById('apiBaseUrl');
-        this.apiToken = document.getElementById('apiToken');
-        this.apiSaveBtn = document.getElementById('apiSaveBtn');
-        this.apiCancelBtn = document.getElementById('apiCancelBtn');
 
         console.log('UI elements initialized');
     }
@@ -113,20 +103,10 @@ class TimetrackingPopup {
             this.saveSettings();
         });
 
-        // API Settings
+        // API Settings - Open options page
         this.apiSettingsBtn.addEventListener('click', () => {
-            console.log('API Settings button clicked');
-            this.showApiSettings();
-        });
-
-        this.apiSaveBtn.addEventListener('click', () => {
-            console.log('API Save button clicked');
-            this.saveApiSettings();
-        });
-
-        this.apiCancelBtn.addEventListener('click', () => {
-            console.log('API Cancel button clicked');
-            this.hideApiSettings();
+            console.log('API Settings button clicked - opening options page');
+            chrome.runtime.openOptionsPage();
         });
 
         // Debug-Modus Toggle
@@ -228,7 +208,6 @@ class TimetrackingPopup {
                     const baseUrl = zammadApi.extractBaseUrlFromTabUrl(tab.url);
                     if (baseUrl) {
                         this.debug('Extracted base URL from tab: ' + baseUrl);
-                        this.apiBaseUrl.value = baseUrl;
 
                         // Check if we have a token saved
                         const settings = await zammadApi.getSettings();
@@ -238,6 +217,10 @@ class TimetrackingPopup {
                             await zammadApi.saveSettings(settings);
                             zammadApi.init(baseUrl, settings.token);
                             this.debug('API initialized with extracted base URL and saved token');
+                        } else if (!settings.token) {
+                            this.debug('No API token found - please configure in options page');
+                            this.infoText.textContent = t('api_not_configured');
+                            this.infoText.className = 'info warning';
                         }
                     }
                 }
@@ -783,89 +766,7 @@ class TimetrackingPopup {
         this.debug(t('settings_saved'));
     }
 
-    // API Settings methods
-    showApiSettings() {
-        this.debug('Showing API settings');
-        this.loadApiSettings();
-        this.apiSettings.style.display = 'block';
-    }
-
-    hideApiSettings() {
-        this.debug('Hiding API settings');
-        this.apiSettings.style.display = 'none';
-    }
-
-    async loadApiSettings() {
-        try {
-            this.debug('Loading API settings');
-            const settings = await zammadApi.getSettings();
-
-            if (settings.baseUrl) {
-                this.apiBaseUrl.value = settings.baseUrl;
-            } else {
-                // Try to extract base URL from current tab
-                const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-                if (tab && tab.url) {
-                    const baseUrl = zammadApi.extractBaseUrlFromTabUrl(tab.url);
-                    if (baseUrl) {
-                        this.apiBaseUrl.value = baseUrl;
-                    }
-                }
-            }
-
-            if (settings.token) {
-                this.apiToken.value = settings.token;
-            }
-
-            // Initialize API if settings are available
-            if (settings.baseUrl && settings.token) {
-                zammadApi.init(settings.baseUrl, settings.token);
-            }
-        } catch (error) {
-            this.debug('Error loading API settings: ' + error.message);
-        }
-    }
-
-    async saveApiSettings() {
-        try {
-            const baseUrl = this.apiBaseUrl.value.trim();
-            const token = this.apiToken.value.trim();
-
-            if (!baseUrl) {
-                this.debug('Base URL is required');
-                this.infoText.textContent = 'Base URL is required';
-                this.infoText.className = 'info error';
-                return;
-            }
-
-            if (!token) {
-                this.debug('API Token is required');
-                this.infoText.textContent = 'API Token is required';
-                this.infoText.className = 'info error';
-                return;
-            }
-
-            const settings = { baseUrl, token };
-            await zammadApi.saveSettings(settings);
-
-            // Initialize API with new settings
-            zammadApi.init(baseUrl, token);
-
-            this.hideApiSettings();
-            this.debug(t('api_saved'));
-            this.infoText.textContent = t('api_saved');
-            this.infoText.className = 'info success';
-
-            // Refresh ticket info if possible
-            if (this.currentTicketId) {
-                this.loadTicketInfoFromApi(this.currentTicketId);
-            }
-        } catch (error) {
-            this.debug('Error saving API settings: ' + error.message);
-            this.infoText.textContent = t('api_error') + ': ' + error.message;
-            this.infoText.className = 'info error';
-        }
-    }
+    // API Settings are now managed in the options page
 }
 
 // Popup beim Laden initialisieren
