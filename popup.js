@@ -676,14 +676,14 @@ class TimetrackingPopup {
             if (zammadApi.isInitialized()) {
                 try {
                     this.debug('Submitting time via API...');
-                    const comment = 'Time tracked via Zammad Timetracking Extension';
-
-                    const response = await zammadApi.submitTimeEntry(ticketId, durationMinutes, comment);
-
-                    if (response) {
-                        this.debug('API time entry successful: ' + JSON.stringify(response));
-                        return true;
-                    }
+                    // const comment = 'Time tracked via Zammad Timetracking Extension';
+                    //
+                    // const response = await zammadApi.submitTimeEntry(ticketId, durationMinutes, comment);
+                    //
+                    // if (response) {
+                    //     this.debug('API time entry successful: ' + JSON.stringify(response));
+                    //     return true;
+                    // }
                 } catch (apiError) {
                     this.debug('API time entry failed: ' + apiError.message);
                     // Continue to fallback method
