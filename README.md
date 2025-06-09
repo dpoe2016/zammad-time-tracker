@@ -29,9 +29,11 @@ zammad-time-tracker/
 ├── manifest.json          # Extension-Konfiguration
 ├── background.js          # Background Service Worker
 ├── content.js             # Content Script für Zammad-Integration
-├── api.js          # API-Service für direkte Zammad-Anbindung
+├── api.js                 # API-Service für direkte Zammad-Anbindung
 ├── popup.html             # Popup-Interface
 ├── popup.js               # Popup-Logik und Zeiterfassung
+├── options.html           # Options-Page für API-Einstellungen
+├── options.js             # Options-Page Logik
 ├── translations.js        # Mehrsprachige Übersetzungen
 ├── style.css              # Styling
 └── icons/                 # Extension-Icons
@@ -101,7 +103,8 @@ zammad-time-tracker/
 - **Sprache:** Deutsch oder Englisch auswählen
 
 #### API Einstellungen konfigurieren
-- Klicken Sie auf "Bearbeiten" neben "API Einstellungen"
+- Klicken Sie auf "Optionen" neben "API Einstellungen"
+- Die Options-Page wird in einem neuen Tab geöffnet
 - **Base URL:** Die URL Ihrer Zammad-Installation (z.B. https://zammad.example.com)
 - **API Token:** Ihr persönlicher Zammad API Token
 - Klicken Sie auf "Speichern", um die Einstellungen zu übernehmen
@@ -126,7 +129,8 @@ zammad-time-tracker/
 Die Extension nutzt die direkte Zammad REST API-Anbindung für eine zuverlässige und robuste Zeiterfassung:
 
 1. **API Einstellungen öffnen:**
-   - Klicken Sie auf "Bearbeiten" neben "API Einstellungen" im Popup
+   - Klicken Sie auf "Optionen" neben "API Einstellungen" im Popup
+   - Die Options-Page wird in einem neuen Tab geöffnet
 
 2. **Einstellungen konfigurieren:**
    - **Base URL:** Die URL Ihrer Zammad-Installation (z.B. https://zammad.example.com)
