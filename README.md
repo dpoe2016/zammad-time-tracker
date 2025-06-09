@@ -98,8 +98,12 @@ zammad-time-tracker/
 - Zeigt detaillierte Informationen über alle Vorgänge
 
 #### Einstellungen anpassen
-- **Benachrichtigungen:** Ein/Aus schalten
-- **Auto-Submit:** Automatisches Eintragen aktivieren/deaktivieren
+- **Benachrichtigungen:** Ein/Aus schalten von Browser-Benachrichtigungen
+  - Wenn aktiviert: Zeigt Benachrichtigungen bei Start/Stop der Zeiterfassung
+  - Wenn deaktiviert: Keine Benachrichtigungen werden angezeigt
+- **Auto-Submit:** Automatisches Eintragen der Zeit aktivieren/deaktivieren
+  - Wenn aktiviert: Trägt Zeit automatisch in Zammad ein (via API oder UI)
+  - Wenn deaktiviert: Überspringt API-Eintragung, versucht nur UI-Methode
 - **Sprache:** Deutsch oder Englisch auswählen
 
 #### API Einstellungen konfigurieren
