@@ -623,17 +623,17 @@ class TimetrackingPopup {
             this.debug('Status deleted');
 
             // Try auto-submit
-            let autoSubmitSuccess = await this.tryAutoSubmit(ticketId, durationMinutes);
+            // let autoSubmitSuccess = await this.tryAutoSubmit(ticketId, durationMinutes);
 
             // UI feedback
             this.ticketInfo.style.display = 'none';
-            if (autoSubmitSuccess) {
+            // if (autoSubmitSuccess) {
                 this.infoText.textContent = t('time_recorded') + ': ' + durationMinutes + ' ' + t('min');
                 this.infoText.className = 'info success';
-            } else {
-                this.infoText.textContent = t('manual_entry_required', [durationMinutes]);
-                this.infoText.className = 'info error';
-            }
+            // } else {
+            //    this.infoText.textContent = t('manual_entry_required', [durationMinutes]);
+            //    this.infoText.className = 'info error';
+            //}
 
             // Notify background script
             try {
