@@ -379,13 +379,13 @@ class ZammadTimetracker {
             }
 
             // Convert minutes to seconds for submitTimeEntry
-            this.submitTimeEntry(request.duration * 60).then(success => {
-              console.log('Time entry submission result:', success);
-              sendResponse({ success: success });
-            }).catch(error => {
-              console.error('Error submitting time entry:', error);
-              sendResponse({ success: false, error: error.message });
-            });
+            // this.submitTimeEntry(request.duration * 60).then(success => {
+            //   console.log('Time entry submission result:', success);
+            //   sendResponse({ success: success });
+            // }).catch(error => {
+            //   console.error('Error submitting time entry:', error);
+            //   sendResponse({ success: false, error: error.message });
+            // });
           } else {
             console.log('Invalid duration, not submitting time entry');
             sendResponse({ success: false, error: 'Invalid duration' });
@@ -564,109 +564,7 @@ class ZammadTimetracker {
           console.log('API not initialized or not available');
         }
 
-        // // Fallback to DOM method if API failed or not initialized
-        // console.log('Falling back to DOM method for time entry');
-        //
-        // // Try to find and fill the Zammad Time Accounting field
-        // const timeFields = [
-        //   'input[name="time_unit"]',
-        //   'input[id*="time"]',
-        //   '.time-accounting input',
-        //   '[data-attribute-name="time_unit"] input'
-        // ];
-        //
-        // let timeField = null;
-        // for (const selector of timeFields) {
-        //   try {
-        //     timeField = document.querySelector(selector);
-        //     if (timeField) {
-        //       console.log(`Found time field with selector: ${selector}`);
-        //       break;
-        //     }
-        //   } catch (error) {
-        //     console.error(`Error finding time field with selector ${selector}:`, error);
-        //     // Continue to next selector
-        //   }
-        // }
-        //
-        // if (timeField) {
-        //   try {
-        //     console.log(`Setting time field value to: ${durationInMinutes}`);
-        //     timeField.value = durationInMinutes;
-        //     timeField.dispatchEvent(new Event('input', { bubbles: true }));
-        //     timeField.dispatchEvent(new Event('change', { bubbles: true }));
-        //
-        //     // Optional: Also set the Activity field if available
-        //     try {
-        //       const activityField = document.querySelector('select[name="type_id"], select[id*="activity"]');
-        //       if (activityField && activityField.options.length > 1) {
-        //         console.log('Setting activity field');
-        //         activityField.selectedIndex = 1; // Select first available option
-        //         activityField.dispatchEvent(new Event('change', { bubbles: true }));
-        //       }
-        //     } catch (activityError) {
-        //       console.error('Error setting activity field:', activityError);
-        //       // Continue even if activity field fails
-        //     }
-        //
-        //     // Submit the form if there's a submit button
-        //     const submitButton = document.querySelector('button[type="submit"], input[type="submit"], .js-submit, .form-submit, [data-type="update"]');
-        //     if (submitButton) {
-        //       console.log('Found submit button, clicking it');
-        //
-        //       // Create a listener for form submission completion
-        //       const formSubmitPromise = new Promise((formResolve) => {
-        //         // Listen for form submission events
-        //         const formSubmitListener = () => {
-        //           console.log('Form submission detected');
-        //           formResolve();
-        //         };
-        //
-        //         // Add listeners to potential form submission events
-        //         document.addEventListener('submit', formSubmitListener, { once: true });
-        //
-        //         // Also set a timeout in case the event doesn't fire
-        //         setTimeout(() => {
-        //           document.removeEventListener('submit', formSubmitListener);
-        //           console.log('Form submission timeout - assuming success');
-        //           formResolve();
-        //         }, 2000);
-        //       });
-        //
-        //       // Click the button
-        //       submitButton.click();
-        //
-        //       // Wait for form submission to complete (or timeout)
-        //       formSubmitPromise.then(() => {
-        //         // Show alert and resolve with success after form submission
-        //         const message = `${t('tracking_ended')}\n${t('ticket_id')}: #${this.ticketId}\n${t('duration')}: ${this.formatDuration(durationInSeconds)}\n${t('minutes_entered')}: ${durationInMinutes}`;
-        //         this.showNotification(message);
-        //         console.log('Time entry submitted successfully via DOM');
-        //         resolve(true); // Time successfully entered
-        //       }).catch((error) => {
-        //         console.error('Error during form submission:', error);
-        //         reject(error);
-        //       });
-        //     } else {
-        //       // No submit button found, still consider it a success
-        //       // Show alert and resolve with success
-        //       const message = `${t('tracking_ended')}\n${t('ticket_id')}: #${this.ticketId}\n${t('duration')}: ${this.formatDuration(durationInSeconds)}\n${t('minutes_entered')}: ${durationInMinutes}`;
-        //       this.showNotification(message);
-        //       console.log('Time entry submitted successfully (no submit button)');
-        //       resolve(true); // Time successfully entered
-        //     }
-        //   } catch (fieldError) {
-        //     console.error('Error setting time field value:', fieldError);
-        //     reject(fieldError);
-        //   }
-        // } else {
-        //   console.log('No time field found, showing manual entry message');
-        //   // Fallback: Manually inform user
-        //   const message = `${t('tracking_ended')}\n\n${t('ticket_id')}: #${this.ticketId}\n${t('duration')}: ${this.formatDuration(durationInSeconds)}\n${t('min')}: ${durationInMinutes}\n\n${t('manual_entry_message')}`;
-        //   this.showNotification(message);
-        //   console.log('Manual time entry required');
-        //   resolve(false); // Time could not be automatically entered
-        // }
+
       } catch (error) {
         console.error('Critical error in submitTimeEntry:', error);
         reject(error);
