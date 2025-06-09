@@ -1,344 +1,299 @@
 # Zammad Timetracking Extension
 
-Eine Chrome Extension für automatische Zeiterfassung in Zammad Tickets.
+A Chrome extension for time tracking in Zammad tickets.
 
-## 📋 Funktionen
+## 📋 Features
 
-- ⏱️ **Zeiterfassung** - Start/Stop Timer für Zammad Tickets
-- 🎯 **Automatische Ticket-Erkennung** - Erkennt Ticket-IDs automatisch
-- 💾 **Persistente Zeiterfassung** - Timer läuft auch bei Tab-Wechsel weiter
-- 🔧 **Automatisches Eintragen** - Trägt Zeit automatisch in Zammad ein
-- 🔔 **Browser-Benachrichtigungen** - Informiert über Start/Stop
-- 🌐 **Direkte Zammad API-Anbindung** - Zuverlässige Kommunikation über die Zammad REST API
-- 🐛 **Debug-Modus** - Umfassendes Logging für Fehlerbehebung
+- ⏱️ **Time Tracking** - Start/Stop timer for Zammad tickets
+- 🎯 **Automatic Ticket Detection** - Automatically recognizes ticket IDs
+- 💾 **Persistent Time Tracking** - Timer continues running even when switching tabs
+- 🔧 **Time Recording** - Tracks and displays time spent on tickets
+- 🔔 **Browser Notifications** - Informs about start/stop events
+- 🌐 **Direct Zammad API Integration** - Reliable communication via the Zammad REST API
+- 🐛 **Debug Mode** - Comprehensive logging for troubleshooting
 
 ## 🚀 Installation
 
-### Voraussetzungen
+### Prerequisites
 
 - Google Chrome Browser (Version 88+)
-- Zugriff auf eine Zammad-Installation
-- Aktivierte Zeiterfassung in Zammad
+- Access to a Zammad installation
+- Activated time tracking in Zammad
 
-### Schritt 1: Extension-Dateien herunterladen
+### Step 1: Download Extension Files
 
-Klonen oder laden Sie dieses Repository herunter. Die wichtigsten Dateien sind:
+Clone or download this repository. The most important files are:
 
 ```
 zammad-time-tracker/
-├── manifest.json          # Extension-Konfiguration
+├── manifest.json          # Extension configuration
 ├── background.js          # Background Service Worker
-├── content.js             # Content Script für Zammad-Integration
-├── api.js                 # API-Service für direkte Zammad-Anbindung
-├── popup.html             # Popup-Interface
-├── popup.js               # Popup-Logik und Zeiterfassung
-├── options.html           # Options-Page für API-Einstellungen
-├── options.js             # Options-Page Logik
-├── translations.js        # Mehrsprachige Übersetzungen
+├── content.js             # Content Script for Zammad integration
+├── api.js                 # API Service for direct Zammad connection
+├── popup.html             # Popup interface
+├── popup.js               # Popup logic and time tracking
+├── options.html           # Options page for API settings
+├── options.js             # Options page logic
+├── translations.js        # Multilingual translations
 ├── style.css              # Styling
-└── icons/                 # Extension-Icons
+└── icons/                 # Extension icons
     ├── icon16.png
     ├── icon48.png
     └── icon128.png
 ```
 
-### Schritt 2: Icons erstellen
+### Step 2: Create Icons
 
-**Option A: Automatisch generieren**
-1. Öffnen Sie den Icon-Generator (falls bereitgestellt)
-2. Laden Sie alle drei PNG-Icons herunter
-3. Speichern Sie sie im `icons/` Ordner
+**Option A: Automatically generate**
+1. Open the icon generator (if provided)
+2. Download all three PNG icons
+3. Save them in the `icons/` folder
 
-**Option B: Eigene Icons verwenden**
-- Erstellen Sie PNG-Icons in den Größen 16x16, 48x48 und 128x128 Pixel
-- Benennen Sie sie: `icon16.png`, `icon48.png`, `icon128.png`
+**Option B: Use your own icons**
+- Create PNG icons in sizes 16x16, 48x48, and 128x128 pixels
+- Name them: `icon16.png`, `icon48.png`, `icon128.png`
 
-### Schritt 3: Extension in Chrome installieren
+### Step 3: Install Extension in Chrome
 
-1. **Chrome Extensions-Seite öffnen:**
+1. **Open Chrome Extensions page:**
    ```
    chrome://extensions/
    ```
 
-2. **Entwicklermodus aktivieren:**
-   - Toggle "Entwicklermodus" oben rechts aktivieren
+2. **Enable Developer Mode:**
+   - Toggle "Developer mode" in the top right corner
 
-3. **Extension laden:**
-   - Klicken Sie auf "Entpackte Erweiterung laden"
-   - Wählen Sie den `zammad-timetracking` Ordner aus
-   - Klicken Sie "Ordner auswählen"
+3. **Load Extension:**
+   - Click on "Load unpacked"
+   - Select the `zammad-timetracking` folder
+   - Click "Select Folder"
 
-4. **Installation verifizieren:**
-   - Extension sollte in der Liste erscheinen
-   - Icon sollte in der Chrome-Toolbar sichtbar sein
-   - Status sollte "Aktiviert" anzeigen
+4. **Verify Installation:**
+   - Extension should appear in the list
+   - Icon should be visible in the Chrome toolbar
+   - Status should show "Enabled"
 
-## 📖 Verwendung
+## 📖 Usage
 
-### Grundlegende Nutzung
+### Basic Usage
 
-1. **Zammad-Ticket öffnen**
-   - Navigieren Sie zu einem beliebigen Ticket in Ihrer Zammad-Installation
+1. **Open a Zammad Ticket**
+   - Navigate to any ticket in your Zammad installation
 
-2. **Zeiterfassung starten**
-   - Klicken Sie auf das Extension-Icon in der Chrome-Toolbar
-   - Klicken Sie den blauen "Start"-Button
-   - Timer beginnt automatisch zu laufen
+2. **Start Time Tracking**
+   - Click on the extension icon in the Chrome toolbar
+   - Click the blue "Start" button
+   - Timer automatically starts running
 
-3. **Zeiterfassung beenden**
-   - Öffnen Sie das Popup erneut
-   - Klicken Sie den roten "Stop"-Button
-   - Zeit wird automatisch in Zammad eingetragen
+3. **End Time Tracking**
+   - Open the popup again
+   - Click the red "Stop" button
+   - Tracked time will be displayed and the timer will reset
 
-### Erweiterte Funktionen
+### Advanced Features
 
-#### Debug-Modus aktivieren
-- **Doppelklick** auf "Zammad Timetracking" im Popup-Header
-- Gelbe Debug-Box wird angezeigt
-- Zeigt detaillierte Informationen über alle Vorgänge
+#### Activate Debug Mode
+- **Double-click** on "Zammad Timetracking" in the popup header
+- Yellow debug box will be displayed
+- Shows detailed information about all processes
 
-#### Einstellungen anpassen
-- **Benachrichtigungen:** Ein/Aus schalten von Browser-Benachrichtigungen
-  - Wenn aktiviert: Zeigt Benachrichtigungen bei Start/Stop der Zeiterfassung
-  - Wenn deaktiviert: Keine Benachrichtigungen werden angezeigt
-- **Auto-Submit:** Automatisches Eintragen der Zeit aktivieren/deaktivieren
-  - Wenn aktiviert: Trägt Zeit automatisch in Zammad ein (via API oder UI)
-  - Wenn deaktiviert: Überspringt API-Eintragung, versucht nur UI-Methode
-- **Sprache:** Deutsch oder Englisch auswählen
+#### Adjust Settings
+- **Notifications:** Turn on/off browser notifications when tracking starts/stops
+  - When enabled: Shows notifications when time tracking starts/stops
+  - When disabled: No notifications are displayed
+- **Language:** Select German or English
 
-#### API Einstellungen konfigurieren
-- Klicken Sie auf "Optionen" neben "API Einstellungen"
-- Die Options-Page wird in einem neuen Tab geöffnet
-- **Base URL:** Die URL Ihrer Zammad-Installation (z.B. https://zammad.example.com)
-- **API Token:** Ihr persönlicher Zammad API Token
-- Klicken Sie auf "Speichern", um die Einstellungen zu übernehmen
+#### Configure API Settings
+- Click on "Options" next to "API Settings"
+- The Options page will open in a new tab
+- **Base URL:** The URL of your Zammad installation (e.g., https://zammad.example.com)
+- **API Token:** Your personal Zammad API token
+- Click on "Save" to apply the settings
 
-#### Zammad API Token erstellen
-1. Melden Sie sich in Ihrer Zammad-Installation an
-2. Gehen Sie zu Ihrem Profil (Klick auf Ihren Namen oben rechts)
-3. Wählen Sie "Token-Zugriff" oder "API Tokens"
-4. Klicken Sie auf "Neuen Token erstellen"
-5. Geben Sie einen Namen ein (z.B. "Timetracking Extension")
-6. Kopieren Sie den generierten Token und fügen Sie ihn in die Extension ein
+#### Create Zammad API Token
+1. Log in to your Zammad installation
+2. Go to your profile (click on your name in the top right)
+3. Select "Token Access" or "API Tokens"
+4. Click on "Create new token"
+5. Enter a name (e.g., "Timetracking Extension")
+6. Copy the generated token and paste it into the extension
 
-#### Persistente Zeiterfassung
-- Timer läuft auch bei geschlossenem Popup weiter
-- Timer läuft auch bei Tab-Wechsel oder Browser-Neustart weiter
-- Rotes Badge (⏱) im Extension-Icon zeigt aktive Zeiterfassung
+#### Persistent Time Tracking
+- Timer continues running even when the popup is closed
+- Timer continues running even when switching tabs or restarting the browser
+- Red badge (⏱) on the extension icon indicates active time tracking
 
-## 🔧 Konfiguration
+## 🔧 Configuration
 
-### REST API Konfiguration (empfohlen)
+### REST API Configuration (recommended)
 
-Die Extension nutzt die direkte Zammad REST API-Anbindung für eine zuverlässige und robuste Zeiterfassung:
+The extension uses direct Zammad REST API integration for reliable and robust time tracking:
 
-1. **API Einstellungen öffnen:**
-   - Klicken Sie auf "Optionen" neben "API Einstellungen" im Popup
-   - Die Options-Page wird in einem neuen Tab geöffnet
+1. **Open API Settings:**
+   - Click on "Options" next to "API Settings" in the popup
+   - The Options page will open in a new tab
 
-2. **Einstellungen konfigurieren:**
-   - **Base URL:** Die URL Ihrer Zammad-Installation (z.B. https://zammad.example.com)
-   - **API Token:** Ihr persönlicher Zammad API Token (siehe "Zammad API Token erstellen" oben)
+2. **Configure Settings:**
+   - **Base URL:** The URL of your Zammad installation (e.g., https://zammad.example.com)
+   - **API Token:** Your personal Zammad API token (see "Create Zammad API Token" above)
 
-3. **Vorteile der direkten API-Anbindung:**
-   - **Zuverlässigkeit:** Unabhängig von Änderungen am Zammad UI
-   - **Genauigkeit:** Präzise Ticket-Informationen direkt aus der Datenbank
-   - **Effizienz:** Direktes Eintragen der Zeit ohne DOM-Manipulation
-   - **Flexibilität:** Funktioniert auch wenn das Ticket nicht geöffnet ist
-   - **Robustheit:** Weniger anfällig für Fehler durch UI-Änderungen
-   - **Vollständigkeit:** Zugriff auf alle Ticket-Informationen und Zeiteinträge
+3. **Benefits of Direct API Integration:**
+   - **Reliability:** Independent of changes to the Zammad UI
+   - **Accuracy:** Precise ticket information directly from the database
+   - **Efficiency:** Fast access to ticket information
+   - **Flexibility:** Works even when the ticket is not fully loaded
+   - **Robustness:** Less susceptible to errors due to UI changes
+   - **Completeness:** Access to all ticket information and time entries
 
-### Zammad-URL-Erkennung anpassen (Fallback-Methode)
+### Customize Zammad URL Detection (Fallback Method)
 
-Falls Ihre Zammad-Installation nicht automatisch erkannt wird, passen Sie die URL-Patterns in `content.js` an:
+If your Zammad installation is not automatically detected, adjust the URL patterns in `content.js`:
 
 ```javascript
-// Zeile ~15-25 in content.js
+// Line ~15-25 in content.js
 function isZammadPage() {
   const indicators = [
-    // Fügen Sie Ihre spezifischen URL-Patterns hinzu
-    () => /ihre-zammad-domain\.de/i.test(window.location.href),
-    () => /support\.ihr-unternehmen\.com/i.test(window.location.href)
-    // ... bestehende Patterns
+    // Add your specific URL patterns
+    () => /your-zammad-domain\.com/i.test(window.location.href),
+    () => /support\.your-company\.com/i.test(window.location.href)
+    // ... existing patterns
   ];
   return indicators.some(check => check());
 }
 ```
 
-### Zeiterfassungsfelder anpassen (Fallback-Methode)
 
-Falls die automatische Felderkennung nicht funktioniert und Sie die API-Methode nicht nutzen können, passen Sie die Selektoren in `content.js` an:
+## 🐛 Troubleshooting
 
-```javascript
-// Zeile ~200+ in content.js
-function submitTimeEntry(durationInSeconds) {
-  const timeFields = [
-    'input[name="time_unit"]',           // Standard Zammad
-    'input[name="ihre_zeit_feld"]',      // Ihr custom Feld
-    '.ihre-zeit-klasse input'            // Ihr CSS-Selektor
-    // ... weitere Selektoren
-  ];
-}
+### Extension Not Loading
+
+**Problem:** Extension does not appear in Chrome
+```bash
+# Solution:
+1. Check the folder structure
+2. Make sure manifest.json exists
+3. Check chrome://extensions/ for error messages
+4. Is Developer mode enabled?
 ```
 
-## 🐛 Fehlerbehebung
-
-### Extension lädt nicht
-
-**Problem:** Extension erscheint nicht in Chrome
+**Problem:** Service Worker Error
 ```bash
-# Lösung:
-1. Überprüfen Sie die Ordnerstruktur
-2. Stellen Sie sicher, dass manifest.json vorhanden ist
-3. Prüfen Sie chrome://extensions/ auf Fehlermeldungen
-4. Entwicklermodus aktiviert?
-```
-
-**Problem:** Service Worker Fehler
-```bash
-# Lösung:
+# Solution:
 1. chrome://extensions/ → Extension Details
-2. Prüfen Sie "Service worker" Status
-3. Bei Fehlern: Extension neu laden (Reload-Button)
-4. Browser neu starten
+2. Check "Service worker" status
+3. If errors: Reload extension (Reload button)
+4. Restart browser
 ```
 
-### Timer startet nicht
+### Timer Not Starting
 
-**Problem:** Start-Button reagiert nicht
+**Problem:** Start button not responding
 ```bash
-# Lösung:
-1. Debug-Modus aktivieren (Doppelklick auf Header)
-2. Prüfen Sie Debug-Meldungen
-3. Browser-Konsole öffnen (F12)
-4. Extension neu laden
+# Solution:
+1. Activate Debug mode (Double-click on header)
+2. Check Debug messages
+3. Open browser console (F12)
+4. Reload extension
 ```
 
-**Problem:** Ticket-ID nicht gefunden
+**Problem:** Ticket ID not found
 ```bash
-# Lösung:
-1. Sind Sie in einem Zammad-Ticket?
-2. URL enthält Ticket-Nummer?
-3. Zammad-Seite vollständig geladen?
-4. Content Script funktioniert? (Debug-Modus prüfen)
+# Solution:
+1. Are you in a Zammad ticket?
+2. Does the URL contain a ticket number?
+3. Is the Zammad page fully loaded?
+4. Is the Content Script working? (Check Debug mode)
 ```
 
-### Zeit wird nicht eingetragen
-
-**Problem:** Automatisches Eintragen fehlgeschlagen
-```bash
-# Lösung bei API-Methode:
-1. Sind API Einstellungen korrekt konfiguriert?
-2. Ist der API Token gültig und hat ausreichende Berechtigungen?
-3. Debug-Modus aktivieren und API-Fehler prüfen
-4. Prüfen Sie die Netzwerk-Anfragen in den Browser-Entwicklertools
-
-# Lösung bei DOM-Methode:
-1. Ist Zeiterfassung in Zammad aktiviert?
-2. Haben Sie Berechtigung für Zeiterfassung?
-3. Sind Zeiterfassungsfelder sichtbar auf der Seite?
-4. Manuelle Feldkonfiguration nötig? (siehe Konfiguration)
-```
-
-**Problem:** API Fehler
-```bash
-# Lösung:
-1. Prüfen Sie die Base URL (z.B. https://zammad.example.com ohne abschließenden /)
-2. Stellen Sie sicher, dass der API Token gültig ist
-3. Prüfen Sie, ob der Token die nötigen Berechtigungen hat
-4. Prüfen Sie, ob die Zammad-API erreichbar ist (keine Firewall-Blockierung)
-5. CORS-Probleme? Prüfen Sie die Browser-Konsole auf entsprechende Fehler
-```
-
-### Häufige Lösungsansätze
+### Common Solutions
 
 ```bash
 # 1. Hard Refresh
-Ctrl+Shift+R auf Zammad-Seite
+Ctrl+Shift+R on Zammad page
 
-# 2. Extension neu laden
-chrome://extensions/ → Reload-Button
+# 2. Reload Extension
+chrome://extensions/ → Reload button
 
-# 3. Browser Cache leeren
-Ctrl+Shift+Del → Bilder und Dateien im Cache
+# 3. Clear Browser Cache
+Ctrl+Shift+Del → Images and files in cache
 
-# 4. Extension neu installieren
-Extension löschen → Neu laden → Neu installieren
+# 4. Reinstall Extension
+Delete extension → Reload → Reinstall
 ```
 
-## 📊 Debug-Informationen sammeln
+## 📊 Collecting Debug Information
 
-Bei Problemen sammeln Sie folgende Informationen:
+When experiencing problems, collect the following information:
 
-### 1. Browser-Informationen
+### 1. Browser Information
 ```bash
-# Chrome-Version prüfen:
+# Check Chrome version:
 chrome://version/
 
-# Extension-Status prüfen:
+# Check extension status:
 chrome://extensions/
 ```
 
-### 2. Debug-Logs sammeln
+### 2. Collect Debug Logs
 ```bash
-1. Debug-Modus aktivieren (Doppelklick auf Popup-Header)
-2. Aktion durchführen (Start/Stop)
-3. Debug-Meldungen kopieren
-4. Browser-Konsole öffnen (F12) → Console Tab
-5. Fehlermeldungen kopieren
+1. Activate Debug mode (Double-click on popup header)
+2. Perform action (Start/Stop)
+3. Copy Debug messages
+4. Open browser console (F12) → Console Tab
+5. Copy error messages
 ```
 
-### 3. API-Informationen
+### 3. API Information
 ```bash
-# API-Konfiguration prüfen:
-1. Debug-Modus aktivieren
-2. API-Einstellungen öffnen und prüfen
-3. Netzwerk-Tab in den Entwicklertools öffnen (F12)
-4. Aktion durchführen (Start/Stop)
-5. API-Anfragen und Antworten prüfen
-6. Fehler in der Konsole notieren
+# Check API configuration:
+1. Activate Debug mode
+2. Open and check API settings
+3. Open Network tab in developer tools (F12)
+4. Perform action (Start/Stop)
+5. Check API requests and responses
+6. Note errors in the console
 ```
 
-### 4. Zammad-Informationen
+### 4. Zammad Information
 ```bash
-- Zammad-Version
-- URL-Schema (z.B. https://support.company.com/ticket/zoom/123)
-- Zeiterfassungs-Konfiguration
-- API-Konfiguration und Berechtigungen
-- Browser-Berechtigungen
+- Zammad version
+- URL schema (e.g., https://support.company.com/ticket/zoom/123)
+- Time tracking configuration
+- API configuration and permissions
+- Browser permissions
 ```
 
 ## 🔄 Updates
 
-### Extension aktualisieren
-1. Neue Dateien in den Extension-Ordner kopieren
-2. `chrome://extensions/` öffnen
-3. Reload-Button bei der Extension klicken
-4. Neue Features sind sofort verfügbar
+### Update Extension
+1. Copy new files to the extension folder
+2. Open `chrome://extensions/`
+3. Click the Reload button on the extension
+4. New features are immediately available
 
-### Änderungen verfolgen
-- Prüfen Sie die `manifest.json` Version
-- Neue Features werden im Debug-Modus angezeigt
-- Background Script zeigt Versionsinformationen
+### Track Changes
+- Check the `manifest.json` version
+- New features are displayed in Debug mode
+- Background Script shows version information
 
-## ⚙️ Entwicklung
+## ⚙️ Development
 
-### Voraussetzungen für Entwicklung
-- Node.js (optional, für erweiterte Features)
+### Development Prerequisites
+- Node.js (optional, for advanced features)
 - Chrome Developer Tools
-- Code Editor (z.B. VS Code, IntelliJ)
+- Code Editor (e.g., VS Code, IntelliJ)
 
-### Entwicklung in IntelliJ IDEA
+### Development in IntelliJ IDEA
 
-1. **Projekt öffnen:**
+1. **Open Project:**
    ```bash
-   File → Open → zammad-timetracking Ordner wählen
+   File → Open → Select zammad-timetracking folder
    ```
 
-2. **Chrome Extension APIs aktivieren:**
+2. **Enable Chrome Extension APIs:**
    ```bash
    Settings → Languages & Frameworks → JavaScript → Libraries
-   → Add... → Download... → "chrome" suchen und installieren
+   → Add... → Download... → Search for "chrome" and install
    ```
 
 3. **TypeScript Support (optional):**
@@ -348,11 +303,11 @@ chrome://extensions/
 
 4. **Live Development:**
    ```bash
-   # Datei-Watcher einrichten für automatisches Reload
+   # Set up file watcher for automatic reload
    Settings → Tools → File Watchers
    ```
 
-### Code-Qualität
+### Code Quality
 
 ```bash
 # ESLint Setup
@@ -365,29 +320,29 @@ module.exports = {
 };
 ```
 
-## 📝 Lizenz
+## 📝 License
 
-MIT License - Freie Nutzung und Anpassung erlaubt.
+MIT License - Free use and adaptation allowed.
 
 ## 🤝 Support
 
-Bei Problemen oder Fragen:
+If you encounter problems or have questions:
 
-1. **Debug-Modus verwenden** - Zeigt detaillierte Fehlermeldungen
-2. **Browser-Konsole prüfen** - `F12` → Console Tab
-3. **Extension neu laden** - Oft löst das bereits Probleme
-4. **Dokumentation prüfen** - Alle wichtigen Informationen sind hier
+1. **Use Debug Mode** - Shows detailed error messages
+2. **Check Browser Console** - `F12` → Console Tab
+3. **Reload Extension** - Often solves problems
+4. **Check Documentation** - All important information is here
 
 ## 📈 Roadmap
 
-Geplante Funktionen:
+Planned features:
 - [x] REST API Integration
-- [ ] Zeiterfassung-Berichte
-- [ ] Projektzeit-Kategorien
-- [ ] Team-Statistiken
-- [ ] Export-Funktionen
-- [ ] Mobile Browser Support
+- [ ] Time tracking reports
+- [ ] Project time categories
+- [ ] Team statistics
+- [ ] Export functions
+- [ ] Mobile browser support
 
 ---
 
-**Viel Erfolg mit der Zammad Timetracking Extension! ⏱️**
+**Good luck with the Zammad Timetracking Extension! ⏱️**
