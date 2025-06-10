@@ -358,6 +358,10 @@ const translations = {
     [LANGUAGES.DE]: 'Fehler beim Laden der Tags',
     [LANGUAGES.EN]: 'Error fetching tags'
   },
+  'no_tags_available': {
+    [LANGUAGES.DE]: 'Keine Tags verfügbar',
+    [LANGUAGES.EN]: 'No tags available'
+  },
   'updating_tags': {
     [LANGUAGES.DE]: 'Aktualisiere Tags...',
     [LANGUAGES.EN]: 'Updating tags...'

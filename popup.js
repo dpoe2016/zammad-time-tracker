@@ -1084,6 +1084,14 @@ class TimetrackingPopup {
             }
         }
 
+        // Check if we have any tags to display
+        if (this.availableTags.length === 0) {
+            this.debug('No available tags to display');
+            this.infoText.textContent = t('no_tags_available');
+            this.infoText.className = 'info warning';
+            return;
+        }
+
         // Clear and populate tag list
         this.tagList.innerHTML = '';
 
