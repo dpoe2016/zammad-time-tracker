@@ -309,6 +309,32 @@ const translations = {
   'ticket_load_error': {
     [LANGUAGES.DE]: 'Fehler beim Laden des Tickets',
     [LANGUAGES.EN]: 'Error loading ticket'
+  },
+
+  // Time edit functionality
+  'edit_time': {
+    [LANGUAGES.DE]: 'Klicken zum Bearbeiten',
+    [LANGUAGES.EN]: 'Click to edit'
+  },
+  'invalid_time_value': {
+    [LANGUAGES.DE]: 'Ungültiger Zeitwert',
+    [LANGUAGES.EN]: 'Invalid time value'
+  },
+  'updating_time': {
+    [LANGUAGES.DE]: 'Aktualisiere Zeit...',
+    [LANGUAGES.EN]: 'Updating time...'
+  },
+  'time_updated': {
+    [LANGUAGES.DE]: 'Zeit erfolgreich aktualisiert',
+    [LANGUAGES.EN]: 'Time successfully updated'
+  },
+  'time_update_error': {
+    [LANGUAGES.DE]: 'Fehler beim Aktualisieren der Zeit',
+    [LANGUAGES.EN]: 'Error updating time'
+  },
+  'time_updated_locally': {
+    [LANGUAGES.DE]: 'Zeit lokal aktualisiert (API nicht verfügbar)',
+    [LANGUAGES.EN]: 'Time updated locally (API not available)'
   }
 };
 

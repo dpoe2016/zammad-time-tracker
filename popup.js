@@ -17,6 +17,23 @@ function updateUILanguage() {
     document.getElementById('languageLabel').textContent = t('language');
     document.getElementById('debugInfo').textContent = t('debug_mode');
 
+    // Time edit elements
+    const timeSpentElement = document.getElementById('timeSpent');
+    if (timeSpentElement) {
+        timeSpentElement.title = t('edit_time');
+    }
+
+    // Save and cancel buttons in time edit form
+    const saveTimeBtn = document.getElementById('saveTimeBtn');
+    if (saveTimeBtn) {
+        saveTimeBtn.textContent = t('api_save');
+    }
+
+    const cancelTimeBtn = document.getElementById('cancelTimeBtn');
+    if (cancelTimeBtn) {
+        cancelTimeBtn.textContent = t('api_cancel');
+    }
+
     // API Settings
     document.getElementById('apiSettingsLabel').textContent = t('api_settings');
     document.getElementById('apiSettingsBtn').textContent = t('api_options');
@@ -64,6 +81,13 @@ class TimetrackingPopup {
         this.autoSubmitToggle = document.getElementById('autoSubmitToggle');
         this.debugInfo = document.getElementById('debugInfo');
 
+        // Time edit elements
+        this.editTimeIcon = document.getElementById('editTimeIcon');
+        this.timeEditForm = document.getElementById('timeEditForm');
+        this.timeEditInput = document.getElementById('timeEditInput');
+        this.saveTimeBtn = document.getElementById('saveTimeBtn');
+        this.cancelTimeBtn = document.getElementById('cancelTimeBtn');
+
         // API Settings elements
         this.apiSettingsBtn = document.getElementById('apiSettingsBtn');
 
@@ -91,6 +115,36 @@ class TimetrackingPopup {
         this.autoSubmitToggle.addEventListener('change', () => {
             console.log('Auto-Submit changed:', this.autoSubmitToggle.checked);
             this.saveSettings();
+        });
+
+        // Time edit functionality
+        this.timeSpent.addEventListener('click', () => {
+            console.log('Time spent clicked');
+            this.showTimeEditForm();
+        });
+
+        this.editTimeIcon.addEventListener('click', () => {
+            console.log('Edit time icon clicked');
+            this.showTimeEditForm();
+        });
+
+        this.saveTimeBtn.addEventListener('click', () => {
+            console.log('Save time button clicked');
+            this.saveEditedTime();
+        });
+
+        this.cancelTimeBtn.addEventListener('click', () => {
+            console.log('Cancel time button clicked');
+            this.hideTimeEditForm();
+        });
+
+        // Handle Enter key in time edit input
+        this.timeEditInput.addEventListener('keyup', (e) => {
+            if (e.key === 'Enter') {
+                this.saveEditedTime();
+            } else if (e.key === 'Escape') {
+                this.hideTimeEditForm();
+            }
         });
 
         // Language selector
@@ -768,6 +822,98 @@ class TimetrackingPopup {
     }
 
     // API Settings are now managed in the options page
+
+    /**
+     * Show the time edit form
+     */
+    showTimeEditForm() {
+        if (!this.currentTicketId) {
+            this.debug('No active ticket, cannot edit time');
+            return;
+        }
+
+        // Position the form near the time spent element
+        const rect = this.timeSpent.getBoundingClientRect();
+        this.timeEditForm.style.left = rect.left + 'px';
+        this.timeEditForm.style.top = (rect.bottom + 5) + 'px';
+
+        // Set the current value in the input
+        this.timeEditInput.value = Math.round(this.currentTimeSpent);
+
+        // Show the form
+        this.timeEditForm.style.display = 'block';
+
+        // Focus the input
+        this.timeEditInput.focus();
+        this.timeEditInput.select();
+
+        this.debug('Time edit form shown');
+    }
+
+    /**
+     * Hide the time edit form
+     */
+    hideTimeEditForm() {
+        this.timeEditForm.style.display = 'none';
+        this.debug('Time edit form hidden');
+    }
+
+    /**
+     * Save the edited time
+     */
+    async saveEditedTime() {
+        try {
+            const newTimeValue = parseInt(this.timeEditInput.value, 10);
+
+            if (isNaN(newTimeValue) || newTimeValue < 0) {
+                this.debug('Invalid time value');
+                this.infoText.textContent = t('invalid_time_value');
+                this.infoText.className = 'info error';
+                return;
+            }
+
+            this.debug(`Saving new time value: ${newTimeValue} min`);
+
+            // Hide the form
+            this.hideTimeEditForm();
+
+            // Update the UI
+            this.timeSpent.textContent = newTimeValue;
+            this.currentTimeSpent = newTimeValue;
+
+            // Submit the updated time to Zammad if API is initialized
+            if (zammadApi.isInitialized() && this.currentTicketId) {
+                this.infoText.textContent = t('updating_time');
+                this.infoText.className = 'info';
+
+                try {
+                    // Submit the time entry with a comment indicating it's a correction
+                    const comment = 'Korrektur der erfassten Zeit';
+                    const response = await zammadApi.submitTimeEntry(this.currentTicketId, newTimeValue, comment);
+
+                    if (response) {
+                        this.debug('Time updated successfully');
+                        this.infoText.textContent = t('time_updated');
+                        this.infoText.className = 'info success';
+                    } else {
+                        throw new Error('No response from API');
+                    }
+                } catch (apiError) {
+                    this.debug('Error updating time: ' + apiError.message);
+                    this.infoText.textContent = t('time_update_error') + ': ' + apiError.message;
+                    this.infoText.className = 'info error';
+                }
+            } else {
+                this.debug('API not initialized, cannot update time');
+                this.infoText.textContent = t('time_updated_locally');
+                this.infoText.className = 'info warning';
+            }
+        } catch (error) {
+            this.debug('Error saving time: ' + error.message);
+            this.infoText.textContent = t('time_update_error') + ': ' + error.message;
+            this.infoText.className = 'info error';
+        }
+    }
 }
 
 // Popup beim Laden initialisieren
