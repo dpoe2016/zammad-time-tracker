@@ -416,20 +416,36 @@ class TimetrackingPopup {
                     // Get ticket tags if available in ticket data
                     if (ticketData.tags && Array.isArray(ticketData.tags)) {
                         this.currentTicketTags = ticketData.tags;
-                        this.debug('Tags from API: ' + JSON.stringify(this.currentTicketTags));
+                        this.debug('Tags from ticket data: ' + JSON.stringify(this.currentTicketTags));
                         this.displayCurrentTags();
                     } else {
                         // If tags not in ticket data, try to fetch them separately
                         try {
-                            // Fetch available tags first if needed
-                            if (this.availableTags.length === 0) {
-                                await this.fetchAvailableTags();
-                            }
+                            // Try to get ticket-specific tags
+                            this.debug('Fetching tags for ticket #' + ticketId);
+                            try {
+                                const ticketTags = await zammadApi.getTicketTags(ticketId);
+                                if (ticketTags && Array.isArray(ticketTags)) {
+                                    this.currentTicketTags = ticketTags;
+                                    this.debug('Tags from getTicketTags: ' + JSON.stringify(this.currentTicketTags));
+                                    this.displayCurrentTags();
+                                } else {
+                                    this.debug('No tags returned from getTicketTags or invalid format');
+                                    this.currentTicketTags = [];
+                                    this.displayCurrentTags();
+                                }
+                            } catch (ticketTagsError) {
+                                this.debug('Error fetching ticket tags: ' + ticketTagsError.message);
 
-                            // For now, we'll just display empty tags
-                            // In a real implementation, you might need another API call to get ticket-specific tags
-                            this.currentTicketTags = [];
-                            this.displayCurrentTags();
+                                // Fallback: Fetch available tags if needed
+                                if (this.availableTags.length === 0) {
+                                    await this.fetchAvailableTags();
+                                }
+
+                                // Display empty tags as we couldn't get ticket-specific tags
+                                this.currentTicketTags = [];
+                                this.displayCurrentTags();
+                            }
                         } catch (tagsError) {
                             this.debug('Error loading tags: ' + tagsError.message);
                             // Continue with ticket info even if tags fail

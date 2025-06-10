@@ -13,7 +13,8 @@ class ZammadAPI {
       ticket: null,
       timeEntries: null,
       timeSubmission: null,
-      tags: null
+      tags: null,
+      ticketTags: null
     };
 
     // Load cached endpoints from storage
@@ -66,7 +67,9 @@ class ZammadAPI {
       this.successfulEndpoints = {
         ticket: null,
         timeEntries: null,
-        timeSubmission: null
+        timeSubmission: null,
+        tags: null,
+        ticketTags: null
       };
       // Save the cleared cache
       this.saveCachedEndpoints();
@@ -647,6 +650,102 @@ class ZammadAPI {
     // If we get here, all endpoints failed
     console.error('All tags endpoints failed');
     throw lastError || new Error('Failed to get tags');
+  }
+
+  /**
+   * Get tags for a specific ticket
+   * @param {string|number} ticketId - The ticket ID or number
+   * @returns {Promise<Array>} - The list of tags assigned to the ticket
+   */
+  async getTicketTags(ticketId) {
+    if (!ticketId) {
+      throw new Error('Ticket ID is required');
+    }
+
+    // Check if this is a ticket number (usually longer) or a ticket ID (usually shorter)
+    const isLikelyTicketNumber = ticketId.toString().length > 10;
+    console.log(`Getting tags for ticket ${ticketId} (${isLikelyTicketNumber ? 'ticket number' : 'ticket ID'})`);
+
+    // If we have a successful endpoint cached, try it first
+    if (this.successfulEndpoints.ticketTags) {
+      try {
+        console.log(`Using cached successful ticket tags endpoint: ${this.successfulEndpoints.ticketTags}`);
+        const endpoint = this.successfulEndpoints.ticketTags.replace('{ticketId}', ticketId);
+        const result = await this.request(endpoint);
+
+        // The result might be an object with a tags property or an array directly
+        if (Array.isArray(result)) {
+          return result;
+        } else if (result && Array.isArray(result.tags)) {
+          return result.tags;
+        } else {
+          console.warn('Unexpected response format for tags from cached endpoint:', result);
+          // Clear the cache if the format is unexpected
+          this.successfulEndpoints.ticketTags = null;
+          // Continue to try other endpoints
+        }
+      } catch (error) {
+        console.error('Cached ticket tags endpoint failed, will try alternatives:', error);
+        // Clear the cache if it fails
+        this.successfulEndpoints.ticketTags = null;
+      }
+    }
+
+    // Define possible endpoints for getting ticket tags
+    let endpoints = [];
+
+    if (isLikelyTicketNumber) {
+      // For ticket numbers, we might need to use different endpoints
+      endpoints = [
+        `/api/v1/tickets/by_number/${ticketId}/tags`,
+        `/api/tickets/by_number/${ticketId}/tags`
+      ];
+    } else {
+      // Standard endpoints for ticket IDs
+      endpoints = [
+        `/api/v1/tickets/${ticketId}/tags`,
+        `/api/tickets/${ticketId}/tags`,
+        `/api/v1/ticket/${ticketId}/tags`
+      ];
+    }
+
+    let lastError = null;
+
+    // Try each endpoint until one works
+    for (const endpoint of endpoints) {
+      try {
+        console.log(`Trying to get ticket tags endpoint: ${endpoint}`);
+        const result = await this.request(endpoint);
+
+        console.log(`Successfully got tags using endpoint: ${endpoint}`);
+
+        // Cache the successful endpoint pattern for future use
+        const pattern = endpoint.replace(ticketId, '{ticketId}');
+        this.successfulEndpoints.ticketTags = pattern;
+        console.log(`Cached successful ticket tags endpoint: ${pattern}`);
+
+        // Save to storage for persistence
+        this.saveCachedEndpoints();
+
+        // The result might be an object with a tags property or an array directly
+        if (Array.isArray(result)) {
+          return result;
+        } else if (result && Array.isArray(result.tags)) {
+          return result.tags;
+        } else {
+          console.warn('Unexpected response format for tags:', result);
+          return [];
+        }
+      } catch (error) {
+        console.error(`Error with get ticket tags endpoint ${endpoint}:`, error);
+        lastError = error;
+        // Continue to next endpoint
+      }
+    }
+
+    // If we get here, all endpoints failed
+    console.error('All get ticket tags endpoints failed');
+    throw lastError || new Error('Failed to get tags for ticket');
   }
 
   /**
