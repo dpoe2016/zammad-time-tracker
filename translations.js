@@ -309,6 +309,66 @@ const translations = {
   'ticket_load_error': {
     [LANGUAGES.DE]: 'Fehler beim Laden des Tickets',
     [LANGUAGES.EN]: 'Error loading ticket'
+  },
+
+  // Time edit functionality
+  'edit_time': {
+    [LANGUAGES.DE]: 'Klicken zum Bearbeiten',
+    [LANGUAGES.EN]: 'Click to edit'
+  },
+  'invalid_time_value': {
+    [LANGUAGES.DE]: 'Ungültiger Zeitwert',
+    [LANGUAGES.EN]: 'Invalid time value'
+  },
+  'updating_time': {
+    [LANGUAGES.DE]: 'Aktualisiere Zeit...',
+    [LANGUAGES.EN]: 'Updating time...'
+  },
+  'time_updated': {
+    [LANGUAGES.DE]: 'Zeit erfolgreich aktualisiert',
+    [LANGUAGES.EN]: 'Time successfully updated'
+  },
+  'time_update_error': {
+    [LANGUAGES.DE]: 'Fehler beim Aktualisieren der Zeit',
+    [LANGUAGES.EN]: 'Error updating time'
+  },
+  'time_updated_locally': {
+    [LANGUAGES.DE]: 'Zeit lokal aktualisiert (API nicht verfügbar)',
+    [LANGUAGES.EN]: 'Time updated locally (API not available)'
+  },
+
+  // Tag functionality
+  'tags': {
+    [LANGUAGES.DE]: 'Tags',
+    [LANGUAGES.EN]: 'Tags'
+  },
+  'apply_tags': {
+    [LANGUAGES.DE]: 'Anwenden',
+    [LANGUAGES.EN]: 'Apply'
+  },
+  'cancel_tags': {
+    [LANGUAGES.DE]: 'Abbrechen',
+    [LANGUAGES.EN]: 'Cancel'
+  },
+  'fetching_tags': {
+    [LANGUAGES.DE]: 'Lade Tags...',
+    [LANGUAGES.EN]: 'Fetching tags...'
+  },
+  'tags_fetch_error': {
+    [LANGUAGES.DE]: 'Fehler beim Laden der Tags',
+    [LANGUAGES.EN]: 'Error fetching tags'
+  },
+  'updating_tags': {
+    [LANGUAGES.DE]: 'Aktualisiere Tags...',
+    [LANGUAGES.EN]: 'Updating tags...'
+  },
+  'tags_updated': {
+    [LANGUAGES.DE]: 'Tags erfolgreich aktualisiert',
+    [LANGUAGES.EN]: 'Tags successfully updated'
+  },
+  'tags_update_error': {
+    [LANGUAGES.DE]: 'Fehler beim Aktualisieren der Tags',
+    [LANGUAGES.EN]: 'Error updating tags'
   }
 };
 

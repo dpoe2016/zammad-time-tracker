@@ -17,6 +17,39 @@ function updateUILanguage() {
     document.getElementById('languageLabel').textContent = t('language');
     document.getElementById('debugInfo').textContent = t('debug_mode');
 
+    // Time edit elements
+    const timeSpentElement = document.getElementById('timeSpent');
+    if (timeSpentElement) {
+        timeSpentElement.title = t('edit_time');
+    }
+
+    // Save and cancel buttons in time edit form
+    const saveTimeBtn = document.getElementById('saveTimeBtn');
+    if (saveTimeBtn) {
+        saveTimeBtn.textContent = t('api_save');
+    }
+
+    const cancelTimeBtn = document.getElementById('cancelTimeBtn');
+    if (cancelTimeBtn) {
+        cancelTimeBtn.textContent = t('api_cancel');
+    }
+
+    // Tag elements
+    const tagsLabel = document.getElementById('tagsLabel');
+    if (tagsLabel) {
+        tagsLabel.textContent = t('tags');
+    }
+
+    const applyTagsBtn = document.getElementById('applyTagsBtn');
+    if (applyTagsBtn) {
+        applyTagsBtn.textContent = t('apply_tags');
+    }
+
+    const cancelTagsBtn = document.getElementById('cancelTagsBtn');
+    if (cancelTagsBtn) {
+        cancelTagsBtn.textContent = t('cancel_tags');
+    }
+
     // API Settings
     document.getElementById('apiSettingsLabel').textContent = t('api_settings');
     document.getElementById('apiSettingsBtn').textContent = t('api_options');
@@ -38,6 +71,8 @@ class TimetrackingPopup {
         this.currentTicketId = null;
         this.currentTicketTitle = null;
         this.currentTimeSpent = 0;
+        this.currentTicketTags = [];
+        this.availableTags = [];
 
         this.initElements();
         this.initEventListeners();
@@ -63,6 +98,23 @@ class TimetrackingPopup {
         this.notificationsToggle = document.getElementById('notificationsToggle');
         this.autoSubmitToggle = document.getElementById('autoSubmitToggle');
         this.debugInfo = document.getElementById('debugInfo');
+
+        // Time edit elements
+        this.editTimeIcon = document.getElementById('editTimeIcon');
+        this.timeEditForm = document.getElementById('timeEditForm');
+        this.timeEditInput = document.getElementById('timeEditInput');
+        this.saveTimeBtn = document.getElementById('saveTimeBtn');
+        this.cancelTimeBtn = document.getElementById('cancelTimeBtn');
+
+        // Tag elements
+        this.ticketTagsContainer = document.getElementById('ticketTagsContainer');
+        this.tagsLabel = document.getElementById('tagsLabel');
+        this.showTagsBtn = document.getElementById('showTagsBtn');
+        this.currentTags = document.getElementById('currentTags');
+        this.tagSelector = document.getElementById('tagSelector');
+        this.tagList = document.getElementById('tagList');
+        this.applyTagsBtn = document.getElementById('applyTagsBtn');
+        this.cancelTagsBtn = document.getElementById('cancelTagsBtn');
 
         // API Settings elements
         this.apiSettingsBtn = document.getElementById('apiSettingsBtn');
@@ -93,6 +145,36 @@ class TimetrackingPopup {
             this.saveSettings();
         });
 
+        // Time edit functionality
+        this.timeSpent.addEventListener('click', () => {
+            console.log('Time spent clicked');
+            this.showTimeEditForm();
+        });
+
+        this.editTimeIcon.addEventListener('click', () => {
+            console.log('Edit time icon clicked');
+            this.showTimeEditForm();
+        });
+
+        this.saveTimeBtn.addEventListener('click', () => {
+            console.log('Save time button clicked');
+            this.saveEditedTime();
+        });
+
+        this.cancelTimeBtn.addEventListener('click', () => {
+            console.log('Cancel time button clicked');
+            this.hideTimeEditForm();
+        });
+
+        // Handle Enter key in time edit input
+        this.timeEditInput.addEventListener('keyup', (e) => {
+            if (e.key === 'Enter') {
+                this.saveEditedTime();
+            } else if (e.key === 'Escape') {
+                this.hideTimeEditForm();
+            }
+        });
+
         // Language selector
         document.getElementById('languageSelect').addEventListener('change', (e) => {
             const newLang = e.target.value;
@@ -107,6 +189,22 @@ class TimetrackingPopup {
         this.apiSettingsBtn.addEventListener('click', () => {
             console.log('API Settings button clicked - opening options page');
             chrome.runtime.openOptionsPage();
+        });
+
+        // Tag-related event listeners
+        this.showTagsBtn.addEventListener('click', () => {
+            console.log('Show tags button clicked');
+            this.showTagSelector();
+        });
+
+        this.applyTagsBtn.addEventListener('click', () => {
+            console.log('Apply tags button clicked');
+            this.applySelectedTags();
+        });
+
+        this.cancelTagsBtn.addEventListener('click', () => {
+            console.log('Cancel tags button clicked');
+            this.hideTagSelector();
         });
 
         // Debug-Modus Toggle
@@ -313,6 +411,29 @@ class TimetrackingPopup {
                     } catch (timeError) {
                         this.debug('Error loading time entries: ' + timeError.message);
                         // Continue with ticket info even if time entries fail
+                    }
+
+                    // Get ticket tags if available in ticket data
+                    if (ticketData.tags && Array.isArray(ticketData.tags)) {
+                        this.currentTicketTags = ticketData.tags;
+                        this.debug('Tags from API: ' + JSON.stringify(this.currentTicketTags));
+                        this.displayCurrentTags();
+                    } else {
+                        // If tags not in ticket data, try to fetch them separately
+                        try {
+                            // Fetch available tags first if needed
+                            if (this.availableTags.length === 0) {
+                                await this.fetchAvailableTags();
+                            }
+
+                            // For now, we'll just display empty tags
+                            // In a real implementation, you might need another API call to get ticket-specific tags
+                            this.currentTicketTags = [];
+                            this.displayCurrentTags();
+                        } catch (tagsError) {
+                            this.debug('Error loading tags: ' + tagsError.message);
+                            // Continue with ticket info even if tags fail
+                        }
                     }
 
                     // Show ticket info
@@ -768,6 +889,279 @@ class TimetrackingPopup {
     }
 
     // API Settings are now managed in the options page
+
+    /**
+     * Show the time edit form
+     */
+    showTimeEditForm() {
+        if (!this.currentTicketId) {
+            this.debug('No active ticket, cannot edit time');
+            return;
+        }
+
+        // Position the form near the time spent element
+        const rect = this.timeSpent.getBoundingClientRect();
+        this.timeEditForm.style.left = rect.left + 'px';
+        this.timeEditForm.style.top = (rect.bottom + 5) + 'px';
+
+        // Set the current value in the input
+        this.timeEditInput.value = Math.round(this.currentTimeSpent);
+
+        // Show the form
+        this.timeEditForm.style.display = 'block';
+
+        // Focus the input
+        this.timeEditInput.focus();
+        this.timeEditInput.select();
+
+        this.debug('Time edit form shown');
+    }
+
+    /**
+     * Hide the time edit form
+     */
+    hideTimeEditForm() {
+        this.timeEditForm.style.display = 'none';
+        this.debug('Time edit form hidden');
+    }
+
+    /**
+     * Save the edited time
+     */
+    async saveEditedTime() {
+        try {
+            const newTimeValue = parseInt(this.timeEditInput.value, 10);
+
+            if (isNaN(newTimeValue) || newTimeValue < 0) {
+                this.debug('Invalid time value');
+                this.infoText.textContent = t('invalid_time_value');
+                this.infoText.className = 'info error';
+                return;
+            }
+
+            this.debug(`Saving new time value: ${newTimeValue} min`);
+
+            // Hide the form
+            this.hideTimeEditForm();
+
+            // Update the UI
+            this.timeSpent.textContent = newTimeValue;
+            this.currentTimeSpent = newTimeValue;
+
+            // Submit the updated time to Zammad if API is initialized
+            if (zammadApi.isInitialized() && this.currentTicketId) {
+                this.infoText.textContent = t('updating_time');
+                this.infoText.className = 'info';
+
+                try {
+                    // Submit the time entry with a comment indicating it's a correction
+                    const comment = 'Korrektur der erfassten Zeit';
+                    const response = await zammadApi.submitTimeEntry(this.currentTicketId, newTimeValue, comment);
+
+                    if (response) {
+                        this.debug('Time updated successfully');
+                        this.infoText.textContent = t('time_updated');
+                        this.infoText.className = 'info success';
+                    } else {
+                        throw new Error('No response from API');
+                    }
+                } catch (apiError) {
+                    this.debug('Error updating time: ' + apiError.message);
+                    this.infoText.textContent = t('time_update_error') + ': ' + apiError.message;
+                    this.infoText.className = 'info error';
+                }
+            } else {
+                this.debug('API not initialized, cannot update time');
+                this.infoText.textContent = t('time_updated_locally');
+                this.infoText.className = 'info warning';
+            }
+        } catch (error) {
+            this.debug('Error saving time: ' + error.message);
+            this.infoText.textContent = t('time_update_error') + ': ' + error.message;
+            this.infoText.className = 'info error';
+        }
+    }
+
+    /**
+     * Fetch available tags from Zammad
+     */
+    async fetchAvailableTags() {
+        try {
+            if (!zammadApi.isInitialized()) {
+                this.debug('API not initialized, cannot fetch tags');
+                return false;
+            }
+
+            this.debug('Fetching available tags from Zammad');
+            const tags = await zammadApi.getTags();
+
+            if (tags && Array.isArray(tags)) {
+                this.availableTags = tags;
+                this.debug(`Fetched ${tags.length} tags from Zammad`);
+                return true;
+            } else {
+                this.debug('No tags found or invalid format');
+                return false;
+            }
+        } catch (error) {
+            this.debug('Error fetching tags: ' + error.message);
+            return false;
+        }
+    }
+
+    /**
+     * Display current ticket tags
+     */
+    displayCurrentTags() {
+        this.currentTags.innerHTML = '';
+
+        if (!this.currentTicketTags || this.currentTicketTags.length === 0) {
+            this.debug('No tags to display');
+            return;
+        }
+
+        this.debug(`Displaying ${this.currentTicketTags.length} tags`);
+
+        this.currentTicketTags.forEach(tag => {
+            const tagElement = document.createElement('div');
+            tagElement.className = 'tag-item';
+            tagElement.innerHTML = `
+                ${tag}
+                <span class="tag-remove" data-tag="${tag}">×</span>
+            `;
+
+            // Add event listener to remove tag
+            const removeBtn = tagElement.querySelector('.tag-remove');
+            removeBtn.addEventListener('click', (e) => {
+                const tagToRemove = e.target.getAttribute('data-tag');
+                this.debug(`Removing tag: ${tagToRemove}`);
+                this.currentTicketTags = this.currentTicketTags.filter(t => t !== tagToRemove);
+                this.displayCurrentTags();
+                this.updateTicketTags();
+            });
+
+            this.currentTags.appendChild(tagElement);
+        });
+    }
+
+    /**
+     * Show tag selector
+     */
+    async showTagSelector() {
+        if (!this.currentTicketId) {
+            this.debug('No active ticket, cannot show tag selector');
+            return;
+        }
+
+        this.debug('Showing tag selector');
+
+        // Fetch available tags if needed
+        if (this.availableTags.length === 0) {
+            this.infoText.textContent = t('fetching_tags');
+            this.infoText.className = 'info';
+
+            const success = await this.fetchAvailableTags();
+            if (!success) {
+                this.infoText.textContent = t('tags_fetch_error');
+                this.infoText.className = 'info error';
+                return;
+            }
+        }
+
+        // Clear and populate tag list
+        this.tagList.innerHTML = '';
+
+        this.availableTags.forEach(tag => {
+            const option = document.createElement('option');
+            option.value = tag;
+            option.textContent = tag;
+
+            // Pre-select if tag is already assigned
+            if (this.currentTicketTags.includes(tag)) {
+                option.selected = true;
+            }
+
+            this.tagList.appendChild(option);
+        });
+
+        // Show the tag selector
+        this.tagSelector.style.display = 'block';
+        this.showTagsBtn.textContent = '-';
+    }
+
+    /**
+     * Hide tag selector
+     */
+    hideTagSelector() {
+        this.debug('Hiding tag selector');
+        this.tagSelector.style.display = 'none';
+        this.showTagsBtn.textContent = '+';
+    }
+
+    /**
+     * Apply selected tags to the current ticket
+     */
+    async applySelectedTags() {
+        if (!this.currentTicketId) {
+            this.debug('No active ticket, cannot apply tags');
+            return;
+        }
+
+        try {
+            // Get selected tags
+            const selectedTags = Array.from(this.tagList.selectedOptions).map(option => option.value);
+            this.debug(`Applying ${selectedTags.length} tags to ticket #${this.currentTicketId}`);
+
+            // Update current tags
+            this.currentTicketTags = selectedTags;
+
+            // Hide selector
+            this.hideTagSelector();
+
+            // Display updated tags
+            this.displayCurrentTags();
+
+            // Update tags in Zammad
+            await this.updateTicketTags();
+
+        } catch (error) {
+            this.debug('Error applying tags: ' + error.message);
+            this.infoText.textContent = t('tags_update_error') + ': ' + error.message;
+            this.infoText.className = 'info error';
+        }
+    }
+
+    /**
+     * Update ticket tags in Zammad
+     */
+    async updateTicketTags() {
+        if (!this.currentTicketId || !zammadApi.isInitialized()) {
+            this.debug('Cannot update tags: No ticket ID or API not initialized');
+            return false;
+        }
+
+        try {
+            this.debug(`Updating tags for ticket #${this.currentTicketId}`);
+            this.infoText.textContent = t('updating_tags');
+            this.infoText.className = 'info';
+
+            const response = await zammadApi.assignTagsToTicket(this.currentTicketId, this.currentTicketTags);
+
+            if (response) {
+                this.debug('Tags updated successfully');
+                this.infoText.textContent = t('tags_updated');
+                this.infoText.className = 'info success';
+                return true;
+            } else {
+                throw new Error('No response from API');
+            }
+        } catch (error) {
+            this.debug('Error updating tags: ' + error.message);
+            this.infoText.textContent = t('tags_update_error') + ': ' + error.message;
+            this.infoText.className = 'info error';
+            return false;
+        }
+    }
 }
 
 // Popup beim Laden initialisieren

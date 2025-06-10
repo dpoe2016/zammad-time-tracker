@@ -8,6 +8,7 @@ A Chrome extension for time tracking in Zammad tickets.
 - 🎯 **Automatic Ticket Detection** - Automatically recognizes ticket IDs
 - 💾 **Persistent Time Tracking** - Timer continues running even when switching tabs
 - 🔧 **Time Recording** - Tracks and displays time spent on tickets
+- 🏷️ **Tag Management** - Assign tags to tickets directly from the extension
 - 🔔 **Browser Notifications** - Informs about start/stop events
 - 🌐 **Direct Zammad API Integration** - Reliable communication via the Zammad REST API
 - 🐛 **Debug Mode** - Comprehensive logging for troubleshooting
@@ -96,6 +97,15 @@ zammad-time-tracker/
 - **Double-click** on "Zammad Timetracking" in the popup header
 - Yellow debug box will be displayed
 - Shows detailed information about all processes
+
+#### Manage Tags
+- **View Tags:** Current tags for the ticket are displayed in the ticket info section
+- **Add/Remove Tags:** 
+  - Click the "+" button next to "Tags" to open the tag selector
+  - Select one or more tags from the available tags list
+  - Click "Apply" to assign the selected tags to the ticket
+  - Click "Cancel" to close without changes
+- **Remove Individual Tags:** Click the "×" on any tag to remove it from the ticket
 
 #### Adjust Settings
 - **Notifications:** Turn on/off browser notifications when tracking starts/stops
@@ -337,6 +347,7 @@ If you encounter problems or have questions:
 
 Planned features:
 - [x] REST API Integration
+- [x] Tag Management
 - [ ] Time tracking reports
 - [ ] Project time categories
 - [ ] Team statistics

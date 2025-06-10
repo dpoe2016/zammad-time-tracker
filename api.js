@@ -12,7 +12,8 @@ class ZammadAPI {
     this.successfulEndpoints = {
       ticket: null,
       timeEntries: null,
-      timeSubmission: null
+      timeSubmission: null,
+      tags: null
     };
 
     // Load cached endpoints from storage
@@ -590,6 +591,124 @@ class ZammadAPI {
     // If we get here, all endpoints failed
     console.error('All time entry submission endpoints failed');
     throw lastError || new Error('Failed to submit time entry');
+  }
+
+  /**
+   * Get all available tags from Zammad
+   * @returns {Promise<Array>} - The list of available tags
+   */
+  async getTags() {
+    // If we have a successful endpoint cached, try it first
+    if (this.successfulEndpoints.tags) {
+      try {
+        console.log(`Using cached successful tags endpoint: ${this.successfulEndpoints.tags}`);
+        return await this.request(this.successfulEndpoints.tags);
+      } catch (error) {
+        console.error('Cached tags endpoint failed, will try alternatives:', error);
+        // Clear the cache if it fails
+        this.successfulEndpoints.tags = null;
+      }
+    }
+
+    // Define possible endpoints for tags
+    const endpoints = [
+      // Official Zammad API endpoints for tags
+      '/api/v1/tags',
+      '/api/v1/tag_list',
+      '/api/v1/tags/list',
+      // Alternative endpoints
+      '/api/tags',
+      '/api/tag_list'
+    ];
+
+    let lastError = null;
+
+    // Try each endpoint until one works
+    for (const endpoint of endpoints) {
+      try {
+        console.log(`Trying tags endpoint: ${endpoint}`);
+        const result = await this.request(endpoint);
+
+        // Cache the successful endpoint pattern for future use
+        this.successfulEndpoints.tags = endpoint;
+        console.log(`Cached successful tags endpoint: ${endpoint}`);
+
+        // Save to storage for persistence
+        this.saveCachedEndpoints();
+
+        return result;
+      } catch (error) {
+        console.error(`Error with tags endpoint ${endpoint}:`, error);
+        lastError = error;
+        // Continue to next endpoint
+      }
+    }
+
+    // If we get here, all endpoints failed
+    console.error('All tags endpoints failed');
+    throw lastError || new Error('Failed to get tags');
+  }
+
+  /**
+   * Assign tags to a ticket
+   * @param {string|number} ticketId - The ticket ID or number
+   * @param {Array<string>} tags - The tags to assign to the ticket
+   * @returns {Promise<Object>} - The response data
+   */
+  async assignTagsToTicket(ticketId, tags) {
+    if (!ticketId) {
+      throw new Error('Ticket ID is required');
+    }
+
+    if (!Array.isArray(tags) || tags.length === 0) {
+      throw new Error('Tags must be a non-empty array');
+    }
+
+    // Check if this is a ticket number (usually longer) or a ticket ID (usually shorter)
+    const isLikelyTicketNumber = ticketId.toString().length > 10;
+    console.log(`Assigning tags to ${ticketId} (${isLikelyTicketNumber ? 'ticket number' : 'ticket ID'})`);
+
+    // Define possible endpoints for assigning tags
+    let endpoints = [];
+
+    if (isLikelyTicketNumber) {
+      // For ticket numbers, we might need to use different endpoints
+      endpoints = [
+        `/api/v1/tickets/by_number/${ticketId}/tags`,
+        `/api/tickets/by_number/${ticketId}/tags`
+      ];
+    } else {
+      // Standard endpoints for ticket IDs
+      endpoints = [
+        `/api/v1/tickets/${ticketId}/tags`,
+        `/api/tickets/${ticketId}/tags`,
+        `/api/v1/ticket/${ticketId}/tags`
+      ];
+    }
+
+    const data = { tags: tags };
+    let lastError = null;
+
+    // Try each endpoint until one works
+    for (const endpoint of endpoints) {
+      try {
+        console.log(`Trying tag assignment endpoint: ${endpoint}`);
+        const result = await this.request(endpoint, 'POST', data);
+
+        // Cache the successful endpoint pattern for future use if needed
+        console.log(`Successfully assigned tags using endpoint: ${endpoint}`);
+
+        return result;
+      } catch (error) {
+        console.error(`Error with tag assignment endpoint ${endpoint}:`, error);
+        lastError = error;
+        // Continue to next endpoint
+      }
+    }
+
+    // If we get here, all endpoints failed
+    console.error('All tag assignment endpoints failed');
+    throw lastError || new Error('Failed to assign tags to ticket');
   }
 }
 
