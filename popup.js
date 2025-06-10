@@ -244,7 +244,15 @@ class TimetrackingPopup {
             // Initialize API if settings are available
             if (apiSettings.baseUrl && apiSettings.token) {
                 this.debug('Initializing API with saved settings');
-                zammadApi.init(apiSettings.baseUrl, apiSettings.token);
+                if (!window.zammadApi) {
+                    this.debug('Creating global zammadApi instance');
+                    try {
+                        window.zammadApi = new ZammadAPI();
+                    } catch (error) {
+                        this.debug('Error creating ZammadAPI instance: ' + error.message);
+                    }
+                }
+                window.zammadApi.init(apiSettings.baseUrl, apiSettings.token);
             }
 
             // Restore active tracking
@@ -277,7 +285,7 @@ class TimetrackingPopup {
                 this.debug('Tracking restored for ticket: ' + state.ticketId);
 
                 // Try to refresh ticket info from API if available
-                if (zammadApi.isInitialized() && this.currentTicketId) {
+                if (window.zammadApi && window.zammadApi.isInitialized() && this.currentTicketId) {
                     this.loadTicketInfoFromApi(this.currentTicketId);
                 }
             } else {
@@ -303,18 +311,37 @@ class TimetrackingPopup {
                 this.debug('Zammad page detected - loading ticket information');
 
                 // If API is not initialized, try to extract base URL from tab URL
-                if (!zammadApi.isInitialized()) {
-                    const baseUrl = zammadApi.extractBaseUrlFromTabUrl(tab.url);
+                if (!window.zammadApi || !window.zammadApi.isInitialized()) {
+                    // Ensure we're using the global zammadApi instance
+                    if (!window.zammadApi) {
+                        this.debug('Creating global zammadApi instance for URL extraction');
+                        try {
+                            window.zammadApi = new ZammadAPI();
+                        } catch (error) {
+                            this.debug('Error creating ZammadAPI instance: ' + error.message);
+                        }
+                    }
+                    const baseUrl = window.zammadApi.extractBaseUrlFromTabUrl(tab.url);
                     if (baseUrl) {
                         this.debug('Extracted base URL from tab: ' + baseUrl);
 
                         // Check if we have a token saved
-                        const settings = await zammadApi.getSettings();
+                        // Ensure we're using the global zammadApi instance
+                        if (!window.zammadApi) {
+                            this.debug('Creating global zammadApi instance');
+                            try {
+                                window.zammadApi = new ZammadAPI();
+                            } catch (error) {
+                                this.debug('Error creating ZammadAPI instance: ' + error.message);
+                            }
+                        }
+
+                        const settings = await window.zammadApi.getSettings();
                         if (settings.token && !settings.baseUrl) {
                             // We have a token but no base URL, so save the extracted base URL
                             settings.baseUrl = baseUrl;
-                            await zammadApi.saveSettings(settings);
-                            zammadApi.init(baseUrl, settings.token);
+                            await window.zammadApi.saveSettings(settings);
+                            window.zammadApi.init(baseUrl, settings.token);
                             this.debug('API initialized with extracted base URL and saved token');
                         } else if (!settings.token) {
                             this.debug('No API token found - please configure in options page');
@@ -365,7 +392,7 @@ class TimetrackingPopup {
 
     async loadTicketInfoFromApi(ticketId) {
         try {
-            if (!zammadApi.isInitialized()) {
+            if (!window.zammadApi || !window.zammadApi.isInitialized()) {
                 this.debug('API not initialized, cannot load ticket info');
                 this.infoText.textContent = t('api_not_initialized');
                 this.infoText.className = 'info warning';
@@ -378,7 +405,7 @@ class TimetrackingPopup {
 
             // Get ticket information
             try {
-                const ticketData = await zammadApi.getTicket(ticketId);
+                const ticketData = await window.zammadApi.getTicket(ticketId);
                 this.debug('Ticket data received from API: ' + JSON.stringify(ticketData));
 
                 if (ticketData) {
@@ -393,7 +420,7 @@ class TimetrackingPopup {
 
                     // Get time entries
                     try {
-                        const timeEntries = await zammadApi.getTimeEntries(ticketId);
+                        const timeEntries = await window.zammadApi.getTimeEntries(ticketId);
                         this.debug('Time entries received from API: ' + JSON.stringify(timeEntries));
 
                         if (timeEntries && Array.isArray(timeEntries)) {
@@ -424,7 +451,7 @@ class TimetrackingPopup {
                             // Try to get ticket-specific tags
                             this.debug('Fetching tags for ticket #' + ticketId);
                             try {
-                                const ticketTags = await zammadApi.getTicketTags(ticketId);
+                                const ticketTags = await window.zammadApi.getTicketTags(ticketId);
                                 if (ticketTags && Array.isArray(ticketTags)) {
                                     this.currentTicketTags = ticketTags;
                                     this.debug('Tags from getTicketTags: ' + JSON.stringify(this.currentTicketTags));
@@ -490,7 +517,7 @@ class TimetrackingPopup {
                 this.ticketId.textContent = '#' + response.ticketId;
 
                 // Try to get ticket info from API first
-                if (zammadApi.isInitialized()) {
+                if (window.zammadApi && window.zammadApi.isInitialized()) {
                     const apiSuccess = await this.loadTicketInfoFromApi(response.ticketId);
 
                     if (apiSuccess) {
@@ -810,12 +837,12 @@ class TimetrackingPopup {
             this.debug('Trying automatic entry...');
 
             // First try to submit via API if initialized
-            if (zammadApi.isInitialized()) {
+            if (window.zammadApi && window.zammadApi.isInitialized()) {
                 try {
                     this.debug('Submitting time via API...');
                     // const comment = 'Time tracked via Zammad Timetracking Extension';
                     //
-                    // const response = await zammadApi.submitTimeEntry(ticketId, durationMinutes, comment);
+                    // const response = await window.zammadApi.submitTimeEntry(ticketId, durationMinutes, comment);
                     //
                     // if (response) {
                     //     this.debug('API time entry successful: ' + JSON.stringify(response));
@@ -965,14 +992,14 @@ class TimetrackingPopup {
             this.currentTimeSpent = newTimeValue;
 
             // Submit the updated time to Zammad if API is initialized
-            if (zammadApi.isInitialized() && this.currentTicketId) {
+            if (window.zammadApi && window.zammadApi.isInitialized() && this.currentTicketId) {
                 this.infoText.textContent = t('updating_time');
                 this.infoText.className = 'info';
 
                 try {
                     // Submit the time entry with a comment indicating it's a correction
                     const comment = 'Korrektur der erfassten Zeit';
-                    const response = await zammadApi.submitTimeEntry(this.currentTicketId, newTimeValue, comment);
+                    const response = await window.zammadApi.submitTimeEntry(this.currentTicketId, newTimeValue, comment);
 
                     if (response) {
                         this.debug('Time updated successfully');
@@ -1003,13 +1030,40 @@ class TimetrackingPopup {
      */
     async fetchAvailableTags() {
         try {
-            if (!zammadApi.isInitialized()) {
+            // Ensure we're using the global zammadApi instance
+            if (!window.zammadApi) {
+                this.debug('zammadApi not found in window object, trying to create a new instance');
+                try {
+                    // Try to create a new instance if ZammadAPI class is available
+                    if (typeof ZammadAPI === 'function') {
+                        window.zammadApi = new ZammadAPI();
+                        this.debug('Created new ZammadAPI instance');
+
+                        // Try to initialize with settings if available
+                        const result = await chrome.storage.local.get(['zammadApiSettings']);
+                        const apiSettings = result.zammadApiSettings || {};
+
+                        if (apiSettings.baseUrl && apiSettings.token) {
+                            window.zammadApi.init(apiSettings.baseUrl, apiSettings.token);
+                            this.debug('Initialized API with saved settings');
+                        }
+                    } else {
+                        this.debug('ZammadAPI class not available, cannot create new instance');
+                        return false;
+                    }
+                } catch (initError) {
+                    this.debug('Error creating API instance: ' + initError.message);
+                    return false;
+                }
+            }
+
+            if (!window.zammadApi || !window.zammadApi.isInitialized()) {
                 this.debug('API not initialized, cannot fetch tags');
                 return false;
             }
 
             this.debug('Fetching available tags from Zammad');
-            const tags = await zammadApi.getTags();
+            const tags = await window.zammadApi.getTags();
 
             if (tags && Array.isArray(tags)) {
                 this.availableTags = tags;
@@ -1159,7 +1213,7 @@ class TimetrackingPopup {
      * Update ticket tags in Zammad
      */
     async updateTicketTags() {
-        if (!this.currentTicketId || !zammadApi.isInitialized()) {
+        if (!this.currentTicketId || !window.zammadApi || !window.zammadApi.isInitialized()) {
             this.debug('Cannot update tags: No ticket ID or API not initialized');
             return false;
         }
@@ -1169,7 +1223,7 @@ class TimetrackingPopup {
             this.infoText.textContent = t('updating_tags');
             this.infoText.className = 'info';
 
-            const response = await zammadApi.assignTagsToTicket(this.currentTicketId, this.currentTicketTags);
+            const response = await window.zammadApi.assignTagsToTicket(this.currentTicketId, this.currentTicketTags);
 
             if (response) {
                 this.debug('Tags updated successfully');
