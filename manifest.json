@@ -30,7 +30,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["translations.js", "zammad-api.js", "popup.js"],
+      "resources": ["translations.js", "api.js", "popup.js"],
       "matches": ["<all_urls>"]
     }
   ],
