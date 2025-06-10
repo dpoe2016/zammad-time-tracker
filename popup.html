@@ -249,6 +249,67 @@
             color: #495057;
             cursor: pointer;
         }
+
+        /* Styles for editable time */
+        .editable-time {
+            cursor: pointer;
+            border-bottom: 1px dashed #28a745;
+            padding: 0 2px;
+        }
+
+        .editable-time:hover {
+            background-color: #e8f5e9;
+        }
+
+        .edit-icon {
+            font-size: 12px;
+            margin-left: 4px;
+            cursor: pointer;
+            opacity: 0.7;
+        }
+
+        .edit-icon:hover {
+            opacity: 1;
+        }
+
+        .time-edit-form {
+            display: none;
+            position: absolute;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            z-index: 100;
+            margin-top: 5px;
+        }
+
+        .time-edit-form input {
+            width: 60px;
+            padding: 4px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .time-edit-form button {
+            margin-left: 5px;
+            padding: 4px 8px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .time-edit-form button.save {
+            background: #28a745;
+            color: white;
+        }
+
+        .time-edit-form button.cancel {
+            background: #6c757d;
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -267,8 +328,20 @@
         <div class="ticket-title" id="ticketTitle">Ticket wird geladen...</div>
         <div class="ticket-details">
             <span><span id="ticketLabel">Ticket</span>: <span id="ticketId">-</span></span>
-            <span class="time-spent"><span id="timeSpentLabel">Erfasst</span>: <span id="timeSpent">0</span> <span id="minLabel">Min</span></span>
+            <span class="time-spent">
+                <span id="timeSpentLabel">Erfasst</span>: 
+                <span id="timeSpent" class="editable-time" title="">0</span>
+                <span id="minLabel">Min</span>
+                <span class="edit-icon" id="editTimeIcon">✏️</span>
+            </span>
         </div>
+    </div>
+
+    <!-- Time edit form -->
+    <div class="time-edit-form" id="timeEditForm">
+        <input type="number" id="timeEditInput" min="0" step="1">
+        <button class="save" id="saveTimeBtn">OK</button>
+        <button class="cancel" id="cancelTimeBtn">X</button>
     </div>
 
     <div class="timer-display" id="timerDisplay">00:00:00</div>
