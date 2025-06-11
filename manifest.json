@@ -5,6 +5,7 @@
   "description": "Zeiterfassung für Zammad Tickets",
   "permissions": [
     "activeTab",
+    "tabs",
     "storage",
     "scripting",
     "notifications",
