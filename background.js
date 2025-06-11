@@ -91,9 +91,9 @@ function handleTrackingStopped(data) {
   console.log('Time tracking ended for ticket:', data.ticketId);
 
   // Remove badge
-  if (chrome.action && chrome.action.setBadgeText) {
+  // if (chrome.action && chrome.action.setBadgeText) {
     chrome.action.setBadgeText({ text: '' });
-  }
+  //}
 
   // Notification with status
   var message = t('ticket_id') + ' #' + (data.ticketId || t('unknown')) + 
