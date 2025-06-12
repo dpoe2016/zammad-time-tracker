@@ -670,7 +670,7 @@ class ZammadTimetracker {
 console.log('Zammad Timetracker Content Script is loading...');
 
 // Avoid multiple instances
-if (!window.zammadTrackerInstance) {
+if (window.zammadTrackerInstance === undefined) {
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
       console.log('DOM loaded, initializing Zammad Timetracker');
