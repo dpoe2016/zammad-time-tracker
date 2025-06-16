@@ -99,12 +99,18 @@ class TimetrackingPopup {
 
         this.startBtn.addEventListener('click', () => {
             console.log('Start button clicked');
-            this.startTracking();
+            // Immediately disable button to prevent double-clicking
+            this.startBtn.disabled = true;
+            // Ensure the action is processed even if popup closes quickly
+            setTimeout(() => this.startTracking(), 0);
         });
 
         this.stopBtn.addEventListener('click', () => {
             console.log('Stop button clicked');
-            this.stopTracking();
+            // Immediately disable button to prevent double-clicking
+            this.stopBtn.disabled = true;
+            // Ensure the action is processed even if popup closes quickly
+            setTimeout(() => this.stopTracking(), 0);
         });
 
         this.notificationsToggle.addEventListener('change', () => {
@@ -203,6 +209,13 @@ class TimetrackingPopup {
                 zammadApi.init(apiSettings.baseUrl, apiSettings.token);
             }
 
+            // Store the last tracked ticket ID if available
+            let lastTicketId = null;
+            if (state && state.ticketId) {
+                lastTicketId = state.ticketId;
+                this.debug('Last tracked ticket ID: ' + lastTicketId);
+            }
+
             // Restore active tracking
             if (state && state.isTracking && state.startTime) {
                 this.debug('Active tracking found - restoring');
@@ -238,6 +251,17 @@ class TimetrackingPopup {
                 }
             } else {
                 this.debug('No active tracking - checking page');
+
+                // If we have a last tracked ticket ID and API is initialized, try to refresh its info
+                // This ensures we show the latest time data even when not actively tracking
+                if (lastTicketId && zammadApi.isInitialized()) {
+                    this.debug('Refreshing info for last tracked ticket: ' + lastTicketId);
+                    this.currentTicketId = lastTicketId;
+                    this.ticketId.textContent = '#' + lastTicketId;
+                    await this.loadTicketInfoFromApi(lastTicketId);
+                    this.ticketInfo.style.display = 'block';
+                }
+
                 await this.checkCurrentPage();
             }
 
@@ -464,6 +488,32 @@ class TimetrackingPopup {
         try {
             this.debug('Starting time tracking...');
 
+            // Immediately disable button to prevent double-clicking
+            this.startBtn.disabled = true;
+            this.infoText.textContent = t('starting_tracking');
+            this.infoText.className = 'info';
+
+            // Initialize tracking state early
+            this.isTracking = true;
+            this.startTime = new Date();
+
+            // Save initial state to storage immediately
+            try {
+                await chrome.storage.local.set({
+                    zammadTrackingState: {
+                        isTracking: true,
+                        startTime: this.startTime.toISOString(),
+                        // We'll update with more details later
+                        ticketId: 'initializing',
+                        title: null,
+                        timeSpent: 0
+                    }
+                });
+                this.debug('Initial tracking state saved');
+            } catch (storageError) {
+                this.debug('Error saving initial state: ' + storageError.message);
+            }
+
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
             this.debug('Tab URL: ' + tab.url);
 
@@ -471,12 +521,10 @@ class TimetrackingPopup {
                 this.infoText.textContent = t('open_ticket');
                 this.infoText.className = 'info error';
                 this.debug('Not a Zammad URL');
+                this.isTracking = false; // Reset tracking state
+                this.startBtn.disabled = false; // Re-enable button
                 return;
             }
-
-            this.startBtn.disabled = true;
-            this.infoText.textContent = t('starting_tracking');
-            this.infoText.className = 'info';
 
             // Inject content script
             this.debug('Injecting content script...');
@@ -570,8 +618,9 @@ class TimetrackingPopup {
 
             this.debug('Time tracking successfully started');
 
-            // Close popup
-            setTimeout(() => window.close(), 2000);
+            // Close popup after a delay to ensure all operations complete
+            // Using a longer timeout to ensure tracking is registered even if user moves away quickly
+            setTimeout(() => window.close(), 5000);
 
         } catch (error) {
             this.debug('Critical error: ' + error.message);
@@ -636,6 +685,7 @@ class TimetrackingPopup {
                 this.debug('No active time tracking');
                 this.infoText.textContent = t('no_active_tracking');
                 this.infoText.className = 'info error';
+                this.stopBtn.disabled = false; // Re-enable button
                 return;
             }
 
@@ -647,10 +697,20 @@ class TimetrackingPopup {
 
             this.debug('Duration: ' + durationText + ' (' + durationMinutes + ' min)');
 
-            // Reset status
-            this.isTracking = false;
+            // Store ticket info before resetting
             const ticketId = this.currentTicketId;
             const ticketTitle = this.currentTicketTitle;
+
+            // Reset status immediately
+            this.isTracking = false;
+
+            // Remove tracking state from storage immediately
+            try {
+                await chrome.storage.local.remove(['zammadTrackingState']);
+                this.debug('Tracking state removed from storage');
+            } catch (storageError) {
+                this.debug('Error removing tracking state: ' + storageError.message);
+            }
 
             // Update UI
             this.updateUI();
@@ -672,9 +732,8 @@ class TimetrackingPopup {
                 this.debug('Error stopping tracking in content script: ' + error.message);
             }
 
-            // Delete storage
-            await chrome.storage.local.remove(['zammadTrackingState']);
-            this.debug('Status deleted');
+            // Storage already deleted at the beginning of the method
+            this.debug('Status already deleted');
 
             // Try auto-submit
             // let autoSubmitSuccess = await this.tryAutoSubmit(ticketId, durationMinutes);
@@ -711,8 +770,9 @@ class TimetrackingPopup {
             this.currentTicketTitle = null;
             this.currentTimeSpent = 0;
 
-            // Close popup
-            setTimeout(() => window.close(), 3000);
+            // Close popup after a delay to ensure all operations complete
+            // Using a longer timeout to ensure tracking is registered even if user moves away quickly
+            setTimeout(() => window.close(), 5000);
 
         } catch (error) {
             this.debug('Stop error: ' + error.message);
@@ -887,16 +947,39 @@ class TimetrackingPopup {
                 this.infoText.className = 'info';
 
                 try {
-                    // Submit the time entry with a comment indicating it's a correction
-                    const comment = 'Korrektur der erfassten Zeit';
-                    const response = await zammadApi.submitTimeEntry(this.currentTicketId, newTimeValue, comment);
+                    // Get existing time entries to calculate the difference
+                    const timeEntries = await zammadApi.getTimeEntries(this.currentTicketId);
+                    let totalExistingTime = 0;
 
-                    if (response) {
-                        this.debug('Time updated successfully');
+                    if (timeEntries && Array.isArray(timeEntries)) {
+                        // Calculate total time spent
+                        totalExistingTime = timeEntries.reduce((total, entry) => {
+                            return total + (parseFloat(entry.time_unit) || 0);
+                        }, 0);
+                        this.debug('Total existing time: ' + totalExistingTime + ' min');
+                    }
+
+                    // If the new time is different from the existing total, submit a correction
+                    if (newTimeValue !== totalExistingTime) {
+                        // Submit the time entry with a comment indicating it's a correction
+                        // If new time is less than existing, we need to submit a negative value to adjust
+                        const adjustmentValue = newTimeValue - totalExistingTime;
+                        const comment = 'Korrektur der erfassten Zeit';
+
+                        this.debug('Submitting time adjustment: ' + adjustmentValue + ' min');
+                        const response = await zammadApi.submitTimeEntry(this.currentTicketId, adjustmentValue, comment);
+
+                        if (response) {
+                            this.debug('Time updated successfully');
+                            this.infoText.textContent = t('time_updated');
+                            this.infoText.className = 'info success';
+                        } else {
+                            throw new Error('No response from API');
+                        }
+                    } else {
+                        this.debug('No time adjustment needed, values are the same');
                         this.infoText.textContent = t('time_updated');
                         this.infoText.className = 'info success';
-                    } else {
-                        throw new Error('No response from API');
                     }
                 } catch (apiError) {
                     this.debug('Error updating time: ' + apiError.message);
