@@ -38,6 +38,15 @@ function updateUILanguage() {
     document.getElementById('apiSettingsLabel').textContent = t('api_settings');
     document.getElementById('apiSettingsBtn').textContent = t('api_options');
 
+    // Tab labels
+    document.getElementById('tab-current').textContent = t('tab_current');
+    document.getElementById('tab-tickets').textContent = t('tab_tickets');
+    document.getElementById('tab-history').textContent = t('tab_history');
+
+    // Info messages for tabs
+    document.getElementById('ticketsInfo').textContent = t('loading_tickets');
+    document.getElementById('historyInfo').textContent = t('loading_history');
+
     // Set language selector to current language
     document.getElementById('languageSelect').value = getCurrentLanguage();
 
@@ -56,17 +65,29 @@ class TimetrackingPopup {
         this.currentTicketTitle = null;
         this.currentTimeSpent = 0;
 
+        // For assigned tickets tab
+        this.assignedTickets = [];
+        this.isLoadingTickets = false;
+
+        // For history tab
+        this.timeHistory = [];
+        this.isLoadingHistory = false;
+
         this.initElements();
         this.initEventListeners();
         this.loadState();
 
         // Update UI language
         updateUILanguage();
+
+        // Initialize tabs
+        this.initTabs();
     }
 
     initElements() {
         console.log('Initializing UI elements...');
 
+        // Current tab elements
         this.statusDot = document.getElementById('statusDot');
         this.statusText = document.getElementById('statusText');
         this.ticketInfo = document.getElementById('ticketInfo');
@@ -77,6 +98,22 @@ class TimetrackingPopup {
         this.startBtn = document.getElementById('startBtn');
         this.stopBtn = document.getElementById('stopBtn');
         this.infoText = document.getElementById('infoText');
+
+        // Tab elements
+        this.tabs = document.querySelectorAll('.tab');
+        this.tabContents = document.querySelectorAll('.tab-content');
+
+        // Tickets tab elements
+        this.ticketList = document.getElementById('ticketList');
+        this.ticketsLoading = document.getElementById('ticketsLoading');
+        this.ticketsInfo = document.getElementById('ticketsInfo');
+
+        // History tab elements
+        this.historyList = document.getElementById('historyList');
+        this.historyLoading = document.getElementById('historyLoading');
+        this.historyInfo = document.getElementById('historyInfo');
+
+        // Settings elements
         this.notificationsToggle = document.getElementById('notificationsToggle');
         this.autoSubmitToggle = document.getElementById('autoSubmitToggle');
         this.debugInfo = document.getElementById('debugInfo');
@@ -92,6 +129,394 @@ class TimetrackingPopup {
         this.apiSettingsBtn = document.getElementById('apiSettingsBtn');
 
         console.log('UI elements initialized');
+    }
+
+    /**
+     * Initialize tabs functionality
+     */
+    initTabs() {
+        this.debug('Initializing tabs...');
+
+        // Add click event listeners to tabs
+        this.tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabId = tab.getAttribute('data-tab');
+                this.switchTab(tabId);
+            });
+        });
+
+        // Load content for tickets and history tabs
+        this.loadTabContent('tickets');
+        this.loadTabContent('history');
+    }
+
+    /**
+     * Switch to a specific tab
+     * @param {string} tabId - The ID of the tab to switch to
+     */
+    switchTab(tabId) {
+        this.debug('Switching to tab: ' + tabId);
+
+        // Update active tab
+        this.tabs.forEach(tab => {
+            if (tab.getAttribute('data-tab') === tabId) {
+                tab.classList.add('active');
+            } else {
+                tab.classList.remove('active');
+            }
+        });
+
+        // Update active content
+        this.tabContents.forEach(content => {
+            if (content.id === 'content-' + tabId) {
+                content.classList.add('active');
+            } else {
+                content.classList.remove('active');
+            }
+        });
+
+        // Load content for the selected tab if needed
+        this.loadTabContent(tabId);
+    }
+
+    /**
+     * Load content for a specific tab
+     * @param {string} tabId - The ID of the tab to load content for
+     */
+    loadTabContent(tabId) {
+        this.debug('Loading content for tab: ' + tabId);
+
+        switch (tabId) {
+            case 'tickets':
+                this.loadAssignedTickets();
+                break;
+            case 'history':
+                this.loadTimeHistory();
+                break;
+        }
+    }
+
+    /**
+     * Load assigned tickets from the API
+     */
+    async loadAssignedTickets() {
+        // Skip if already loading or if API is not initialized
+        if (this.isLoadingTickets || !zammadApi.isInitialized()) {
+            if (!zammadApi.isInitialized()) {
+                this.ticketsInfo.textContent = t('api_not_initialized');
+                this.ticketsInfo.className = 'info warning';
+                this.ticketsLoading.style.display = 'none';
+            }
+            return;
+        }
+
+        this.isLoadingTickets = true;
+        this.ticketsLoading.style.display = 'flex';
+        this.ticketsInfo.textContent = t('loading_tickets');
+        this.ticketsInfo.className = 'info';
+
+        try {
+            this.debug('Fetching assigned tickets from API...');
+            const tickets = await zammadApi.getAssignedTickets();
+            this.debug('Received ' + (tickets ? tickets.length : 0) + ' tickets from API');
+
+            // Store tickets
+            this.assignedTickets = Array.isArray(tickets) ? tickets : [];
+
+            // Display tickets
+            this.displayAssignedTickets();
+
+            // Update info text
+            if (this.assignedTickets.length === 0) {
+                this.ticketsInfo.textContent = t('no_tickets_found');
+                this.ticketsInfo.className = 'info warning';
+            } else {
+                // Get count of non-closed tickets
+                const nonClosedCount = this.assignedTickets.filter(ticket => {
+                    // Get state_id from ticket
+                    const stateId = ticket.state_id;
+
+                    // Exclude tickets with state_id 2 (closed successful) and 3 (closed unsuccessful)
+                    return stateId != 2 && stateId != 3;
+                }).length;
+
+                this.ticketsInfo.textContent = t('tickets_loaded', [nonClosedCount]) + ' (' + t('non_closed_only') + ')';
+                this.ticketsInfo.className = 'info success';
+            }
+        } catch (error) {
+            this.debug('Error loading assigned tickets: ' + error.message);
+            this.ticketsInfo.textContent = t('error_loading_tickets') + ': ' + error.message;
+            this.ticketsInfo.className = 'info error';
+
+            // Show empty state
+            this.ticketList.innerHTML = `
+                <div class="empty-state">
+                    ${t('error_loading_tickets')}
+                </div>
+            `;
+        } finally {
+            this.isLoadingTickets = false;
+            this.ticketsLoading.style.display = 'none';
+        }
+    }
+
+    /**
+     * Display assigned tickets in the UI
+     */
+    displayAssignedTickets() {
+        this.debug('Displaying assigned tickets...');
+
+        // Clear ticket list
+        this.ticketList.innerHTML = '';
+
+        // Filter out closed tickets
+        const nonClosedTickets = this.assignedTickets.filter(ticket => {
+            // Get state_id from ticket
+            const stateId = ticket.state_id;
+
+            // Exclude tickets with state_id 2 (closed successful) and 3 (closed unsuccessful)
+            return stateId != 2 && stateId != 3;
+        });
+
+        this.debug(`Filtered ${this.assignedTickets.length} tickets to ${nonClosedTickets.length} non-closed tickets`);
+
+        // If no tickets, show empty state
+        if (nonClosedTickets.length === 0) {
+            this.ticketList.innerHTML = `
+                <div class="empty-state">
+                    ${t('no_tickets_found')}
+                </div>
+            `;
+            return;
+        }
+
+        // Create ticket items
+        nonClosedTickets.forEach(ticket => {
+            // Extract ticket data
+            const ticketId = ticket.id || ticket.number || '';
+            const ticketTitle = ticket.title || t('title_not_available');
+            const ticketState = ticket.state || ticket.state_id || '';
+
+            // Create ticket item element
+            const ticketItem = document.createElement('div');
+            ticketItem.className = 'ticket-item';
+            ticketItem.setAttribute('data-ticket-id', ticketId);
+
+            // Determine state class for styling
+            const stateStr = String(ticketState).toLowerCase();
+            let stateClass = 'state-default';
+
+            if (stateStr.includes('new') || stateStr.includes('open')) {
+                stateClass = 'state-new';
+            } else if (stateStr.includes('in progress') || stateStr.includes('pending')) {
+                stateClass = 'state-progress';
+            } else if (stateStr.includes('wait')) {
+                stateClass = 'state-waiting';
+            }
+
+            // Add ticket content
+            ticketItem.innerHTML = `
+                <div class="ticket-item-title">${ticketTitle}</div>
+                <div class="ticket-item-details">
+                    <span class="ticket-item-id">#${ticketId}</span>
+                    <span class="ticket-item-state ${stateClass}">${ticketState}</span>
+                </div>
+            `;
+
+            // Add click event to show ticket info without starting tracking
+            ticketItem.addEventListener('click', () => {
+                this.showTicketInfo(ticketId, ticketTitle);
+            });
+
+            // Add to ticket list
+            this.ticketList.appendChild(ticketItem);
+        });
+    }
+
+    /**
+     * Show ticket info without starting tracking
+     * @param {string|number} ticketId - The ticket ID
+     * @param {string} ticketTitle - The ticket title
+     */
+    async showTicketInfo(ticketId, ticketTitle) {
+        this.debug(`Showing info for ticket #${ticketId} (${ticketTitle})`);
+
+        // Set current ticket info
+        this.currentTicketId = ticketId;
+        this.currentTicketTitle = ticketTitle;
+
+        // Update UI
+        this.ticketId.textContent = '#' + ticketId;
+        this.ticketTitle.textContent = ticketTitle;
+        this.ticketInfo.style.display = 'block';
+
+        // If API is initialized, try to load ticket info from API
+        if (zammadApi.isInitialized()) {
+            await this.loadTicketInfoFromApi(ticketId);
+        }
+
+        // Switch to current tab
+        this.switchTab('current');
+
+        this.infoText.textContent = t('ready_for_tracking');
+        this.infoText.className = 'info';
+    }
+
+    /**
+     * Start tracking for a specific ticket
+     * @param {string|number} ticketId - The ticket ID
+     * @param {string} ticketTitle - The ticket title
+     */
+    async startTrackingForTicket(ticketId, ticketTitle) {
+        this.debug(`Starting tracking for ticket #${ticketId} (${ticketTitle})`);
+
+        // If already tracking, ask for confirmation
+        if (this.isTracking) {
+            if (!confirm(t('confirm_switch_ticket'))) {
+                return;
+            }
+
+            // Stop current tracking
+            await this.stopTracking();
+        }
+
+        // Show ticket info first
+        await this.showTicketInfo(ticketId, ticketTitle);
+
+        // Start tracking
+        this.startTracking();
+    }
+
+    /**
+     * Load time tracking history from the API
+     */
+    async loadTimeHistory() {
+        // Skip if already loading or if API is not initialized
+        if (this.isLoadingHistory || !zammadApi.isInitialized()) {
+            if (!zammadApi.isInitialized()) {
+                this.historyInfo.textContent = t('api_not_initialized');
+                this.historyInfo.className = 'info warning';
+                this.historyLoading.style.display = 'none';
+            }
+            return;
+        }
+
+        this.isLoadingHistory = true;
+        this.historyLoading.style.display = 'flex';
+        this.historyInfo.textContent = t('loading_history');
+        this.historyInfo.className = 'info';
+
+        try {
+            this.debug('Fetching time history from API...');
+            const history = await zammadApi.getTimeHistory();
+            this.debug('Received ' + (history ? history.length : 0) + ' time entries from API');
+
+            // Store history
+            this.timeHistory = Array.isArray(history) ? history : [];
+
+            // Display history
+            this.displayTimeHistory();
+
+            // Update info text
+            if (this.timeHistory.length === 0) {
+                this.historyInfo.textContent = t('no_history_found');
+                this.historyInfo.className = 'info warning';
+            } else {
+                this.historyInfo.textContent = t('history_loaded', [this.timeHistory.length]);
+                this.historyInfo.className = 'info success';
+            }
+        } catch (error) {
+            this.debug('Error loading time history: ' + error.message);
+            this.historyInfo.textContent = t('error_loading_history') + ': ' + error.message;
+            this.historyInfo.className = 'info error';
+
+            // Show empty state
+            this.historyList.innerHTML = `
+                <div class="empty-state">
+                    ${t('error_loading_history')}
+                </div>
+            `;
+        } finally {
+            this.isLoadingHistory = false;
+            this.historyLoading.style.display = 'none';
+        }
+    }
+
+    /**
+     * Display time tracking history in the UI
+     */
+    displayTimeHistory() {
+        this.debug('Displaying time history...');
+
+        // Clear history list
+        this.historyList.innerHTML = '';
+
+        // If no history, show empty state
+        if (this.timeHistory.length === 0) {
+            this.historyList.innerHTML = `
+                <div class="empty-state">
+                    ${t('no_history_found')}
+                </div>
+            `;
+            return;
+        }
+
+        // Calculate total time
+        const totalTime = this.timeHistory.reduce((total, entry) => {
+            return total + (parseFloat(entry.time_unit) || 0);
+        }, 0);
+
+        // Add total time at the top
+        const totalTimeItem = document.createElement('div');
+        totalTimeItem.className = 'history-item';
+        totalTimeItem.innerHTML = `
+            <div class="history-item-title">${t('total_time')}</div>
+            <div class="history-item-details">
+                <span class="history-item-time">${Math.round(totalTime)} ${t('min')}</span>
+            </div>
+        `;
+        this.historyList.appendChild(totalTimeItem);
+
+        // Create history items
+        this.timeHistory.forEach(entry => {
+            // Extract entry data
+            const ticketId = entry.ticket_id || '';
+            const timeUnit = parseFloat(entry.time_unit) || 0;
+            const comment = entry.comment || '';
+            const createdAt = entry.created_at ? new Date(entry.created_at) : new Date();
+
+            // Format date
+            const dateStr = createdAt.toLocaleDateString();
+            const timeStr = createdAt.toLocaleTimeString();
+
+            // Create history item element
+            const historyItem = document.createElement('div');
+            historyItem.className = 'history-item';
+
+            // Add history content
+            historyItem.innerHTML = `
+                <div class="history-item-title">
+                    ${comment || t('time_entry_for_ticket', ['#' + ticketId])}
+                </div>
+                <div class="history-item-details">
+                    <span class="history-item-time">${Math.round(timeUnit)} ${t('min')}</span>
+                    <span class="history-item-date">${dateStr} ${timeStr}</span>
+                </div>
+            `;
+
+            // Add click event to show ticket info without starting tracking
+            if (ticketId) {
+                historyItem.setAttribute('data-ticket-id', ticketId);
+                historyItem.addEventListener('click', () => {
+                    // Try to get ticket title from API or use a default
+                    const title = comment || t('time_entry_for_ticket', ['#' + ticketId]);
+                    this.showTicketInfo(ticketId, title);
+                });
+            }
+
+            // Add to history list
+            this.historyList.appendChild(historyItem);
+        });
     }
 
     initEventListeners() {

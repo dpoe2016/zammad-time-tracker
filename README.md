@@ -10,6 +10,8 @@ A Chrome extension for time tracking in Zammad tickets.
 - 🔧 **Time Recording** - Tracks and displays time spent on tickets
 - 🔔 **Browser Notifications** - Informs about start/stop events
 - 🌐 **Direct Zammad API Integration** - Reliable communication via the Zammad REST API
+- 📋 **Assigned Tickets List** - View and start tracking for any of your assigned tickets
+- 📊 **Time Tracking History** - View all your time tracking entries
 - 🐛 **Debug Mode** - Comprehensive logging for troubleshooting
 
 ## 🚀 Installation
@@ -92,6 +94,23 @@ zammad-time-tracker/
 
 ### Advanced Features
 
+#### Tabbed Interface
+- **Current Tab:** Shows the current tracking status and controls
+- **Tickets Tab:** Shows a list of tickets assigned to you
+- **History Tab:** Shows your time tracking history
+
+#### Start Tracking from Assigned Tickets
+- Click on the "Tickets" tab to view all tickets assigned to you
+- Click on any ticket in the list to start tracking time for it
+- If tracking is already active for another ticket, you'll be asked to confirm switching
+
+#### View Time Tracking History
+- Click on the "History" tab to view your time tracking history
+- See a summary of all your time entries, including:
+  - Total time spent across all tickets
+  - Individual time entries with ticket ID, duration, and date
+  - Comments associated with time entries (if available)
+
 #### Activate Debug Mode
 - **Double-click** on "Zammad Timetracking" in the popup header
 - Yellow debug box will be displayed
@@ -110,13 +129,25 @@ zammad-time-tracker/
 - **API Token:** Your personal Zammad API token
 - Click on "Save" to apply the settings
 
+#### How User Identity Works
+- The extension uses your API token to identify you to the Zammad server
+- When you see "me" in the code or logs, it refers to the user associated with the API token
+- The Zammad server determines who "me" is based on the token you provided
+- Some Zammad instances support the "me" parameter directly in API requests
+- If "me" doesn't work, the extension tries to get your actual user ID and uses that instead
+- This ensures that you only see your assigned tickets and time entries
+
 #### Create Zammad API Token
 1. Log in to your Zammad installation
 2. Go to your profile (click on your name in the top right)
 3. Select "Token Access" or "API Tokens"
 4. Click on "Create new token"
 5. Enter a name (e.g., "Timetracking Extension")
-6. Copy the generated token and paste it into the extension
+6. **Required Permissions:** The "ticket agent" role is sufficient for basic time tracking functionality. The token inherits your user permissions, so you need at least:
+   - Read access to tickets
+   - Ability to create and view time entries
+   - If you can manually add time to tickets in Zammad, your token should have sufficient permissions
+7. Copy the generated token and paste it into the extension
 
 #### Persistent Time Tracking
 - Timer continues running even when the popup is closed
@@ -205,6 +236,26 @@ function isZammadPage() {
 4. Is the Content Script working? (Check Debug mode)
 ```
 
+### API and Permission Issues
+
+**Problem:** "No tickets found" or "No time entries found" errors
+```bash
+# Solution:
+1. Verify your API token has sufficient permissions (ticket agent role is usually enough)
+2. Check if you can manually add time to tickets in Zammad with your user account
+3. Activate Debug mode and check for API error messages
+4. Try creating a new API token with the same permissions
+```
+
+**Problem:** API errors in console
+```bash
+# Solution:
+1. Check your API token permissions in Zammad
+2. Ensure your user role has access to time tracking features
+3. Verify the Base URL is correct in the extension settings
+4. Check if your Zammad instance requires additional authentication
+```
+
 ### Common Solutions
 
 ```bash
@@ -252,6 +303,8 @@ chrome://extensions/
 4. Perform action (Start/Stop)
 5. Check API requests and responses
 6. Note errors in the console
+7. Verify HTTP status codes (401/403 indicate permission issues)
+8. Check your user role in Zammad (ticket agent permissions are usually sufficient)
 ```
 
 ### 4. Zammad Information
@@ -337,7 +390,8 @@ If you encounter problems or have questions:
 
 Planned features:
 - [x] REST API Integration
-- [ ] Time tracking reports
+- [x] Assigned tickets list
+- [x] Time tracking history
 - [ ] Project time categories
 - [ ] Team statistics
 - [ ] Export functions

@@ -335,6 +335,76 @@ const translations = {
   'time_updated_locally': {
     [LANGUAGES.DE]: 'Zeit lokal aktualisiert (API nicht verfügbar)',
     [LANGUAGES.EN]: 'Time updated locally (API not available)'
+  },
+
+  // Tab labels
+  'tab_current': {
+    [LANGUAGES.DE]: 'Aktuell',
+    [LANGUAGES.EN]: 'Current'
+  },
+  'tab_tickets': {
+    [LANGUAGES.DE]: 'Tickets',
+    [LANGUAGES.EN]: 'Tickets'
+  },
+  'tab_history': {
+    [LANGUAGES.DE]: 'Verlauf',
+    [LANGUAGES.EN]: 'History'
+  },
+
+  // Assigned tickets tab
+  'loading_tickets': {
+    [LANGUAGES.DE]: 'Lade Tickets...',
+    [LANGUAGES.EN]: 'Loading tickets...'
+  },
+  'no_tickets_found': {
+    [LANGUAGES.DE]: 'Keine Tickets gefunden',
+    [LANGUAGES.EN]: 'No tickets found'
+  },
+  'error_loading_tickets': {
+    [LANGUAGES.DE]: 'Fehler beim Laden der Tickets',
+    [LANGUAGES.EN]: 'Error loading tickets'
+  },
+  'start_tracking_for_ticket': {
+    [LANGUAGES.DE]: 'Zeiterfassung für Ticket starten',
+    [LANGUAGES.EN]: 'Start tracking for ticket'
+  },
+
+  // History tab
+  'loading_history': {
+    [LANGUAGES.DE]: 'Lade Verlauf...',
+    [LANGUAGES.EN]: 'Loading history...'
+  },
+  'no_history_found': {
+    [LANGUAGES.DE]: 'Keine Zeiterfassungen gefunden',
+    [LANGUAGES.EN]: 'No time entries found'
+  },
+  'error_loading_history': {
+    [LANGUAGES.DE]: 'Fehler beim Laden des Verlaufs',
+    [LANGUAGES.EN]: 'Error loading history'
+  },
+  'total_time': {
+    [LANGUAGES.DE]: 'Gesamtzeit',
+    [LANGUAGES.EN]: 'Total time'
+  },
+  'tickets_loaded': {
+    [LANGUAGES.DE]: '{0} Tickets geladen',
+    [LANGUAGES.EN]: '{0} tickets loaded'
+  },
+  'history_loaded': {
+    [LANGUAGES.DE]: '{0} Zeiteinträge geladen',
+    [LANGUAGES.EN]: '{0} time entries loaded'
+  },
+  'confirm_switch_ticket': {
+    [LANGUAGES.DE]: 'Es läuft bereits eine Zeiterfassung. Möchten Sie diese beenden und eine neue für das ausgewählte Ticket starten?',
+    [LANGUAGES.EN]: 'Time tracking is already running. Do you want to stop it and start a new one for the selected ticket?'
+  },
+  'time_entry_for_ticket': {
+    [LANGUAGES.DE]: 'Zeiteintrag für Ticket {0}',
+    [LANGUAGES.EN]: 'Time entry for ticket {0}'
+  },
+  'non_closed_only': {
+    [LANGUAGES.DE]: 'nur nicht geschlossene',
+    [LANGUAGES.EN]: 'non-closed only'
   }
 };
 

@@ -7,7 +7,7 @@
     <script src="translations.js"></script>
     <style>
         body {
-            width: 320px;
+            width: 360px;
             padding: 16px;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             margin: 0;
@@ -25,6 +25,40 @@
             margin: 0 0 8px 0;
             font-size: 18px;
             color: #007bff;
+        }
+
+        /* Tab styles */
+        .tabs {
+            display: flex;
+            margin-bottom: 16px;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .tab {
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: #6c757d;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s ease;
+        }
+
+        .tab:hover {
+            color: #007bff;
+        }
+
+        .tab.active {
+            color: #007bff;
+            border-bottom-color: #007bff;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
         }
 
         .status {
@@ -310,6 +344,159 @@
             background: #6c757d;
             color: white;
         }
+
+        /* Styles for ticket list */
+        .ticket-list {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-bottom: 16px;
+        }
+
+        .ticket-item {
+            padding: 10px;
+            border-bottom: 1px solid #dee2e6;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background-color: #ffffff;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border-left: 3px solid transparent;
+        }
+
+        .ticket-item:hover {
+            background-color: #f1f3f5;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+            transform: translateY(-2px);
+            border-left: 3px solid #007bff;
+        }
+
+        .ticket-item:last-child {
+            border-bottom: none;
+        }
+
+        .ticket-item-title {
+            font-weight: 500;
+            margin-bottom: 4px;
+            font-size: 14px;
+            color: #333;
+        }
+
+        .ticket-item-details {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #6c757d;
+        }
+
+        .ticket-item-id {
+            color: #007bff;
+        }
+
+        .ticket-item-state {
+            padding: 2px 6px;
+            border-radius: 3px;
+            background-color: #e9ecef;
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        /* State-specific styles */
+        .ticket-item-state.state-new {
+            background-color: #cce5ff;
+            color: #004085;
+        }
+
+        .ticket-item-state.state-progress {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .ticket-item-state.state-waiting {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+
+        .ticket-item-state.state-default {
+            background-color: #e9ecef;
+            color: #495057;
+        }
+
+        /* Styles for history list */
+        .history-list {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-bottom: 16px;
+        }
+
+        .history-item {
+            padding: 10px;
+            border-bottom: 1px solid #dee2e6;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background-color: #ffffff;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border-left: 3px solid transparent;
+        }
+
+        .history-item:hover {
+            background-color: #f1f3f5;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+            transform: translateY(-2px);
+            border-left: 3px solid #007bff;
+        }
+
+        .history-item:last-child {
+            border-bottom: none;
+        }
+
+        .history-item-title {
+            font-weight: 500;
+            margin-bottom: 4px;
+            font-size: 14px;
+            color: #333;
+        }
+
+        .history-item-details {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #6c757d;
+        }
+
+        .history-item-time {
+            color: #28a745;
+            font-weight: 500;
+        }
+
+        .history-item-date {
+            color: #6c757d;
+        }
+
+        /* Loading spinner */
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #007bff;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
     </style>
 </head>
 <body>
@@ -318,42 +505,77 @@
     <div id="subtitle">Zeiterfassung für Tickets</div>
 </div>
 
-<div class="status">
-    <div class="status-indicator">
-        <div class="status-dot" id="statusDot"></div>
-        <span id="statusText">Nicht aktiv</span>
-    </div>
+<div class="tabs">
+    <div class="tab active" id="tab-current" data-tab="current">Aktuell</div>
+    <div class="tab" id="tab-tickets" data-tab="tickets">Tickets</div>
+    <div class="tab" id="tab-history" data-tab="history">Verlauf</div>
+</div>
 
-    <div class="ticket-info" id="ticketInfo" style="display: none;">
-        <div class="ticket-title" id="ticketTitle">Ticket wird geladen...</div>
-        <div class="ticket-details">
-            <span><span id="ticketLabel">Ticket</span>: <span id="ticketId">-</span></span>
-            <span class="time-spent">
-                <span id="timeSpentLabel">Erfasst</span>: 
-                <span id="timeSpent" class="editable-time" title="">0</span>
-                <span id="minLabel">Min</span>
-                <span class="edit-icon" id="editTimeIcon">✏️</span>
-            </span>
+<!-- Current Tab Content -->
+<div class="tab-content active" id="content-current">
+    <div class="status">
+        <div class="status-indicator">
+            <div class="status-dot" id="statusDot"></div>
+            <span id="statusText">Nicht aktiv</span>
+        </div>
+
+        <div class="ticket-info" id="ticketInfo" style="display: none;">
+            <div class="ticket-title" id="ticketTitle">Ticket wird geladen...</div>
+            <div class="ticket-details">
+                <span><span id="ticketLabel">Ticket</span>: <span id="ticketId">-</span></span>
+                <span class="time-spent">
+                    <span id="timeSpentLabel">Erfasst</span>: 
+                    <span id="timeSpent" class="editable-time" title="">0</span>
+                    <span id="minLabel">Min</span>
+                    <span class="edit-icon" id="editTimeIcon">✏️</span>
+                </span>
+            </div>
+        </div>
+
+        <!-- Time edit form -->
+        <div class="time-edit-form" id="timeEditForm">
+            <input type="number" id="timeEditInput" min="0" step="1">
+            <button class="save" id="saveTimeBtn">OK</button>
+            <button class="cancel" id="cancelTimeBtn">X</button>
+        </div>
+
+        <div class="timer-display" id="timerDisplay">00:00:00</div>
+
+        <div class="controls">
+            <button class="btn btn-primary" id="startBtn">Start</button>
+            <button class="btn btn-danger" id="stopBtn" disabled>Stop</button>
         </div>
     </div>
 
-    <!-- Time edit form -->
-    <div class="time-edit-form" id="timeEditForm">
-        <input type="number" id="timeEditInput" min="0" step="1">
-        <button class="save" id="saveTimeBtn">OK</button>
-        <button class="cancel" id="cancelTimeBtn">X</button>
-    </div>
-
-    <div class="timer-display" id="timerDisplay">00:00:00</div>
-
-    <div class="controls">
-        <button class="btn btn-primary" id="startBtn">Start</button>
-        <button class="btn btn-danger" id="stopBtn" disabled>Stop</button>
+    <div class="info" id="infoText">
+        Überprüfe Zammad-Seite...
     </div>
 </div>
 
-<div class="info" id="infoText">
-    Überprüfe Zammad-Seite...
+<!-- Tickets Tab Content -->
+<div class="tab-content" id="content-tickets">
+    <div class="ticket-list" id="ticketList">
+        <div class="loading" id="ticketsLoading">
+            <div class="spinner"></div>
+        </div>
+        <!-- Ticket items will be added here dynamically -->
+    </div>
+    <div class="info" id="ticketsInfo">
+        Lade Tickets...
+    </div>
+</div>
+
+<!-- History Tab Content -->
+<div class="tab-content" id="content-history">
+    <div class="history-list" id="historyList">
+        <div class="loading" id="historyLoading">
+            <div class="spinner"></div>
+        </div>
+        <!-- History items will be added here dynamically -->
+    </div>
+    <div class="info" id="historyInfo">
+        Lade Verlauf...
+    </div>
 </div>
 
 <div class="settings">
