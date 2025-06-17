@@ -200,13 +200,21 @@ class TimetrackingPopup {
      * Load assigned tickets from the API
      */
     async loadAssignedTickets() {
-        // Skip if already loading or if API is not initialized
-        if (this.isLoadingTickets || !zammadApi.isInitialized()) {
-            if (!zammadApi.isInitialized()) {
+        // Skip if already loading
+        if (this.isLoadingTickets) {
+            return;
+        }
+
+        // Check API initialization and validation
+        if (!zammadApi.isInitialized()) {
+            if (zammadApi.isInitializedButNotValidated()) {
+                this.ticketsInfo.textContent = t('api_token_validation_pending');
+                this.ticketsInfo.className = 'info warning';
+            } else {
                 this.ticketsInfo.textContent = t('api_not_initialized');
                 this.ticketsInfo.className = 'info warning';
-                this.ticketsLoading.style.display = 'none';
             }
+            this.ticketsLoading.style.display = 'none';
             return;
         }
 
@@ -245,8 +253,17 @@ class TimetrackingPopup {
             }
         } catch (error) {
             this.debug('Error loading assigned tickets: ' + error.message);
-            this.ticketsInfo.textContent = t('error_loading_tickets') + ': ' + error.message;
-            this.ticketsInfo.className = 'info error';
+
+            // Check if it's an authentication error
+            if (error.message.includes('401') || error.message.includes('403') || error.message.includes('unauthorized')) {
+                this.ticketsInfo.textContent = t('api_token_invalid');
+                this.ticketsInfo.className = 'info error';
+                // Mark API as not validated
+                zammadApi.validated = false;
+            } else {
+                this.ticketsInfo.textContent = t('error_loading_tickets') + ': ' + error.message;
+                this.ticketsInfo.className = 'info error';
+            }
 
             // Show empty state
             this.ticketList.innerHTML = `
@@ -259,7 +276,6 @@ class TimetrackingPopup {
             this.ticketsLoading.style.display = 'none';
         }
     }
-
     /**
      * Display assigned tickets in the UI
      */
@@ -391,13 +407,21 @@ class TimetrackingPopup {
      * Load time tracking history from the API
      */
     async loadTimeHistory() {
-        // Skip if already loading or if API is not initialized
-        if (this.isLoadingHistory || !zammadApi.isInitialized()) {
-            if (!zammadApi.isInitialized()) {
+        // Skip if already loading
+        if (this.isLoadingHistory) {
+            return;
+        }
+
+        // Check API initialization and validation
+        if (!zammadApi.isInitialized()) {
+            if (zammadApi.isInitializedButNotValidated()) {
+                this.historyInfo.textContent = t('api_token_validation_pending');
+                this.historyInfo.className = 'info warning';
+            } else {
                 this.historyInfo.textContent = t('api_not_initialized');
                 this.historyInfo.className = 'info warning';
-                this.historyLoading.style.display = 'none';
             }
+            this.historyLoading.style.display = 'none';
             return;
         }
 
@@ -427,8 +451,17 @@ class TimetrackingPopup {
             }
         } catch (error) {
             this.debug('Error loading time history: ' + error.message);
-            this.historyInfo.textContent = t('error_loading_history') + ': ' + error.message;
-            this.historyInfo.className = 'info error';
+
+            // Check if it's an authentication error
+            if (error.message.includes('401') || error.message.includes('403') || error.message.includes('unauthorized')) {
+                this.historyInfo.textContent = t('api_token_invalid');
+                this.historyInfo.className = 'info error';
+                // Mark API as not validated
+                zammadApi.validated = false;
+            } else {
+                this.historyInfo.textContent = t('error_loading_history') + ': ' + error.message;
+                this.historyInfo.className = 'info error';
+            }
 
             // Show empty state
             this.historyList.innerHTML = `
@@ -441,7 +474,6 @@ class TimetrackingPopup {
             this.historyLoading.style.display = 'none';
         }
     }
-
     /**
      * Display time tracking history in the UI
      */
@@ -454,10 +486,10 @@ class TimetrackingPopup {
         // If no history, show empty state
         if (this.timeHistory.length === 0) {
             this.historyList.innerHTML = `
-                <div class="empty-state">
-                    ${t('no_history_found')}
-                </div>
-            `;
+            <div class="empty-state">
+                ${t('no_history_found')}
+            </div>
+        `;
             return;
         }
 
@@ -468,18 +500,19 @@ class TimetrackingPopup {
 
         // Add total time at the top
         const totalTimeItem = document.createElement('div');
-        totalTimeItem.className = 'history-item';
+        totalTimeItem.className = 'history-item total-time';
         totalTimeItem.innerHTML = `
-            <div class="history-item-title">${t('total_time')}</div>
-            <div class="history-item-details">
-                <span class="history-item-time">${Math.round(totalTime)} ${t('min')}</span>
-            </div>
-        `;
+        <div class="history-item-title">${t('total_time')}</div>
+        <div class="history-item-details">
+            <span class="history-item-time">${Math.round(totalTime)} ${t('min')}</span>
+        </div>
+    `;
         this.historyList.appendChild(totalTimeItem);
 
         // Create history items
         this.timeHistory.forEach(entry => {
             // Extract entry data
+            const entryId = entry.id;
             const ticketId = entry.ticket_id || '';
             const timeUnit = parseFloat(entry.time_unit) || 0;
             const comment = entry.comment || '';
@@ -492,9 +525,11 @@ class TimetrackingPopup {
             // Create history item element
             const historyItem = document.createElement('div');
             historyItem.className = 'history-item';
+            historyItem.setAttribute('data-entry-id', entryId);
 
-            // Add history content
+            // Add history content with delete button
             historyItem.innerHTML = `
+            <div class="history-item-content" ${ticketId ? `data-ticket-id="${ticketId}"` : ''}>
                 <div class="history-item-title">
                     ${comment || t('time_entry_for_ticket', ['#' + ticketId])}
                 </div>
@@ -502,15 +537,29 @@ class TimetrackingPopup {
                     <span class="history-item-time">${Math.round(timeUnit)} ${t('min')}</span>
                     <span class="history-item-date">${dateStr} ${timeStr}</span>
                 </div>
-            `;
+            </div>
+            <div class="history-item-actions">
+                <button class="delete-btn" title="${t('delete_entry')}" data-entry-id="${entryId}">
+                    <span class="delete-icon">✕</span>
+                </button>
+            </div>
+        `;
 
-            // Add click event to show ticket info without starting tracking
-            if (ticketId) {
-                historyItem.setAttribute('data-ticket-id', ticketId);
-                historyItem.addEventListener('click', () => {
-                    // Try to get ticket title from API or use a default
+            // Add click event to history content (not the delete button)
+            const contentElement = historyItem.querySelector('.history-item-content');
+            if (ticketId && contentElement) {
+                contentElement.addEventListener('click', () => {
                     const title = comment || t('time_entry_for_ticket', ['#' + ticketId]);
                     this.showTicketInfo(ticketId, title);
+                });
+            }
+
+            // Add click event to delete button
+            const deleteBtn = historyItem.querySelector('.delete-btn');
+            if (deleteBtn && entryId) {
+                deleteBtn.addEventListener('click', (e) => {
+                    e.stopPropagation(); // Prevent triggering the content click
+                    this.confirmDeleteTimeEntry(entryId, timeUnit, ticketId);
                 });
             }
 
@@ -518,6 +567,100 @@ class TimetrackingPopup {
             this.historyList.appendChild(historyItem);
         });
     }
+
+    /**
+     * Confirm and delete a time entry
+     */
+    async confirmDeleteTimeEntry(entryId, timeUnit, ticketId) {
+        this.debug(`Confirming deletion of time entry ${entryId} (${timeUnit} min)`);
+
+        // Show confirmation dialog
+        const confirmMessage = t('confirm_delete_entry', [Math.round(timeUnit), ticketId ? `#${ticketId}` : '']);
+        if (!confirm(confirmMessage)) {
+            return;
+        }
+
+        // Show loading state
+        this.historyInfo.textContent = t('deleting_entry');
+        this.historyInfo.className = 'info';
+
+        try {
+            // Check if API is available and initialized
+            if (!zammadApi || !zammadApi.isInitialized()) {
+                throw new Error('API not initialized. Please check your settings.');
+            }
+
+            this.debug(`Calling API to delete time entry ${entryId}`);
+
+            // Delete the entry via API
+            const result = await zammadApi.deleteTimeEntry(entryId);
+
+            this.debug(`Successfully deleted time entry ${entryId}`, result);
+
+            // Show success message
+            this.historyInfo.textContent = t('entry_deleted');
+            this.historyInfo.className = 'info success';
+
+            // Reload history to update the display
+            setTimeout(() => {
+                this.loadTimeHistory();
+            }, 1000);
+
+            // If this was for the current ticket, update the time display
+            if (ticketId === this.currentTicketId) {
+                this.loadTicketInfoFromApi(this.currentTicketId);
+            }
+
+        } catch (error) {
+            console.error(`Error deleting time entry ${entryId}:`, error);
+            this.debug(`Error deleting time entry: ${error.message}`);
+
+            // Show more specific error messages
+            let errorMessage = t('delete_entry_error') + ': ';
+
+            if (error.message.includes('Permission denied') || error.message.includes('403')) {
+                errorMessage += 'You don\'t have permission to delete time entries. Contact your administrator.';
+            } else if (error.message.includes('404') || error.message.includes('not found')) {
+                errorMessage += 'Time entry not found or already deleted.';
+            } else if (error.message.includes('API not initialized')) {
+                errorMessage += 'Please configure your API settings first.';
+            } else {
+                errorMessage += error.message;
+            }
+
+            this.historyInfo.textContent = errorMessage;
+            this.historyInfo.className = 'info error';
+        }
+    }
+    async refreshApi() {
+        if (window.zammadApi) {
+            await window.zammadApi.forceRefreshSettings();
+            console.log('API refreshed with new token');
+
+            // Show user feedback
+            this.showMessage('API refreshed with new settings', 'success');
+
+            // Reload the current state to use new API settings
+            await this.loadState();
+        } else {
+            console.log('No API instance available to refresh');
+            this.showMessage('No API instance found to refresh', 'warning');
+        }
+    }
+
+    showMessage(message, type = 'info') {
+        if (this.infoText) {
+            this.infoText.textContent = message;
+            this.infoText.className = `info ${type}`;
+
+            // Clear message after 3 seconds
+            setTimeout(() => {
+                this.infoText.textContent = '';
+                this.infoText.className = 'info';
+            }, 3000);
+        }
+    }
+
 
     initEventListeners() {
         console.log('Setting up event listeners...');

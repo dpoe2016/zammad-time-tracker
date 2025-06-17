@@ -1,3 +1,4 @@
+
 /* Styles für Zammad Timetracking Extension */
 
 .timetracker-container {
@@ -60,6 +61,71 @@
   border: 1px solid #dee2e6;
 }
 
+/* History item with delete button layout */
+.history-item {
+  display: flex;
+  align-items: center;
+  padding: 8px;
+  border-bottom: 1px solid #eee;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.history-item:hover {
+  background-color: #f5f5f5;
+}
+
+.history-item.total-time {
+  background-color: #f0f8ff;
+  font-weight: bold;
+  border-bottom: 2px solid #ddd;
+  cursor: default;
+}
+
+.history-item.total-time:hover {
+  background-color: #f0f8ff;
+}
+
+.history-item-content {
+  flex: 1;
+  min-width: 0; /* Allow text to truncate */
+}
+
+.history-item-actions {
+  margin-left: 8px;
+  display: flex;
+  gap: 4px;
+}
+
+.delete-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
+  opacity: 0.6;
+}
+
+.delete-btn:hover {
+  background-color: #ffebee;
+  opacity: 1;
+}
+
+/* Changed from emoji to red X */
+.delete-icon {
+  color: #dc3545;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.delete-btn:hover .delete-icon {
+  color: #c82333;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .timetracker-container {
@@ -79,7 +145,7 @@
     border-color: #4a5568;
     color: white;
   }
-  
+
   .timetracker-display {
     background: #1a202c;
     color: #e2e8f0;

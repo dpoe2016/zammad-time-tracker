@@ -7,7 +7,7 @@ class ZammadAPI {
     this.baseUrl = null;
     this.token = null;
     this.initialized = false;
-    this.csrfToken = null;
+    this.validated = false;
     this.currentUserId = null;
     this.userProfile = null;
 
@@ -25,6 +25,7 @@ class ZammadAPI {
     this.loadCachedEndpoints();
     this.loadCachedUserProfile();
   }
+
 
   /**
    * Load cached endpoints from storage
@@ -61,6 +62,10 @@ class ZammadAPI {
       throw new Error('Base URL is required');
     }
 
+    if (!token) {
+      throw new Error('API Token is required');
+    }
+
     const normalizedBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
 
     // If the base URL has changed, clear cached endpoints
@@ -85,78 +90,323 @@ class ZammadAPI {
     this.baseUrl = normalizedBaseUrl;
     this.token = token;
     this.initialized = true;
-
-    // Fetch CSRF token and user profile
-    this.fetchCsrfToken();
+    this.validated = false; // Reset validation when reinitializing
+    // Validate token immediately
     setTimeout(() => {
-      this.fetchCurrentUser().catch(error => {
-        console.warn('Could not fetch user profile during initialization:', error.message);
+      this.validateToken().catch(error => {
+        console.warn('Could not validate API token during initialization:', error.message);
       });
     }, 1000);
 
-    console.log('Zammad API initialized with base URL:', this.baseUrl);
+    console.log('Zammad API initialized with base URL:', this.baseUrl, 'and token authentication only');
     return true;
   }
 
   /**
-   * Fetch CSRF token from cookies or server
+   * Check if the API is initialized (but not necessarily validated)
    */
-  async fetchCsrfToken() {
+  isInitializedButNotValidated() {
+    return this.initialized && this.baseUrl && this.token && !this.validated;
+  }
+
+  /**
+   * Check if the API is initialized and validated
+   */
+  isInitialized() {
+    return this.initialized && this.baseUrl && this.token && this.validated;
+  }
+
+  /**
+   * Check if there's a session conflict by testing authentication method
+   */
+  async detectSessionConflict() {
+    if (!this.initialized) return false;
+
     try {
-      console.log('Fetching CSRF token...');
+      console.log('Detecting session conflicts...');
 
-      // Try to get CSRF token from cookies
-      if (typeof chrome !== 'undefined' && chrome.cookies?.getAll) {
-        try {
-          const cookies = await chrome.cookies.getAll({ url: this.baseUrl });
-          const csrfCookie = cookies.find(cookie =>
-            cookie.name === '_csrf_token' ||
-            cookie.name === 'CSRF-Token' ||
-            cookie.name.toLowerCase().includes('csrf')
-          );
+      // Make a simple request to check authentication
+      const testUrl = `${this.baseUrl}/api/v1/users/me`;
 
-          if (csrfCookie) {
-            this.csrfToken = csrfCookie.value;
-            console.log('CSRF token found in cookies');
-            return this.csrfToken;
-          }
-        } catch (cookieError) {
-          console.warn('Error accessing cookies API:', cookieError);
-        }
-      }
-
-      // Try to fetch from server
-      const response = await fetch(this.baseUrl, {
+      // Test with credentials: 'include' (session-based)
+      const sessionResponse = await fetch(testUrl, {
         method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        },
         credentials: 'include'
       });
 
-      const csrfHeader = response.headers.get('X-CSRF-Token') ||
-        response.headers.get('X-CSRF-TOKEN') ||
-        response.headers.get('CSRF-Token');
+      // Test with token-only
+      const tokenResponse = await fetch(testUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Token token=${this.token}`
+        },
+        credentials: 'omit'
+      });
 
-      if (csrfHeader) {
-        this.csrfToken = csrfHeader;
-        console.log('CSRF token found in response headers');
-        return this.csrfToken;
+      const sessionWorks = sessionResponse.ok;
+      const tokenWorks = tokenResponse.ok;
+
+      console.log('Session auth works:', sessionWorks);
+      console.log('Token auth works:', tokenWorks);
+
+      if (sessionWorks && tokenWorks) {
+        // Both work - potential conflict
+        const sessionUser = sessionWorks ? await sessionResponse.json() : null;
+        const tokenUser = tokenWorks ? await tokenResponse.json() : null;
+
+        if (sessionUser && tokenUser && sessionUser.id !== tokenUser.id) {
+          console.warn('SESSION CONFLICT DETECTED!');
+          console.warn('Session user:', sessionUser.login || sessionUser.email);
+          console.warn('Token user:', tokenUser.login || tokenUser.email);
+          return true;
+        }
       }
 
-      console.warn('Could not find CSRF token');
-      return null;
+      return false;
     } catch (error) {
-      console.error('Error fetching CSRF token:', error);
-      return null;
+      console.error('Error detecting session conflict:', error);
+      return false;
+    }
+  }
+  /**
+   * Make an API request to Zammad - FORCE TOKEN ONLY
+   */
+  async request(endpoint, method = 'GET', data = null) {
+    // Check basic initialization (not validation) for requests
+    if (!this.initialized || !this.baseUrl || !this.token) {
+      throw new Error('API not initialized. Call init() first.');
+    }
+
+    // Ensure endpoint starts with /
+    if (!endpoint.startsWith('/')) {
+      endpoint = '/' + endpoint;
+    }
+
+    const url = `${this.baseUrl}${endpoint}`;
+
+    const options = {
+      method: method,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Token token=${this.token}`,
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+        // CRITICAL: Override any session-based authentication
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      // CRITICAL: Prevent session cookies from being sent
+      credentials: 'omit',
+      // CRITICAL: Ensure fresh request
+      cache: 'no-cache'
+    };
+
+    // For POST/PUT requests, add the data
+    if ((method === 'POST' || method === 'PUT' || method === 'DELETE') && data) {
+      options.body = JSON.stringify(data);
+    }
+
+    console.log(`Making ${method} request to: ${url}`);
+    console.log('Headers:', options.headers);
+    console.log('Credentials:', options.credentials);
+
+    try {
+      const response = await fetch(url, options);
+
+      console.log(`Response status: ${response.status}`);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+
+        try {
+          const errorText = await response.text();
+          console.error('Error response body:', errorText);
+
+          // Try to parse as JSON for more details
+          try {
+            const errorJson = JSON.parse(errorText);
+            if (errorJson.error || errorJson.message) {
+              errorMessage += ` - ${errorJson.error || errorJson.message}`;
+            }
+          } catch (parseError) {
+            // Not JSON, use raw text
+            if (errorText.length < 200) {
+              errorMessage += ` - ${errorText}`;
+            }
+          }
+        } catch (textError) {
+          console.error('Could not read error response:', textError);
+        }
+
+        throw new Error(errorMessage);
+      }
+
+      // Handle empty responses
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const result = await response.json();
+        console.log('API Response:', result);
+        return result;
+      } else {
+        // For DELETE requests or other non-JSON responses
+        const text = await response.text();
+        console.log('API Response (text):', text);
+        return text || true; // Return true for successful operations without content
+      }
+
+    } catch (error) {
+      console.error(`API request failed:`, error);
+
+      // Provide more context for common errors
+      if (error.message.includes('Failed to fetch')) {
+        throw new Error(`Network error: Could not connect to ${this.baseUrl}. Check URL and network connection.`);
+      } else if (error.message.includes('401')) {
+        throw new Error(`Authentication failed: Invalid API token or token expired.`);
+      } else if (error.message.includes('403')) {
+        throw new Error(`Permission denied: API token doesn't have sufficient permissions for this operation.`);
+      } else if (error.message.includes('404')) {
+        throw new Error(`Not found: The requested resource doesn't exist at ${url}.`);
+      }
+
+      throw error;
+    }
+  }  /**
+   * Validate the API token by making a test request
+   */
+  async validateToken() {
+    if (!this.initialized) {
+      console.log('API not initialized, cannot validate token');
+      return false;
+    }
+
+    if (!this.baseUrl || !this.token) {
+      console.log('Missing baseUrl or token, cannot validate');
+      return false;
+    }
+
+    try {
+      console.log('Validating API token with token-only authentication...');
+      console.log('Base URL:', this.baseUrl);
+      console.log('Token length:', this.token ? this.token.length : 0);
+
+      // Add timeout for validation
+      const validationPromise = this.fetchCurrentUser();
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Token validation timeout after 10 seconds')), 10000);
+      });
+
+      await Promise.race([validationPromise, timeoutPromise]);
+
+      this.validated = true;
+      console.log('API token validated successfully');
+      return true;
+    } catch (error) {
+      console.error('API token validation failed:', error);
+      this.validated = false;
+
+      // Provide more specific error information
+      if (error.message.includes('timeout')) {
+        console.error('Token validation timed out - check network connection and API endpoint');
+      } else if (error.message.includes('401') || error.message.includes('403')) {
+        console.error('Token validation failed - invalid token or insufficient permissions');
+      } else if (error.message.includes('fetch')) {
+        console.error('Network error during token validation - check URL and connectivity');
+      }
+
+      return false;
     }
   }
 
   /**
-   * Check if the API is initialized
+   * Fetch current user profile with better error handling
    */
-  isInitialized() {
-    return this.initialized && this.baseUrl && this.token;
-  }
 
+  async fetchCurrentUser() {
+    // Try cached endpoint first
+    if (this.successfulEndpoints.userProfile) {
+      try {
+        console.log('Trying cached user profile endpoint:', this.successfulEndpoints.userProfile);
+        const profile = await this.request(this.successfulEndpoints.userProfile);
+        this.userProfile = profile;
+        this.currentUserId = profile.id;
+        this.saveCachedUserProfile();
+        console.log('User profile fetched from cache successfully:', profile.id);
+        return profile;
+      } catch (error) {
+        console.error('Cached user profile endpoint failed:', error);
+        this.successfulEndpoints.userProfile = null;
+      }
+    }
+
+    // Official Zammad API endpoint
+    const primaryEndpoint = '/api/v1/users/me';
+
+    try {
+      console.log(`Trying official user profile endpoint: ${primaryEndpoint}`);
+      const profile = await this.request(primaryEndpoint);
+
+      if (profile && (profile.id || profile.login)) {
+        this.userProfile = profile;
+        this.currentUserId = profile.id;
+        this.successfulEndpoints.userProfile = primaryEndpoint;
+        this.saveCachedEndpoints();
+        this.saveCachedUserProfile();
+        console.log('User profile fetched successfully:', profile.id || profile.login);
+        return profile;
+      } else {
+        throw new Error('Invalid profile data received');
+      }
+    } catch (error) {
+      console.error(`Error with official endpoint ${primaryEndpoint}:`, error.message);
+
+      // Provide specific guidance based on the error
+      if (error.message.includes('401') || error.message.includes('403')) {
+        throw new Error(`Authentication failed: Invalid API token or insufficient permissions. Error: ${error.message}`);
+      } else if (error.message.includes('404')) {
+        throw new Error(`API endpoint not found: Your Zammad version may not support this endpoint. Error: ${error.message}`);
+      } else {
+        throw new Error(`Failed to fetch user profile: ${error.message}`);
+      }
+    }
+  }
   /**
+   * Force refresh after login to clear any session conflicts
+   */
+  async forceRefreshAfterLogin() {
+    console.log('Forcing API refresh after login...');
+
+    // Clear all cached data
+    this.validated = false;
+    this.userProfile = null;
+    this.currentUserId = null;
+    this.successfulEndpoints = {
+      ticket: null,
+      timeEntries: null,
+      timeSubmission: null,
+      assignedTickets: null,
+      timeHistory: null,
+      userProfile: null
+    };
+
+    // Clear storage cache
+    await this.saveCachedEndpoints();
+    await chrome.storage.local.remove(['zammadUserProfile']);
+
+    // Detect session conflicts
+    const hasConflict = await this.detectSessionConflict();
+    if (hasConflict) {
+      console.warn('Session conflict detected - requests will use token-only authentication');
+    }
+
+    // Re-validate with token-only
+    await this.validateToken();
+
+    console.log('API refreshed after login - using token-only authentication');
+  }  /**
    * Extract base URL from current tab URL
    */
   extractBaseUrlFromTabUrl(url) {
@@ -194,89 +444,6 @@ class ZammadAPI {
     } catch (error) {
       console.error('Error saving API settings:', error);
       return false;
-    }
-  }
-
-  /**
-   * Make an API request to Zammad
-   */
-  async request(endpoint, method = 'GET', data = null) {
-    if (!this.isInitialized()) {
-      throw new Error('API not initialized. Call init() first.');
-    }
-
-    // Ensure endpoint starts with /
-    if (!endpoint.startsWith('/')) {
-      endpoint = '/' + endpoint;
-    }
-
-    const url = `${this.baseUrl}${endpoint}`;
-
-    const options = {
-      method: method,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Token token=${this.token}`
-      },
-      credentials: 'include'
-    };
-
-    // Add CSRF token for POST and PUT requests
-    if (method === 'POST' || method === 'PUT') {
-      if (!this.csrfToken) {
-        await this.fetchCsrfToken();
-      }
-
-      if (this.csrfToken) {
-        options.headers['X-CSRF-Token'] = this.csrfToken;
-      }
-
-      if (data) {
-        options.body = JSON.stringify(data);
-      }
-    }
-
-    try {
-      console.log(`Making ${method} request to ${url}`);
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
-      options.signal = controller.signal;
-
-      const response = await fetch(url, options);
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        let errorDetails = 'No error details available';
-        try {
-          const errorJson = await response.json();
-          errorDetails = JSON.stringify(errorJson);
-        } catch (e) {
-          try {
-            errorDetails = await response.text();
-          } catch (e2) {
-            // Keep default error message
-          }
-        }
-
-        let errorMessage = `API request failed: ${response.status} ${response.statusText}. Details: ${errorDetails}`;
-
-        if (response.status === 401 || response.status === 403) {
-          errorMessage += '\n\nPermission issue. Please check your API token permissions.';
-        }
-
-        throw new Error(errorMessage);
-      }
-
-      return await response.json();
-    } catch (error) {
-      const enhancedError = new Error(`${error.message} (URL: ${url})`);
-      enhancedError.originalError = error;
-      enhancedError.url = url;
-      enhancedError.method = method;
-
-      console.error('API request error:', enhancedError);
-      throw enhancedError;
     }
   }
 
@@ -355,9 +522,6 @@ class ZammadAPI {
     }
   }
 
-  /**
-   * Submit time tracking entry
-   */
   /**
    * Submit time tracking entry
    */
@@ -495,58 +659,110 @@ class ZammadAPI {
   }
 
   /**
-   * Fetch current user profile
+   * Delete a time tracking entry
    */
-  async fetchCurrentUser() {
-    if (this.successfulEndpoints.userProfile) {
-      try {
-        const profile = await this.request(this.successfulEndpoints.userProfile);
-        this.userProfile = profile;
-        this.currentUserId = profile.id;
-        this.saveCachedUserProfile();
-        return profile;
-      } catch (error) {
-        console.error('Cached user profile endpoint failed:', error);
-        this.successfulEndpoints.userProfile = null;
-      }
+  async deleteTimeEntry(entryId) {
+    if (!entryId) {
+      throw new Error('Entry ID is required');
     }
 
-    // Correct Zammad API endpoints - v1 not v1.0
-    const endpoints = [
-      '/api/v1/users/me',
-      '/api/v1/users/current',
-      '/api/v1/user/me'
+    console.log(`Attempting to delete time entry ${entryId} (token-only authentication)`);
+
+    // First, try to get the time entry details to understand its structure
+    let timeEntryDetails = null;
+    try {
+      timeEntryDetails = await this.getTimeEntryDetails(entryId);
+      console.log('Time entry details:', timeEntryDetails);
+    } catch (detailsError) {
+      console.warn('Could not get time entry details, proceeding with deletion attempts:', detailsError.message);
+    }
+
+    // Array of endpoints to try for deletion
+    const deleteEndpoints = [
+      `/api/v1/time_accountings/${entryId}`,
     ];
 
-    for (const endpoint of endpoints) {
+    // If we have ticket ID from details, add ticket-specific endpoint
+    if (timeEntryDetails && timeEntryDetails.ticket_id) {
+      deleteEndpoints.unshift(`/api/v1/tickets/${timeEntryDetails.ticket_id}/time_accountings/${entryId}`);
+    }
+
+    let lastError = null;
+
+    // Try each endpoint
+    for (const endpoint of deleteEndpoints) {
       try {
-        const profile = await this.request(endpoint);
-        this.userProfile = profile;
-        this.currentUserId = profile.id;
-        this.successfulEndpoints.userProfile = endpoint;
-        this.saveCachedEndpoints();
-        this.saveCachedUserProfile();
-        return profile;
-      } catch (error) {
-        console.error(`Error with user profile endpoint ${endpoint}:`, error);
+        console.log(`Trying delete endpoint: ${endpoint}`);
+        // Pass null as data for DELETE requests
+        const result = await this.request(endpoint, 'DELETE', null);
+        console.log(`Successfully deleted time entry ${entryId} using endpoint: ${endpoint}`);
+
+        // Clear time history cache after successful deletion
+        this.clearTimeHistoryCache();
+
+        return result;
+      } catch (deleteError) {
+        console.error(`Delete failed for endpoint ${endpoint}:`, deleteError.message);
+        lastError = deleteError;
+
+        // If it's a 404, the entry might already be deleted
+        if (deleteError.message.includes('404')) {
+          console.log('Entry might already be deleted (404 error)');
+          this.clearTimeHistoryCache();
+          return { success: true, message: 'Entry already deleted or not found' };
+        }
+
+        // Continue to next endpoint
+        continue;
       }
     }
 
-    throw new Error('Failed to fetch current user profile');
+    // If all endpoints failed, provide detailed error information
+    if (lastError) {
+      if (lastError.message.includes('403') || lastError.message.includes('401')) {
+        throw new Error('Permission denied: You need admin.time_accounting permission to delete time entries. Please check your API token permissions or contact your Zammad administrator.');
+      }
+
+      if (lastError.message.includes('404')) {
+        throw new Error(`Time entry ${entryId} not found. It may have already been deleted.`);
+      }
+
+      throw new Error(`Failed to delete time entry ${entryId}. Last error: ${lastError.message}`);
+    }
+
+    throw new Error(`Failed to delete time entry ${entryId}. No valid endpoint found.`);
+  }
+  /**
+   * Clear time history cache to force fresh data retrieval
+   */
+  clearTimeHistoryCache() {
+    console.log('Clearing time history cache');
+    this.successfulEndpoints.timeHistory = null;
+    this.saveCachedEndpoints();
   }
 
   /**
    * Get time tracking history for the current user
-   * Note: Direct access to /api/v1/time_accountings requires admin.time_accounting permission
-   * For regular users, we need to get time entries from individual tickets
    */
   async getTimeHistory() {
     console.log('Getting time tracking history for current user');
 
-    // Try cached endpoint first
-    if (this.successfulEndpoints.timeHistory) {
+    // Try cached endpoint first, but be careful with admin endpoints
+    if (this.successfulEndpoints.timeHistory && this.successfulEndpoints.timeHistory !== 'fallback_via_tickets') {
       try {
-        return await this.request(this.successfulEndpoints.timeHistory);
+        const result = await this.request(this.successfulEndpoints.timeHistory);
+
+        // IMPORTANT: Always filter admin endpoint results by current user
+        if (Array.isArray(result) && this.currentUserId) {
+          const filteredResult = result.filter(entry =>
+            entry.created_by_id === this.currentUserId ||
+            entry.user_id === this.currentUserId
+          );
+          console.log(`Filtered ${result.length} entries to ${filteredResult.length} for current user`);
+          return filteredResult;
+        }
+
+        return result;
       } catch (error) {
         console.error('Cached time history endpoint failed:', error);
         this.successfulEndpoints.timeHistory = null;
@@ -557,8 +773,8 @@ class ZammadAPI {
     // Only try these if we have a user ID
     if (this.currentUserId) {
       const adminEndpoints = [
-        '/api/v1/time_accountings',
-        `/api/v1/time_accountings?created_by_id=${this.currentUserId}`
+        `/api/v1/time_accountings?created_by_id=${this.currentUserId}`,
+        '/api/v1/time_accountings'
       ];
 
       for (const endpoint of adminEndpoints) {
@@ -566,13 +782,22 @@ class ZammadAPI {
           console.log(`Trying time history endpoint: ${endpoint}`);
           const result = await this.request(endpoint);
 
-          // Filter by current user if the endpoint doesn't support it natively
+          // ALWAYS filter by current user, regardless of endpoint
           const filteredResult = Array.isArray(result)
-            ? result.filter(entry => !this.currentUserId || entry.created_by_id == this.currentUserId)
+            ? result.filter(entry =>
+              entry.created_by_id == this.currentUserId ||
+              entry.user_id == this.currentUserId
+            )
             : result;
 
-          this.successfulEndpoints.timeHistory = endpoint;
-          this.saveCachedEndpoints();
+          console.log(`Got ${Array.isArray(result) ? result.length : 0} total entries, filtered to ${Array.isArray(filteredResult) ? filteredResult.length : 0} for current user`);
+
+          // Only cache endpoints that properly filter by user
+          if (endpoint.includes('created_by_id')) {
+            this.successfulEndpoints.timeHistory = endpoint;
+            this.saveCachedEndpoints();
+          }
+
           return filteredResult;
         } catch (error) {
           console.warn(`Admin endpoint ${endpoint} failed (likely permission issue):`, error.message);
@@ -607,7 +832,9 @@ class ZammadAPI {
           if (Array.isArray(timeEntries)) {
             // Filter entries by current user
             const userEntries = timeEntries.filter(entry =>
-              !this.currentUserId || entry.created_by_id == this.currentUserId
+              !this.currentUserId ||
+              entry.created_by_id == this.currentUserId ||
+              entry.user_id == this.currentUserId
             );
             allTimeEntries.push(...userEntries);
           }
@@ -636,6 +863,30 @@ class ZammadAPI {
       console.error('Fallback method also failed:', error);
       throw new Error('Failed to get time tracking history. This may be due to insufficient API permissions or no assigned tickets.');
     }
+  }
+  /**
+   * Get time entry details - enhanced version
+   */
+  async getTimeEntryDetails(entryId) {
+    const endpoints = [
+      `/api/v1/time_accountings/${entryId}`,
+    ];
+
+    let lastError = null;
+
+    for (const endpoint of endpoints) {
+      try {
+        console.log(`Trying to get time entry details from: ${endpoint}`);
+        const result = await this.request(endpoint);
+        console.log(`Successfully got time entry details from: ${endpoint}`, result);
+        return result;
+      } catch (error) {
+        console.error(`Failed to get time entry details from ${endpoint}:`, error.message);
+        lastError = error;
+      }
+    }
+
+    throw new Error(`Could not retrieve time entry details. Last error: ${lastError?.message || 'Unknown error'}`);
   }
 }
 
