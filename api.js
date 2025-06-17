@@ -125,6 +125,12 @@ class ZammadAPI {
     return this.initialized && this.baseUrl && this.token;
   }
 
+  /**
+   * Check if the API is initialized but not yet validated
+   */
+  isInitializedButNotValidated() {
+    return this.initialized && this.baseUrl && this.token && !this.validated;
+  }
 
 
   /**

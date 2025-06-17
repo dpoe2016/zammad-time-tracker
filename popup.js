@@ -199,6 +199,9 @@ class TimetrackingPopup {
     /**
      * Load assigned tickets from the API
      */
+    /**
+     * Load assigned tickets from the API
+     */
     async loadAssignedTickets() {
         // Skip if already loading
         if (this.isLoadingTickets) {
@@ -207,13 +210,16 @@ class TimetrackingPopup {
 
         // Check API initialization and validation
         if (!zammadApi.isInitialized()) {
-            if (zammadApi.isInitializedButNotValidated()) {
-                this.ticketsInfo.textContent = t('api_token_validation_pending');
-                this.ticketsInfo.className = 'info warning';
-            } else {
-                this.ticketsInfo.textContent = t('api_not_initialized');
-                this.ticketsInfo.className = 'info warning';
-            }
+            this.ticketsInfo.textContent = t('api_not_initialized');
+            this.ticketsInfo.className = 'info warning';
+            this.ticketsLoading.style.display = 'none';
+            return;
+        }
+
+        // Check if API is initialized but not validated
+        if (zammadApi.isInitializedButNotValidated()) {
+            this.ticketsInfo.textContent = t('api_token_validation_pending');
+            this.ticketsInfo.className = 'info warning';
             this.ticketsLoading.style.display = 'none';
             return;
         }
@@ -241,10 +247,7 @@ class TimetrackingPopup {
             } else {
                 // Get count of non-closed tickets
                 const nonClosedCount = this.assignedTickets.filter(ticket => {
-                    // Get state_id from ticket
                     const stateId = ticket.state_id;
-
-                    // Exclude tickets with state_id 2 (closed successful) and 3 (closed unsuccessful)
                     return stateId != 2 && stateId != 3;
                 }).length;
 
@@ -276,7 +279,81 @@ class TimetrackingPopup {
             this.ticketsLoading.style.display = 'none';
         }
     }
+
     /**
+     * Load time tracking history from the API
+     */
+    async loadTimeHistory() {
+        // Skip if already loading
+        if (this.isLoadingHistory) {
+            return;
+        }
+
+        // Check API initialization and validation
+        if (!zammadApi.isInitialized()) {
+            this.historyInfo.textContent = t('api_not_initialized');
+            this.historyInfo.className = 'info warning';
+            this.historyLoading.style.display = 'none';
+            return;
+        }
+
+        // Check if API is initialized but not validated
+        if (zammadApi.isInitializedButNotValidated()) {
+            this.historyInfo.textContent = t('api_token_validation_pending');
+            this.historyInfo.className = 'info warning';
+            this.historyLoading.style.display = 'none';
+            return;
+        }
+
+        this.isLoadingHistory = true;
+        this.historyLoading.style.display = 'flex';
+        this.historyInfo.textContent = t('loading_history');
+        this.historyInfo.className = 'info';
+
+        try {
+            this.debug('Fetching time history from API...');
+            const history = await zammadApi.getTimeHistory();
+            this.debug('Received ' + (history ? history.length : 0) + ' time entries from API');
+
+            // Store history
+            this.timeHistory = Array.isArray(history) ? history : [];
+
+            // Display history
+            this.displayTimeHistory();
+
+            // Update info text
+            if (this.timeHistory.length === 0) {
+                this.historyInfo.textContent = t('no_history_found');
+                this.historyInfo.className = 'info warning';
+            } else {
+                this.historyInfo.textContent = t('history_loaded', [this.timeHistory.length]);
+                this.historyInfo.className = 'info success';
+            }
+        } catch (error) {
+            this.debug('Error loading time history: ' + error.message);
+
+            // Check if it's an authentication error
+            if (error.message.includes('401') || error.message.includes('403') || error.message.includes('unauthorized')) {
+                this.historyInfo.textContent = t('api_token_invalid');
+                this.historyInfo.className = 'info error';
+                // Mark API as not validated
+                zammadApi.validated = false;
+            } else {
+                this.historyInfo.textContent = t('error_loading_history') + ': ' + error.message;
+                this.historyInfo.className = 'info error';
+            }
+
+            // Show empty state
+            this.historyList.innerHTML = `
+                <div class="empty-state">
+                    ${t('error_loading_history')}
+                </div>
+            `;
+        } finally {
+            this.isLoadingHistory = false;
+            this.historyLoading.style.display = 'none';
+        }
+    }    /**
      * Display assigned tickets in the UI
      */
     displayAssignedTickets() {
@@ -403,77 +480,6 @@ class TimetrackingPopup {
         this.startTracking();
     }
 
-    /**
-     * Load time tracking history from the API
-     */
-    async loadTimeHistory() {
-        // Skip if already loading
-        if (this.isLoadingHistory) {
-            return;
-        }
-
-        // Check API initialization and validation
-        if (!zammadApi.isInitialized()) {
-            if (zammadApi.isInitializedButNotValidated()) {
-                this.historyInfo.textContent = t('api_token_validation_pending');
-                this.historyInfo.className = 'info warning';
-            } else {
-                this.historyInfo.textContent = t('api_not_initialized');
-                this.historyInfo.className = 'info warning';
-            }
-            this.historyLoading.style.display = 'none';
-            return;
-        }
-
-        this.isLoadingHistory = true;
-        this.historyLoading.style.display = 'flex';
-        this.historyInfo.textContent = t('loading_history');
-        this.historyInfo.className = 'info';
-
-        try {
-            this.debug('Fetching time history from API...');
-            const history = await zammadApi.getTimeHistory();
-            this.debug('Received ' + (history ? history.length : 0) + ' time entries from API');
-
-            // Store history
-            this.timeHistory = Array.isArray(history) ? history : [];
-
-            // Display history
-            this.displayTimeHistory();
-
-            // Update info text
-            if (this.timeHistory.length === 0) {
-                this.historyInfo.textContent = t('no_history_found');
-                this.historyInfo.className = 'info warning';
-            } else {
-                this.historyInfo.textContent = t('history_loaded', [this.timeHistory.length]);
-                this.historyInfo.className = 'info success';
-            }
-        } catch (error) {
-            this.debug('Error loading time history: ' + error.message);
-
-            // Check if it's an authentication error
-            if (error.message.includes('401') || error.message.includes('403') || error.message.includes('unauthorized')) {
-                this.historyInfo.textContent = t('api_token_invalid');
-                this.historyInfo.className = 'info error';
-                // Mark API as not validated
-                zammadApi.validated = false;
-            } else {
-                this.historyInfo.textContent = t('error_loading_history') + ': ' + error.message;
-                this.historyInfo.className = 'info error';
-            }
-
-            // Show empty state
-            this.historyList.innerHTML = `
-                <div class="empty-state">
-                    ${t('error_loading_history')}
-                </div>
-            `;
-        } finally {
-            this.isLoadingHistory = false;
-            this.historyLoading.style.display = 'none';
-        }
-    }
     /**
      * Display time tracking history in the UI
      */
