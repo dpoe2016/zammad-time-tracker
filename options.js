@@ -55,7 +55,7 @@ function initOptionsPage() {
             showStatus('Error loading settings: ' + error.message, 'error');
         }
     }
-    
+
     /**
      * Save API settings to storage
      */
@@ -63,30 +63,36 @@ function initOptionsPage() {
         try {
             const baseUrl = apiBaseUrlInput.value.trim();
             const token = apiTokenInput.value.trim();
-            
+
             // Validate inputs
             if (!baseUrl) {
                 showStatus('Base URL is required', 'error');
                 return;
             }
-            
+
             if (!token) {
                 showStatus('API Token is required', 'error');
                 return;
             }
-            
+
             // Create settings object
             const settings = { baseUrl, token };
-            
+
             // Save to storage
             await chrome.storage.local.set({ zammadApiSettings: settings });
-            
+
             // Initialize API if available
             if (typeof zammadApi !== 'undefined' && zammadApi.init) {
                 zammadApi.init(baseUrl, token);
                 console.log('API initialized with new settings');
             }
-            
+
+            // ADD THIS: Force refresh API with new settings
+            if (typeof zammadApi !== 'undefined' && zammadApi.forceRefreshSettings) {
+                await zammadApi.forceRefreshSettings();
+                console.log('API refreshed with new token');
+            }
+
             console.log('API settings saved');
             showStatus('Settings saved successfully', 'success');
         } catch (error) {
@@ -94,7 +100,6 @@ function initOptionsPage() {
             showStatus('Error saving settings: ' + error.message, 'error');
         }
     }
-    
     /**
      * Show status message
      * @param {string} message - The message to display

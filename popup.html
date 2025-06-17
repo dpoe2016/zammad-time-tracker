@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Zammad Timetracking</title>
+    <link rel="stylesheet" href="style.css">
     <script src="translations.js"></script>
     <style>
         body {
@@ -196,6 +197,11 @@
         .info.success {
             background: #d4edda;
             color: #155724;
+        }
+
+        .info.warning {
+            background: #fff3cd;
+            color: #856404;
         }
 
         .settings {
@@ -429,29 +435,6 @@
             margin-bottom: 16px;
         }
 
-        .history-item {
-            padding: 10px;
-            border-bottom: 1px solid #dee2e6;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            background-color: #ffffff;
-            border-radius: 4px;
-            margin-bottom: 8px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            border-left: 3px solid transparent;
-        }
-
-        .history-item:hover {
-            background-color: #f1f3f5;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.15);
-            transform: translateY(-2px);
-            border-left: 3px solid #007bff;
-        }
-
-        .history-item:last-child {
-            border-bottom: none;
-        }
-
         .history-item-title {
             font-weight: 500;
             margin-bottom: 4px;
@@ -475,146 +458,157 @@
             color: #6c757d;
         }
 
-        /* Loading spinner */
+        /* Loading and empty states */
         .loading {
             display: flex;
-            justify-content: center;
             align-items: center;
+            justify-content: center;
             padding: 20px;
+            color: #6c757d;
         }
 
-        .spinner {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #007bff;
+        .loading::before {
+            content: "";
+            width: 16px;
+            height: 16px;
+            border: 2px solid #dee2e6;
+            border-top-color: #007bff;
             border-radius: 50%;
-            width: 24px;
-            height: 24px;
             animation: spin 1s linear infinite;
+            margin-right: 8px;
         }
 
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            to {
+                transform: rotate(360deg);
+            }
         }
 
+        .empty-state {
+            text-align: center;
+            padding: 20px;
+            color: #6c757d;
+            font-style: italic;
+        }
     </style>
 </head>
 <body>
+<!-- Header -->
 <div class="header">
-    <h1>⏱ <span id="extensionTitle">Zammad Timetracking</span></h1>
-    <div id="subtitle">Zeiterfassung für Tickets</div>
+    <h1 id="extensionTitle">Zammad Timetracking</h1>
+    <div id="subtitle">Chrome Extension</div>
 </div>
 
+<!-- Tabs -->
 <div class="tabs">
-    <div class="tab active" id="tab-current" data-tab="current">Aktuell</div>
-    <div class="tab" id="tab-tickets" data-tab="tickets">Tickets</div>
-    <div class="tab" id="tab-history" data-tab="history">Verlauf</div>
+    <div class="tab active" data-tab="current" id="tab-current">Current</div>
+    <div class="tab" data-tab="tickets" id="tab-tickets">Tickets</div>
+    <div class="tab" data-tab="history" id="tab-history">History</div>
 </div>
 
 <!-- Current Tab Content -->
 <div class="tab-content active" id="content-current">
+    <!-- Status Section -->
     <div class="status">
         <div class="status-indicator">
-            <div class="status-dot" id="statusDot"></div>
-            <span id="statusText">Nicht aktiv</span>
+            <div class="status-dot inactive" id="statusDot"></div>
+            <span id="statusText">Inactive</span>
         </div>
 
+        <!-- Ticket Info -->
         <div class="ticket-info" id="ticketInfo" style="display: none;">
-            <div class="ticket-title" id="ticketTitle">Ticket wird geladen...</div>
+            <div class="ticket-title" id="ticketTitle">Loading ticket...</div>
             <div class="ticket-details">
-                <span><span id="ticketLabel">Ticket</span>: <span id="ticketId">-</span></span>
-                <span class="time-spent">
-                    <span id="timeSpentLabel">Erfasst</span>: 
-                    <span id="timeSpent" class="editable-time" title="">0</span>
-                    <span id="minLabel">Min</span>
-                    <span class="edit-icon" id="editTimeIcon">✏️</span>
-                </span>
+                    <span>
+                        <span id="ticketLabel">Ticket:</span>
+                        <span id="ticketId">#Loading</span>
+                    </span>
+                <span>
+                        <span id="timeSpentLabel">Time spent:</span>
+                        <span class="time-spent editable-time" id="timeSpent" title="Click to edit">0</span>
+                        <span id="minLabel">min</span>
+                        <span class="edit-icon" id="editTimeIcon">✏️</span>
+                    </span>
             </div>
         </div>
 
-        <!-- Time edit form -->
+        <!-- Time Edit Form -->
         <div class="time-edit-form" id="timeEditForm">
-            <input type="number" id="timeEditInput" min="0" step="1">
-            <button class="save" id="saveTimeBtn">OK</button>
-            <button class="cancel" id="cancelTimeBtn">X</button>
+            <input type="number" id="timeEditInput" min="0" placeholder="Minutes">
+            <button class="save" id="saveTimeBtn">Save</button>
+            <button class="cancel" id="cancelTimeBtn">Cancel</button>
         </div>
 
+        <!-- Timer Display -->
         <div class="timer-display" id="timerDisplay">00:00:00</div>
 
+        <!-- Controls -->
         <div class="controls">
             <button class="btn btn-primary" id="startBtn">Start</button>
             <button class="btn btn-danger" id="stopBtn" disabled>Stop</button>
         </div>
     </div>
 
-    <div class="info" id="infoText">
-        Überprüfe Zammad-Seite...
+    <!-- Info Message -->
+    <div class="info" id="infoText">Checking page...</div>
+
+    <!-- Settings Section -->
+    <div class="settings">
+        <div class="settings-title" id="settingsTitle">Settings</div>
+
+        <div class="setting-item">
+            <span id="notificationsLabel">Notifications</span>
+            <label class="switch">
+                <input type="checkbox" id="notificationsToggle">
+                <span class="slider"></span>
+            </label>
+        </div>
+
+        <div class="setting-item">
+            <span id="autoSubmitLabel">Auto-Submit Time</span>
+            <label class="switch">
+                <input type="checkbox" id="autoSubmitToggle">
+                <span class="slider"></span>
+            </label>
+        </div>
+
+        <div class="setting-item">
+            <span id="languageLabel">Language</span>
+            <select class="language-select" id="languageSelect">
+                <option value="en">English</option>
+                <option value="de">Deutsch</option>
+            </select>
+        </div>
+
+        <div class="setting-item">
+            <span id="apiSettingsLabel">API Settings</span>
+            <button class="btn btn-primary" id="apiSettingsBtn">Options</button>
+        </div>
     </div>
+
+    <!-- Debug Info -->
+    <div class="debug" id="debugInfo">Debug mode disabled</div>
 </div>
 
 <!-- Tickets Tab Content -->
 <div class="tab-content" id="content-tickets">
-    <div class="ticket-list" id="ticketList">
-        <div class="loading" id="ticketsLoading">
-            <div class="spinner"></div>
-        </div>
-        <!-- Ticket items will be added here dynamically -->
+    <div class="loading" id="ticketsLoading" style="display: none;">
+        <span>Loading tickets...</span>
     </div>
-    <div class="info" id="ticketsInfo">
-        Lade Tickets...
-    </div>
+    <div class="info" id="ticketsInfo">Loading assigned tickets...</div>
+    <div class="ticket-list" id="ticketList"></div>
 </div>
 
 <!-- History Tab Content -->
 <div class="tab-content" id="content-history">
-    <div class="history-list" id="historyList">
-        <div class="loading" id="historyLoading">
-            <div class="spinner"></div>
-        </div>
-        <!-- History items will be added here dynamically -->
+    <div class="loading" id="historyLoading" style="display: none;">
+        <span>Loading history...</span>
     </div>
-    <div class="info" id="historyInfo">
-        Lade Verlauf...
-    </div>
+    <div class="info" id="historyInfo">Loading time tracking history...</div>
+    <div class="history-list" id="historyList"></div>
 </div>
 
-<div class="settings">
-    <div class="settings-title" id="settingsTitle">Einstellungen</div>
-
-    <div class="setting-item">
-        <span id="notificationsLabel">Benachrichtigungen</span>
-        <label class="switch">
-            <input type="checkbox" id="notificationsToggle" checked>
-            <span class="slider"></span>
-        </label>
-    </div>
-
-    <div class="setting-item">
-        <span id="autoSubmitLabel">Auto-Submit</span>
-        <label class="switch">
-            <input type="checkbox" id="autoSubmitToggle" checked>
-            <span class="slider"></span>
-        </label>
-    </div>
-
-    <div class="setting-item">
-        <span id="languageLabel">Sprache</span>
-        <select id="languageSelect" class="language-select">
-            <option value="de">Deutsch</option>
-            <option value="en">English</option>
-        </select>
-    </div>
-
-    <div class="setting-item">
-        <span id="apiSettingsLabel">API Einstellungen</span>
-        <button id="apiSettingsBtn" class="btn btn-sm">Optionen</button>
-    </div>
-</div>
-
-<div class="debug" id="debugInfo">
-    Debug-Modus aktiviert
-</div>
-
+<!-- Scripts -->
 <script src="api.js"></script>
 <script src="popup.js"></script>
 </body>

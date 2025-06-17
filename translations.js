@@ -198,6 +198,14 @@ const translations = {
     [LANGUAGES.DE]: 'API Token',
     [LANGUAGES.EN]: 'API Token'
   },
+  'api_token_validation_pending': {
+    [LANGUAGES.DE]: 'API Token wird überprüft...',
+    [LANGUAGES.EN]: 'API token validation pending...'
+  },
+  'api_token_invalid': {
+    [LANGUAGES.DE]: 'Ungültiger API Token. Bitte überprüfen Sie Ihre Einstellungen.',
+    [LANGUAGES.EN]: 'Invalid API token. Please check your settings.'
+  },
   'api_edit': {
     [LANGUAGES.DE]: 'Bearbeiten',
     [LANGUAGES.EN]: 'Edit'
@@ -405,6 +413,28 @@ const translations = {
   'non_closed_only': {
     [LANGUAGES.DE]: 'nur nicht geschlossene',
     [LANGUAGES.EN]: 'non-closed only'
+  },
+
+  // Delete functionality
+  'delete_entry': {
+    [LANGUAGES.DE]: 'Eintrag löschen',
+    [LANGUAGES.EN]: 'Delete entry'
+  },
+  'confirm_delete_entry': {
+    [LANGUAGES.DE]: 'Diesen Zeiteintrag von {0} Minuten für Ticket {1} löschen?',
+    [LANGUAGES.EN]: 'Delete this time entry of {0} minutes for ticket {1}?'
+  },
+  'deleting_entry': {
+    [LANGUAGES.DE]: 'Lösche Eintrag...',
+    [LANGUAGES.EN]: 'Deleting entry...'
+  },
+  'entry_deleted': {
+    [LANGUAGES.DE]: 'Zeiteintrag erfolgreich gelöscht',
+    [LANGUAGES.EN]: 'Time entry deleted successfully'
+  },
+  'delete_entry_error': {
+    [LANGUAGES.DE]: 'Fehler beim Löschen des Eintrags',
+    [LANGUAGES.EN]: 'Failed to delete entry'
   }
 };
 
