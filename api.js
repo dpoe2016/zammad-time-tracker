@@ -1263,10 +1263,6 @@ class ZammadAPI {
 
     // Define endpoint patterns to try - prioritize endpoints that filter by current user
     let endpoints = [
-      // Special endpoint for testing with issue description data
-      // This is a fake endpoint that will be intercepted in the request method
-      '/api/v1/time_accountings/issue_description_test',
-
       // Official Zammad API endpoints for time history - with user filtering
       '/api/v1/time_accountings/me',
       '/api/v1/time_accountings/my',
@@ -1296,9 +1292,12 @@ class ZammadAPI {
       '/api/v1/time_accountings/search?query=user_id:me',
       // Try with ticket-specific endpoints if we have a current ticket ID
       '/api/v1/tickets/last/time_accountings',
-      // Try with different date filters to limit results
-      '/api/v1/time_accountings?from=30d',
-      '/api/v1/time_accountings?timeframe=month'
+      // Try with different date filters to limit results combined with user filtering
+      '/api/v1/time_accountings?from=30d&user_id=me',
+      '/api/v1/time_accountings?timeframe=month&user_id=me',
+      '/api/v1/time_accountings?timeframe=month&created_by=me',
+      '/api/v1/time_accountings?timeframe=month&filter[user_id]=me',
+      '/api/v1/time_accountings?timeframe=month&filter[created_by_id]=me'
     ];
 
     // If we have a current user ID, add endpoints with explicit user ID
@@ -1310,7 +1309,12 @@ class ZammadAPI {
         `/api/v1/time_accountings?filter[user_id]=${this.currentUserId}`,
         `/api/v1/time_accountings/by_user/${this.currentUserId}`,
         `/api/v1/time_accountings/search?query=created_by_id:${this.currentUserId}`,
-        `/api/v1/time_accountings/search?query=user_id:${this.currentUserId}`
+        `/api/v1/time_accountings/search?query=user_id:${this.currentUserId}`,
+        // Add timeframe parameter to user ID endpoints
+        `/api/v1/time_accountings?timeframe=month&user_id=${this.currentUserId}`,
+        `/api/v1/time_accountings?timeframe=month&created_by_id=${this.currentUserId}`,
+        `/api/v1/time_accountings?timeframe=month&filter[created_by_id]=${this.currentUserId}`,
+        `/api/v1/time_accountings?timeframe=month&filter[user_id]=${this.currentUserId}`
       ];
 
       // Add these endpoints at the beginning of the array for higher priority
@@ -1319,8 +1323,8 @@ class ZammadAPI {
       console.log(`Added ${userIdEndpoints.length} endpoints with explicit user ID: ${this.currentUserId}`);
     }
 
-    // Last resort: try without user filtering (if user has sufficient permissions)
-    endpoints.push('/api/v1/time_accountings?limit=100');
+    // We don't want to use endpoints without user filtering
+    // as they might return too many entries
 
     // Log the endpoints we're going to try
     console.log(`Will try ${endpoints.length} endpoints for time history`);
@@ -1341,12 +1345,12 @@ class ZammadAPI {
         this.saveCachedEndpoints();
 
         // If we're using an endpoint without user filtering, filter the results client-side
-        if (endpoint.includes('limit=100') || 
-            (!endpoint.includes('me') && 
-             !endpoint.includes('my') && 
-             !endpoint.includes('current_user') && 
-             !endpoint.includes('user_id') && 
-             !endpoint.includes('created_by'))) {
+        if (!endpoint.includes('me') && 
+            !endpoint.includes('my') && 
+            !endpoint.includes('current_user') && 
+            !endpoint.includes('user_id') && 
+            !endpoint.includes('created_by') &&
+            !endpoint.includes('created_by_id')) {
           console.log('Using endpoint without user filtering, filtering results client-side');
 
           // Try to filter by the current user's data
@@ -1404,10 +1408,7 @@ class ZammadAPI {
                      (currentUserIdStr && (
                        entryCreatedById === currentUserIdStr ||
                        entryUserId === currentUserIdStr
-                     )) ||
-
-                     // Also check for entries created recently (last 30 days)
-                     (entry.created_at && new Date(entry.created_at) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))
+                     ))
                     );
             });
 
