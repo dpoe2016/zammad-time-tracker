@@ -1,6 +1,8 @@
 // Content Script for Zammad Timetracking - Popup version only
 
-class ZammadTimetracker {
+// Only define the class if it hasn't been defined yet
+if (typeof window.ZammadTimetracker === 'undefined') {
+  window.ZammadTimetracker = class {
   constructor() {
     this.isTracking = false;
     this.startTime = null;
@@ -615,41 +617,42 @@ class ZammadTimetracker {
       console.log('Loading tracking state:', state);
 
       if (state && state.isTracking && state.startTime) {
-        // Check if we're still in the same ticket
+        // Get current ticket ID but don't use it to determine if we should continue tracking
         const currentTicketId = await this.getCurrentTicketId();
         console.log('Current ticket ID:', currentTicketId, 'Saved ticket ID:', state.ticketId);
 
-        if (currentTicketId === state.ticketId) {
-          this.isTracking = true;
-          this.startTime = new Date(state.startTime);
-          this.ticketId = state.ticketId;
+        // Always continue tracking regardless of the current ticket ID
+        this.isTracking = true;
+        this.startTime = new Date(state.startTime);
+        this.ticketId = state.ticketId; // Keep the original ticket ID
 
-          // If we have a title in the state, log it
-          if (state.title) {
-            console.log(`Time tracking continued for ticket #${this.ticketId} (${state.title})`);
-          } else {
-            console.log(`Time tracking continued for ticket #${this.ticketId}`);
+        // If we have a title in the state, log it
+        if (state.title) {
+          console.log(`Time tracking continued for ticket #${this.ticketId} (${state.title})`);
+        } else {
+          console.log(`Time tracking continued for ticket #${this.ticketId}`);
 
-            // If API is initialized but we don't have a title, try to get it
-            if (this.apiInitialized && window.zammadApi && window.zammadApi.isInitialized()) {
-              try {
-                console.log('Getting ticket info from API for restored tracking');
-                const ticketData = await window.zammadApi.getTicket(this.ticketId);
-                if (ticketData && ticketData.title) {
-                  // Save the state again with the title
-                  this.saveTrackingState(ticketData.title);
-                  console.log('Updated tracking state with title from API:', ticketData.title);
-                }
-              } catch (error) {
-                console.error('Error getting ticket info from API during state restore:', error);
-                // Continue without ticket title
+          // If API is initialized but we don't have a title, try to get it
+          if (this.apiInitialized && window.zammadApi && window.zammadApi.isInitialized()) {
+            try {
+              console.log('Getting ticket info from API for restored tracking');
+              const ticketData = await window.zammadApi.getTicket(this.ticketId);
+              if (ticketData && ticketData.title) {
+                // Save the state again with the title
+                this.saveTrackingState(ticketData.title);
+                console.log('Updated tracking state with title from API:', ticketData.title);
               }
+            } catch (error) {
+              console.error('Error getting ticket info from API during state restore:', error);
+              // Continue without ticket title
             }
           }
-        } else {
-          // Different ticket - delete state
-          console.log('Different ticket detected, clearing tracking state');
-          this.clearTrackingState();
+        }
+
+        // If we're on a different ticket page, inform the user that tracking is continuing for the original ticket
+        if (currentTicketId && currentTicketId !== state.ticketId) {
+          console.log(`Note: You're viewing ticket #${currentTicketId} but tracking is active for ticket #${state.ticketId}`);
+          // We could show a notification here if needed
         }
       } else {
         console.log('No active tracking state found');
@@ -664,6 +667,7 @@ class ZammadTimetracker {
     this.startTime = null;
     this.ticketId = null;
   }
+  }
 }
 
 // Initialize extension when DOM is loaded
@@ -674,11 +678,11 @@ if (window.zammadTrackerInstance === undefined) {
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
       console.log('DOM loaded, initializing Zammad Timetracker');
-      window.zammadTrackerInstance = new ZammadTimetracker();
+      window.zammadTrackerInstance = new window.ZammadTimetracker();
     });
   } else {
     console.log('DOM already loaded, initializing Zammad Timetracker');
-    window.zammadTrackerInstance = new ZammadTimetracker();
+    window.zammadTrackerInstance = new window.ZammadTimetracker();
   }
 
   // Also reinitialize when navigating within Zammad
@@ -691,7 +695,7 @@ if (window.zammadTrackerInstance === undefined) {
       setTimeout(() => {
         if (!window.zammadTrackerInstance || window.zammadTrackerInstance.needsReinit) {
           console.log('Reinitializing after URL change');
-          window.zammadTrackerInstance = new ZammadTimetracker();
+          window.zammadTrackerInstance = new window.ZammadTimetracker();
         }
       }, 1000);
     }
@@ -699,4 +703,3 @@ if (window.zammadTrackerInstance === undefined) {
 } else {
   console.log('Zammad Timetracker already initialized');
 }
-
