@@ -56,7 +56,7 @@ function updateUILanguage() {
 
 class TimetrackingPopup {
     constructor() {
-        console.log('Popup is being initialized...');
+        logger.info('Popup is being initialized...');
 
         this.isTracking = false;
         this.startTime = null;
@@ -85,7 +85,7 @@ class TimetrackingPopup {
     }
 
     initElements() {
-        console.log('Initializing UI elements...');
+        logger.info('Initializing UI elements...');
 
         // Current tab elements
         this.statusDot = document.getElementById('statusDot');
@@ -128,7 +128,7 @@ class TimetrackingPopup {
         // API Settings elements
         this.apiSettingsBtn = document.getElementById('apiSettingsBtn');
 
-        console.log('UI elements initialized');
+        logger.info('UI elements initialized');
     }
 
     /**
@@ -618,7 +618,7 @@ class TimetrackingPopup {
             }
 
         } catch (error) {
-            console.error(`Error deleting time entry ${entryId}:`, error);
+            logger.error(`Error deleting time entry ${entryId}:`, error);
             this.debug(`Error deleting time entry: ${error.message}`);
 
             // Show more specific error messages
@@ -638,41 +638,13 @@ class TimetrackingPopup {
             this.historyInfo.className = 'info error';
         }
     }
-    async refreshApi() {
-        if (window.zammadApi) {
-            await window.zammadApi.forceRefreshSettings();
-            console.log('API refreshed with new token');
-
-            // Show user feedback
-            this.showMessage('API refreshed with new settings', 'success');
-
-            // Reload the current state to use new API settings
-            await this.loadState();
-        } else {
-            console.log('No API instance available to refresh');
-            this.showMessage('No API instance found to refresh', 'warning');
-        }
-    }
-
-    showMessage(message, type = 'info') {
-        if (this.infoText) {
-            this.infoText.textContent = message;
-            this.infoText.className = `info ${type}`;
-
-            // Clear message after 3 seconds
-            setTimeout(() => {
-                this.infoText.textContent = '';
-                this.infoText.className = 'info';
-            }, 3000);
-        }
-    }
 
 
     initEventListeners() {
-        console.log('Setting up event listeners...');
+        logger.info('Setting up event listeners...');
 
         this.startBtn.addEventListener('click', () => {
-            console.log('Start button clicked');
+            logger.info('Start button clicked');
             // Immediately disable button to prevent double-clicking
             this.startBtn.disabled = true;
             // Ensure the action is processed even if popup closes quickly
@@ -680,7 +652,7 @@ class TimetrackingPopup {
         });
 
         this.stopBtn.addEventListener('click', () => {
-            console.log('Stop button clicked');
+            logger.info('Stop button clicked');
             // Immediately disable button to prevent double-clicking
             this.stopBtn.disabled = true;
             // Ensure the action is processed even if popup closes quickly
@@ -688,33 +660,33 @@ class TimetrackingPopup {
         });
 
         this.notificationsToggle.addEventListener('change', () => {
-            console.log('Notifications changed:', this.notificationsToggle.checked);
+            logger.info('Notifications changed: ' + this.notificationsToggle.checked);
             this.saveSettings();
         });
 
         this.autoSubmitToggle.addEventListener('change', () => {
-            console.log('Auto-Submit changed:', this.autoSubmitToggle.checked);
+            logger.info('Auto-Submit changed: ' + this.autoSubmitToggle.checked);
             this.saveSettings();
         });
 
         // Time edit functionality
         this.timeSpent.addEventListener('click', () => {
-            console.log('Time spent clicked');
+            logger.info('Time spent clicked');
             this.showTimeEditForm();
         });
 
         this.editTimeIcon.addEventListener('click', () => {
-            console.log('Edit time icon clicked');
+            logger.info('Edit time icon clicked');
             this.showTimeEditForm();
         });
 
         this.saveTimeBtn.addEventListener('click', () => {
-            console.log('Save time button clicked');
+            logger.info('Save time button clicked');
             this.saveEditedTime();
         });
 
         this.cancelTimeBtn.addEventListener('click', () => {
-            console.log('Cancel time button clicked');
+            logger.info('Cancel time button clicked');
             this.hideTimeEditForm();
         });
 
@@ -730,7 +702,7 @@ class TimetrackingPopup {
         // Language selector
         document.getElementById('languageSelect').addEventListener('change', (e) => {
             const newLang = e.target.value;
-            console.log('Language changed:', newLang);
+            logger.info('Language changed: ' + newLang);
             setLanguage(newLang);
             // Ensure UI is updated immediately with the new language
             updateUILanguage();
@@ -739,7 +711,7 @@ class TimetrackingPopup {
 
         // API Settings - Open options page
         this.apiSettingsBtn.addEventListener('click', () => {
-            console.log('API Settings button clicked - opening options page');
+            logger.info('API Settings button clicked - opening options page');
             chrome.runtime.openOptionsPage();
         });
 
@@ -753,12 +725,14 @@ class TimetrackingPopup {
             }
         });
 
-        console.log('Event listeners set up');
+        logger.info('Event listeners set up');
     }
 
     debug(message) {
         const timestamp = new Date().toLocaleTimeString();
-        console.log('[Popup Debug]', timestamp, message);
+        // Use logger for console output
+        logger.debug('[Popup] ' + message);
+        // Update UI debug info
         this.debugInfo.textContent = timestamp + ': ' + message;
     }
 
@@ -766,7 +740,7 @@ class TimetrackingPopup {
         this.debug('Loading saved state...');
 
         try {
-            const result = await chrome.storage.local.get(['zammadTrackingState', 'zammadSettings', 'zammadApiSettings']);
+            const result = await storage.loadMultiple(['zammadTrackingState', 'zammadSettings', 'zammadApiSettings']);
             const state = result.zammadTrackingState;
             const settings = result.zammadSettings || {};
             const apiSettings = result.zammadApiSettings || {};
@@ -841,7 +815,7 @@ class TimetrackingPopup {
 
         } catch (error) {
             this.debug('Error loading: ' + error.message);
-            console.error('Error loading state:', error);
+            logger.error('Error loading state:', error);
             await this.checkCurrentPage();
         }
     }
@@ -1067,27 +1041,6 @@ class TimetrackingPopup {
             this.infoText.textContent = t('starting_tracking');
             this.infoText.className = 'info';
 
-            // Initialize tracking state early
-            this.isTracking = true;
-            this.startTime = new Date();
-
-            // Save initial state to storage immediately
-            try {
-                await chrome.storage.local.set({
-                    zammadTrackingState: {
-                        isTracking: true,
-                        startTime: this.startTime.toISOString(),
-                        // We'll update with more details later
-                        ticketId: 'initializing',
-                        title: null,
-                        timeSpent: 0
-                    }
-                });
-                this.debug('Initial tracking state saved');
-            } catch (storageError) {
-                this.debug('Error saving initial state: ' + storageError.message);
-            }
-
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
             this.debug('Tab URL: ' + tab.url);
 
@@ -1095,13 +1048,11 @@ class TimetrackingPopup {
                 this.infoText.textContent = t('open_ticket');
                 this.infoText.className = 'info error';
                 this.debug('Not a Zammad URL');
-                this.isTracking = false; // Reset tracking state
                 this.startBtn.disabled = false; // Re-enable button
                 return;
             }
 
-            // Inject content script
-            this.debug('Injecting content script...');
+            // Inject content script if needed
             try {
                 await chrome.scripting.executeScript({
                     target: { tabId: tab.id },
@@ -1109,11 +1060,9 @@ class TimetrackingPopup {
                 });
                 this.debug('Content script injected');
             } catch (e) {
-                this.debug('Content script error: ' + e.message);
+                // This is normal if the script is already injected
+                this.debug('Content script already exists: ' + e.message);
             }
-
-            // Wait for content script
-            await new Promise(resolve => setTimeout(resolve, 2000));
 
             // Try to find ticket ID and info
             let ticketId = await this.getTicketInfo(tab);
@@ -1122,6 +1071,11 @@ class TimetrackingPopup {
                 this.debug('No ticket ID - using fallback');
                 ticketId = 'fallback-' + Date.now();
             }
+
+            // Initialize tracking state
+            this.isTracking = true;
+            this.startTime = new Date();
+            this.currentTicketId = ticketId;
 
             // Notify content script to start tracking
             try {
@@ -1138,23 +1092,20 @@ class TimetrackingPopup {
                 this.debug('Error starting tracking in content script: ' + error.message);
             }
 
-            // Start tracking
-            this.debug('Starting timer for ticket: ' + ticketId);
-            this.isTracking = true;
-            this.startTime = new Date();
-            this.currentTicketId = ticketId;
-
-            // Save state (with extended information)
-            await chrome.storage.local.set({
-                zammadTrackingState: {
+            // Save state with all information
+            try {
+                await storage.save('zammadTrackingState', {
                     isTracking: true,
                     startTime: this.startTime.toISOString(),
                     ticketId: ticketId,
                     title: this.currentTicketTitle || null,
                     timeSpent: this.currentTimeSpent || 0,
                     url: tab.url
-                }
-            });
+                });
+                this.debug('Tracking state saved');
+            } catch (storageError) {
+                this.debug('Error saving state: ' + storageError.message);
+            }
 
             // Update UI
             this.updateUI();
@@ -1193,12 +1144,11 @@ class TimetrackingPopup {
             this.debug('Time tracking successfully started');
 
             // Close popup after a delay to ensure all operations complete
-            // Using a longer timeout to ensure tracking is registered even if user moves away quickly
-            setTimeout(() => window.close(), 5000);
+            setTimeout(() => window.close(), 3000);
 
         } catch (error) {
             this.debug('Critical error: ' + error.message);
-            console.error('Start error:', error);
+            logger.error('Start error:', error);
             this.infoText.textContent = 'Error: ' + error.message;
             this.infoText.className = 'info error';
             this.startBtn.disabled = false;
@@ -1206,34 +1156,26 @@ class TimetrackingPopup {
     }
 
     async getTicketInfo(tab) {
-        // Try multiple strategies
+        // Try to get ticket info from content script
+        try {
+            this.debug('Getting ticket info from content script');
+            const response = await chrome.tabs.sendMessage(tab.id, { action: 'getTicketInfo' });
+            if (response && response.ticketId) {
+                this.debug('Ticket info from content script: ' + JSON.stringify(response));
 
-        // 1. Ask content script - extended ticket info
-        for (let attempt = 1; attempt <= 3; attempt++) {
-            try {
-                this.debug('Content script attempt ' + attempt);
-                const response = await chrome.tabs.sendMessage(tab.id, { action: 'getTicketInfo' });
-                if (response && response.ticketId) {
-                    this.debug('Ticket info from content script: ' + JSON.stringify(response));
+                // Save ticket information in popup
+                this.currentTicketTitle = response.title;
+                this.currentTimeSpent = response.timeSpent || 0;
 
-                    // Save ticket information in popup
-                    this.currentTicketTitle = response.title;
-                    this.currentTimeSpent = response.timeSpent || 0;
-
-                    return response.ticketId;
-                }
-            } catch (error) {
-                this.debug('Content script attempt ' + attempt + ' failed');
-                if (attempt < 3) {
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                }
+                return response.ticketId;
             }
+        } catch (error) {
+            this.debug('Content script error: ' + error.message);
         }
 
-        // 2. Try URL pattern
+        // Fallback: Try URL pattern
         this.debug('Trying URL parsing...');
         const urlPatterns = [
-            /\/ticket\/zoom\/(\d+)/,
             /\/ticket.*?\/(\d+)/,
             /ticket.*?(\d+)/,
             /#.*?(\d+)/
@@ -1267,7 +1209,7 @@ class TimetrackingPopup {
             const endTime = new Date();
             const duration = Math.round((endTime - this.startTime) / 1000);
             const durationMinutes = Math.round(duration / 60);
-            const durationText = this.formatDuration(duration);
+            const durationText = formatDuration(duration);
 
             this.debug('Duration: ' + durationText + ' (' + durationMinutes + ' min)');
 
@@ -1280,7 +1222,7 @@ class TimetrackingPopup {
 
             // Remove tracking state from storage immediately
             try {
-                await chrome.storage.local.remove(['zammadTrackingState']);
+                await storage.remove('zammadTrackingState');
                 this.debug('Tracking state removed from storage');
             } catch (storageError) {
                 this.debug('Error removing tracking state: ' + storageError.message);
@@ -1306,21 +1248,11 @@ class TimetrackingPopup {
                 this.debug('Error stopping tracking in content script: ' + error.message);
             }
 
-            // Storage already deleted at the beginning of the method
-            this.debug('Status already deleted');
-
-            // Try auto-submit
-            // let autoSubmitSuccess = await this.tryAutoSubmit(ticketId, durationMinutes);
 
             // UI feedback
             this.ticketInfo.style.display = 'none';
-            // if (autoSubmitSuccess) {
-                this.infoText.textContent = t('time_recorded') + ': ' + durationMinutes + ' ' + t('min');
-                this.infoText.className = 'info success';
-            // } else {
-            //    this.infoText.textContent = t('manual_entry_required', [durationMinutes]);
-            //    this.infoText.className = 'info error';
-            //}
+            this.infoText.textContent = t('time_recorded') + ': ' + durationMinutes + ' ' + t('min');
+            this.infoText.className = 'info success';
 
             // Notify background script
             try {
@@ -1330,7 +1262,7 @@ class TimetrackingPopup {
                         ticketId: ticketId,
                         title: ticketTitle,
                         duration: durationText,
-                        success: autoSubmitSuccess
+                        success: true
                     }
                 });
             } catch (error) {
@@ -1345,61 +1277,16 @@ class TimetrackingPopup {
             this.currentTimeSpent = 0;
 
             // Close popup after a delay to ensure all operations complete
-            // Using a longer timeout to ensure tracking is registered even if user moves away quickly
-            setTimeout(() => window.close(), 5000);
+            setTimeout(() => window.close(), 3000);
 
         } catch (error) {
             this.debug('Stop error: ' + error.message);
-            console.error('Stop error:', error);
+            logger.error('Stop error:', error);
             this.infoText.textContent = t('stop_error') + ': ' + error.message;
             this.infoText.className = 'info error';
         }
     }
 
-    async tryAutoSubmit(ticketId, durationMinutes) {
-        try {
-            this.debug('Trying automatic entry...');
-
-            // First try to submit via API if initialized
-            if (zammadApi.isInitialized()) {
-                try {
-                    this.debug('Submitting time via API...');
-                    // const comment = 'Time tracked via Zammad Timetracking Extension';
-                    //
-                    // const response = await zammadApi.submitTimeEntry(ticketId, durationMinutes, comment);
-                    //
-                    // if (response) {
-                    //     this.debug('API time entry successful: ' + JSON.stringify(response));
-                    //     return true;
-                    // }
-                } catch (apiError) {
-                    this.debug('API time entry failed: ' + apiError.message);
-                    // Continue to fallback method
-                }
-            }
-
-            // Fallback to content script method
-            this.debug('Falling back to content script method...');
-            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-
-            const response = await chrome.tabs.sendMessage(tab.id, {
-                action: 'submitTime',
-                duration: durationMinutes,
-                ticketId: ticketId
-            });
-
-            if (response && response.success) {
-                this.debug('Content script auto-submit successful');
-                return true;
-            } else {
-                this.debug('Content script auto-submit failed');
-                return false;
-            }
-        } catch (error) {
-            this.debug('Auto-submit error: ' + error.message);
-            return false;
-        }
-    }
 
     updateUI() {
         if (this.isTracking) {
@@ -1421,7 +1308,7 @@ class TimetrackingPopup {
         this.timerInterval = setInterval(() => {
             if (this.startTime) {
                 const elapsed = Math.round((new Date() - this.startTime) / 1000);
-                this.timerDisplay.textContent = this.formatDuration(elapsed);
+                this.timerDisplay.textContent = formatDuration(elapsed);
             }
         }, 1000);
     }
@@ -1434,15 +1321,7 @@ class TimetrackingPopup {
         }
     }
 
-    formatDuration(seconds) {
-        const hours = Math.floor(seconds / 3600);
-        const minutes = Math.floor((seconds % 3600) / 60);
-        const secs = seconds % 60;
-
-        return hours.toString().padStart(2, '0') + ':' +
-            minutes.toString().padStart(2, '0') + ':' +
-            secs.toString().padStart(2, '0');
-    }
+    // Use formatDuration from utilities.js
 
     async saveSettings() {
         const settings = {
@@ -1451,11 +1330,9 @@ class TimetrackingPopup {
             language: getCurrentLanguage()
         };
 
-        await chrome.storage.local.set({ zammadSettings: settings });
+        await storage.save('zammadSettings', settings);
         this.debug(t('settings_saved'));
     }
-
-    // API Settings are now managed in the options page
 
     /**
      * Show the time edit form
