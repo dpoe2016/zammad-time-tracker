@@ -93,7 +93,7 @@ class ZammadAPI {
 
     // CHANGE: Make validation non-blocking and don't wait for it
     console.log('Zammad API initialized - validation will run in background');
-    
+
     // Start background validation (but don't wait for it)
     this.validateTokenInBackground();
 
@@ -548,9 +548,17 @@ class ZammadAPI {
     }
 
     // Allow negative values for time corrections (when reducing time)
-    // Only reject if the value is exactly 0 or not a valid number
-    if (timeSpent === 0 || isNaN(timeSpent)) {
-      throw new Error('Time spent must be a valid number and not zero');
+    // Only reject if the value is exactly 0 or very close to 0, or not a valid number
+    if (isNaN(timeSpent)) {
+      throw new Error('Time spent must be a valid number');
+    }
+
+    // Use a small epsilon to allow values very close to 0 but not exactly 0
+    const epsilon = 0.001;
+    if (Math.abs(timeSpent) < epsilon) {
+      console.log('Time spent is too close to zero, skipping submission');
+      // Return a successful response instead of throwing an error
+      return { success: true, message: 'No adjustment needed (value too small)' };
     }
 
     const data = {

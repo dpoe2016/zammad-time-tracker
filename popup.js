@@ -1410,11 +1410,13 @@ class TimetrackingPopup {
                         this.debug('Total existing time: ' + totalExistingTime + ' min');
                     }
 
-                    // If the new time is different from the existing total, submit a correction
-                    if (newTimeValue !== totalExistingTime) {
+                    // Calculate the adjustment value
+                    const adjustmentValue = newTimeValue - totalExistingTime;
+
+                    // Check if the adjustment is significant (using a small epsilon to handle floating point precision)
+                    const epsilon = 0.001; // Small threshold to consider values equal
+                    if (Math.abs(adjustmentValue) > epsilon) {
                         // Submit the time entry with a comment indicating it's a correction
-                        // If new time is less than existing, we need to submit a negative value to adjust
-                        const adjustmentValue = newTimeValue - totalExistingTime;
                         const comment = 'Korrektur der erfassten Zeit';
 
                         this.debug('Submitting time adjustment: ' + adjustmentValue + ' min');
