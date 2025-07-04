@@ -17,6 +17,12 @@ function updateUILanguage() {
     document.getElementById('languageLabel').textContent = t('language');
     document.getElementById('debugInfo').textContent = t('debug_mode');
 
+    // User filter label
+    const popupUserFilterLabel = document.getElementById('popupUserFilterLabel');
+    if (popupUserFilterLabel) {
+        popupUserFilterLabel.textContent = t('popup_user_filter');
+    }
+
     // Time edit elements
     const timeSpentElement = document.getElementById('timeSpent');
     if (timeSpentElement) {
@@ -38,6 +44,9 @@ function updateUILanguage() {
     document.getElementById('apiSettingsLabel').textContent = t('api_settings');
     document.getElementById('apiSettingsBtn').textContent = t('api_options');
 
+    // Dashboard
+    document.getElementById('dashboardLabel').textContent = t('dashboard_label');
+
     // Tab labels
     document.getElementById('tab-current').textContent = t('tab_current');
     document.getElementById('tab-tickets').textContent = t('tab_tickets');
@@ -56,7 +65,7 @@ function updateUILanguage() {
 
 class TimetrackingPopup {
     constructor() {
-        logger.info('Popup is being initialized...');
+        console.log('Popup is being initialized...');
 
         this.isTracking = false;
         this.startTime = null;
@@ -68,6 +77,8 @@ class TimetrackingPopup {
         // For assigned tickets tab
         this.assignedTickets = [];
         this.isLoadingTickets = false;
+        this.users = []; // Store users for the user filter
+        this.selectedUserId = 'all'; // Default to all users
 
         // For history tab
         this.timeHistory = [];
@@ -107,6 +118,7 @@ class TimetrackingPopup {
         this.ticketList = document.getElementById('ticketList');
         this.ticketsLoading = document.getElementById('ticketsLoading');
         this.ticketsInfo = document.getElementById('ticketsInfo');
+        this.popupUserFilter = document.getElementById('popupUserFilter');
 
         // History tab elements
         this.historyList = document.getElementById('historyList');
@@ -128,6 +140,9 @@ class TimetrackingPopup {
         // API Settings elements
         this.apiSettingsBtn = document.getElementById('apiSettingsBtn');
 
+        // Dashboard button
+        this.dashboardBtn = document.getElementById('dashboardBtn');
+
         logger.info('UI elements initialized');
     }
 
@@ -144,6 +159,11 @@ class TimetrackingPopup {
                 this.switchTab(tabId);
             });
         });
+
+        // Load users for the user filter
+        if (zammadApi.isInitialized()) {
+            this.loadUsers();
+        }
 
         // Load content for tickets and history tabs
         this.loadTabContent('tickets');
@@ -197,8 +217,98 @@ class TimetrackingPopup {
     }
 
     /**
-     * Load assigned tickets from the API
+     * Load users from API and populate user filter
      */
+    async loadUsers() {
+        try {
+            this.debug('Loading users from API');
+
+            // Check API initialization and validation
+            if (!zammadApi.isInitialized()) {
+                this.debug('API not initialized, cannot load users');
+                return;
+            }
+
+            // Get all users
+            const users = await zammadApi.getAllUsers();
+            this.debug(`Loaded ${users ? users.length : 0} users from API`);
+
+            // Store users
+            this.users = Array.isArray(users) ? users : [];
+
+            // Populate user filter dropdown
+            await this.populateUserFilter();
+
+        } catch (error) {
+            this.debug(`Error loading users: ${error.message}`);
+            // Don't show error, just log it - we can still show tickets without user filter
+        }
+    }
+
+    /**
+     * Populate user filter dropdown with users
+     */
+    async populateUserFilter() {
+        if (!this.popupUserFilter) return;
+
+        this.debug('Populating user filter dropdown');
+
+        // Keep the first two options (All Users and My Tickets)
+        const allOption = this.popupUserFilter.options[0];
+        const meOption = this.popupUserFilter.options[1];
+
+        // Clear existing options
+        this.popupUserFilter.innerHTML = '';
+
+        // Add back the first two options
+        this.popupUserFilter.appendChild(allOption);
+        this.popupUserFilter.appendChild(meOption);
+
+        // Get configured user IDs from API settings
+        let configuredUserIds = [];
+        try {
+            const result = await chrome.storage.local.get(['zammadApiSettings']);
+            const settings = result.zammadApiSettings || {};
+            if (settings.userIds) {
+                configuredUserIds = settings.userIds.split(',').map(id => id.trim()).filter(id => id);
+                this.debug(`Found configured user IDs: ${configuredUserIds.join(', ')}`);
+            }
+        } catch (error) {
+            this.debug(`Error loading configured user IDs: ${error.message}`);
+        }
+
+        // Sort users by name
+        const sortedUsers = [...this.users].sort((a, b) => {
+            const nameA = `${a.firstname || ''} ${a.lastname || ''}`.trim() || a.login || a.email || '';
+            const nameB = `${b.firstname || ''} ${b.lastname || ''}`.trim() || b.login || b.email || '';
+            return nameA.localeCompare(nameB);
+        });
+
+        // Filter users if we have configured user IDs
+        const filteredUsers = configuredUserIds.length > 0
+            ? sortedUsers.filter(user => configuredUserIds.includes(String(user.id)))
+            : sortedUsers;
+
+        // Add user options
+        filteredUsers.forEach(user => {
+            // Skip users without an ID
+            if (!user.id) return;
+
+            // Create display name
+            const displayName = `${user.firstname || ''} ${user.lastname || ''}`.trim() || user.login || user.email || `User ${user.id}`;
+
+            // Create option
+            const option = document.createElement('option');
+            option.value = user.id;
+            option.textContent = displayName;
+
+            // Add option to dropdown
+            this.popupUserFilter.appendChild(option);
+        });
+
+        this.debug(`Added ${filteredUsers.length} users to filter dropdown`);
+    }
+
     /**
      * Load assigned tickets from the API
      */
@@ -230,9 +340,28 @@ class TimetrackingPopup {
         this.ticketsInfo.className = 'info';
 
         try {
-            this.debug('Fetching assigned tickets from API...');
-            const tickets = await zammadApi.getAssignedTickets();
-            this.debug('Received ' + (tickets ? tickets.length : 0) + ' tickets from API');
+            // Load users if we haven't already
+            if (this.users.length === 0) {
+                await this.loadUsers();
+            }
+
+            this.debug(`Fetching tickets with user filter: ${this.selectedUserId}`);
+
+            // Get tickets based on selected user filter
+            let tickets;
+            if (this.selectedUserId === 'all') {
+                // Get all tickets
+                tickets = await zammadApi.getAllTickets();
+                this.debug(`Loaded ${tickets ? tickets.length : 0} tickets from all users`);
+            } else if (this.selectedUserId === 'me') {
+                // Get current user's tickets
+                tickets = await zammadApi.getAssignedTickets();
+                this.debug(`Loaded ${tickets ? tickets.length : 0} tickets assigned to current user`);
+            } else {
+                // Get tickets for specific user
+                tickets = await zammadApi.getAllTickets(this.selectedUserId);
+                this.debug(`Loaded ${tickets ? tickets.length : 0} tickets for user ${this.selectedUserId}`);
+            }
 
             // Store tickets
             this.assignedTickets = Array.isArray(tickets) ? tickets : [];
@@ -390,10 +519,48 @@ class TimetrackingPopup {
             const ticketTitle = ticket.title || t('title_not_available');
             const ticketState = ticket.state || ticket.state_id || '';
 
+            // Get user information
+            let userName = '';
+            let userId = '';
+
+            // First try to get user info from owner_data (added by our API)
+            if (ticket.owner_data) {
+                userName = ticket.owner_data.fullname;
+                userId = ticket.owner_data.id;
+            } 
+            // Then try to get from owner fields
+            else if (ticket.owner_id) {
+                userId = ticket.owner_id;
+                // Try to get a more descriptive name from the ticket if available
+                if (ticket.owner && typeof ticket.owner === 'object') {
+                    // If owner object is available with name information
+                    const owner = ticket.owner;
+                    userName = `${owner.firstname || ''} ${owner.lastname || ''}`.trim() || owner.login || owner.email || `User ${userId}`;
+                } else if (ticket.owner && typeof ticket.owner === 'string') {
+                    // If owner is just a string
+                    userName = ticket.owner;
+                } else {
+                    // Try to find user in our users array
+                    const user = this.users.find(u => u.id == userId);
+                    if (user) {
+                        userName = `${user.firstname || ''} ${user.lastname || ''}`.trim() || user.login || user.email || `User ${user.id}`;
+                    } else {
+                        // Fallback to User ID
+                        userName = `User ${userId}`;
+                    }
+                }
+            }
+
             // Create ticket item element
             const ticketItem = document.createElement('div');
             ticketItem.className = 'ticket-item';
             ticketItem.setAttribute('data-ticket-id', ticketId);
+            if (userId) {
+                ticketItem.setAttribute('data-user-id', userId);
+            }
+
+            // Add selectable attribute
+            ticketItem.setAttribute('data-selectable', 'true');
 
             // Determine state class for styling
             const stateStr = String(ticketState).toLowerCase();
@@ -411,14 +578,26 @@ class TimetrackingPopup {
             ticketItem.innerHTML = `
                 <div class="ticket-item-title">${ticketTitle}</div>
                 <div class="ticket-item-details">
-                    <span class="ticket-item-id">#${ticketId}</span>
-                    <span class="ticket-item-state ${stateClass}">${ticketState}</span>
+                    <span class="ticket-item-id">${userName || `#${ticketId}`}</span>
+                    <div class="ticket-item-meta">
+                        <span class="ticket-item-state ${stateClass}">${ticketState}</span>
+                        <span class="ticket-number">#${ticketId}</span>
+                    </div>
                 </div>
             `;
 
-            // Add click event to show ticket info without starting tracking
-            ticketItem.addEventListener('click', () => {
-                this.showTicketInfo(ticketId, ticketTitle);
+            // Add click event with selection functionality
+            ticketItem.addEventListener('click', (event) => {
+                // Check if Ctrl/Cmd key is pressed for selection
+                if (event.ctrlKey || event.metaKey) {
+                    // Toggle selection
+                    ticketItem.classList.toggle('selected');
+                    event.preventDefault();
+                    event.stopPropagation();
+                } else {
+                    // Regular click shows ticket info
+                    this.showTicketInfo(ticketId, ticketTitle);
+                }
             });
 
             // Add to ticket list
@@ -651,6 +830,16 @@ class TimetrackingPopup {
             setTimeout(() => this.startTracking(), 0);
         });
 
+        // User filter change
+        if (this.popupUserFilter) {
+            this.popupUserFilter.addEventListener('change', () => {
+                const selectedValue = this.popupUserFilter.value;
+                this.debug(`User filter changed to: ${selectedValue}`);
+                this.selectedUserId = selectedValue;
+                this.loadAssignedTickets();
+            });
+        }
+
         this.stopBtn.addEventListener('click', () => {
             logger.info('Stop button clicked');
             // Immediately disable button to prevent double-clicking
@@ -713,6 +902,12 @@ class TimetrackingPopup {
         this.apiSettingsBtn.addEventListener('click', () => {
             logger.info('API Settings button clicked - opening options page');
             chrome.runtime.openOptionsPage();
+        });
+
+        // Dashboard - Open dashboard page
+        this.dashboardBtn.addEventListener('click', () => {
+            logger.info('Dashboard button clicked - opening dashboard');
+            this.openDashboard();
         });
 
         // Debug-Modus Toggle
@@ -1332,6 +1527,30 @@ class TimetrackingPopup {
 
         await storage.save('zammadSettings', settings);
         this.debug(t('settings_saved'));
+    }
+
+    /**
+     * Open the dashboard in a new tab
+     */
+    openDashboard() {
+        try {
+            this.debug('Opening dashboard...');
+
+            // Get the dashboard URL
+            const dashboardUrl = chrome.runtime.getURL('dashboard.html');
+
+            // Open in a new tab
+            chrome.tabs.create({ url: dashboardUrl });
+
+            this.debug('Dashboard opened in new tab');
+
+            // Close the popup after a short delay
+            setTimeout(() => window.close(), 500);
+        } catch (error) {
+            this.debug('Error opening dashboard: ' + error.message);
+            this.infoText.textContent = 'Error opening dashboard: ' + error.message;
+            this.infoText.className = 'info error';
+        }
     }
 
     /**

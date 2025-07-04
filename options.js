@@ -9,46 +9,51 @@ document.addEventListener('DOMContentLoaded', () => {
 // Initialize the options page
 function initOptionsPage() {
     console.log('Options page initialized');
-    
+
     // Get UI elements
     const apiBaseUrlInput = document.getElementById('apiBaseUrl');
     const apiTokenInput = document.getElementById('apiToken');
+    const userIdsInput = document.getElementById('userIds');
     const apiSaveBtn = document.getElementById('apiSaveBtn');
     const statusMessage = document.getElementById('statusMessage');
-    
+
     // Update UI language if translations are available
     if (typeof updateUILanguage === 'function') {
         updateUILanguage();
     } else {
         console.log('Translations not available, using default text');
     }
-    
+
     // Load saved settings
     loadApiSettings();
-    
+
     // Add event listener for save button
     apiSaveBtn.addEventListener('click', saveApiSettings);
-    
+
     /**
      * Load API settings from storage
      */
     async function loadApiSettings() {
         try {
             console.log('Loading API settings');
-            
+
             // Get settings from storage
             const result = await chrome.storage.local.get(['zammadApiSettings']);
             const settings = result.zammadApiSettings || {};
-            
+
             // Populate form fields
             if (settings.baseUrl) {
                 apiBaseUrlInput.value = settings.baseUrl;
             }
-            
+
             if (settings.token) {
                 apiTokenInput.value = settings.token;
             }
-            
+
+            if (settings.userIds) {
+                userIdsInput.value = settings.userIds;
+            }
+
             console.log('API settings loaded');
         } catch (error) {
             console.error('Error loading API settings:', error);
@@ -63,6 +68,7 @@ function initOptionsPage() {
         try {
             const baseUrl = apiBaseUrlInput.value.trim();
             const token = apiTokenInput.value.trim();
+            const userIds = userIdsInput.value.trim();
 
             // Validate inputs
             if (!baseUrl) {
@@ -76,7 +82,7 @@ function initOptionsPage() {
             }
 
             // Create settings object
-            const settings = { baseUrl, token };
+            const settings = { baseUrl, token, userIds };
 
             // Save to storage
             await chrome.storage.local.set({ zammadApiSettings: settings });
@@ -108,7 +114,7 @@ function initOptionsPage() {
     function showStatus(message, type = 'success') {
         statusMessage.textContent = message;
         statusMessage.className = 'status-message ' + type;
-        
+
         // Hide message after 5 seconds
         setTimeout(() => {
             statusMessage.className = 'status-message';
@@ -126,6 +132,7 @@ function updateUILanguage() {
             document.getElementById('apiSettingsTitle').textContent = t('api_settings_title');
             document.getElementById('apiBaseUrlLabel').textContent = t('api_base_url');
             document.getElementById('apiTokenLabel').textContent = t('api_token');
+            document.getElementById('userIdsLabel').textContent = t('user_ids_label') || 'Filter User IDs';
             document.getElementById('apiSaveBtn').textContent = t('api_save');
         }
     } catch (error) {

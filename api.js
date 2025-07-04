@@ -17,7 +17,8 @@ class ZammadAPI {
       timeSubmission: null,
       assignedTickets: null,
       timeHistory: null,
-      userProfile: null
+      userProfile: null,
+      allUsers: null
     };
 
     // Load cached data from storage
@@ -76,7 +77,8 @@ class ZammadAPI {
         timeSubmission: null,
         assignedTickets: null,
         timeHistory: null,
-        userProfile: null
+        userProfile: null,
+        allUsers: null
       };
       this.saveCachedEndpoints();
 
@@ -406,7 +408,8 @@ class ZammadAPI {
       timeSubmission: null,
       assignedTickets: null,
       timeHistory: null,
-      userProfile: null
+      userProfile: null,
+      allUsers: null
     };
 
     // Clear storage cache
@@ -651,6 +654,183 @@ class ZammadAPI {
     }
 
     throw new Error('Failed to get assigned tickets');
+  }
+
+  /**
+   * Get all tickets, optionally filtered by user ID
+   * @param {string|number} userId - Optional user ID to filter by
+   * @returns {Array} Array of tickets
+   */
+  async getAllTickets(userId = null) {
+    console.log(`Getting all tickets${userId ? ' for user ID: ' + userId : ''}`);
+
+    // If no specific user ID is provided, check if we should use the configured user IDs
+    if (!userId) {
+      try {
+        const settings = await this.getSettings();
+        if (settings.userIds) {
+          // If we have multiple user IDs, we'll need to make multiple requests and combine the results
+          const userIdList = settings.userIds.split(',').map(id => id.trim()).filter(id => id);
+          if (userIdList.length > 0) {
+            console.log(`Using configured user IDs from settings: ${userIdList.join(', ')}`);
+
+            // Get tickets for each user ID and combine them
+            const allTickets = [];
+            for (const id of userIdList) {
+              try {
+                const userTickets = await this.getTicketsForUser(id);
+                if (Array.isArray(userTickets)) {
+                  allTickets.push(...userTickets);
+                }
+              } catch (error) {
+                console.error(`Error getting tickets for user ID ${id}:`, error);
+                // Continue with other user IDs
+              }
+            }
+
+            // Return the combined tickets
+            return allTickets;
+          }
+        }
+      } catch (error) {
+        console.error('Error checking for configured user IDs:', error);
+        // Continue with default behavior
+      }
+    }
+
+    // If a specific user ID is provided or no configured user IDs, get tickets for that user
+    if (userId) {
+      return this.getTicketsForUser(userId);
+    }
+
+    // If no user ID is provided and no configured user IDs, get all tickets
+    return this.getAllTicketsUnfiltered();
+  }
+
+  /**
+   * Get tickets for a specific user
+   * @param {string|number} userId - User ID to get tickets for
+   * @returns {Array} Array of tickets
+   */
+  async getTicketsForUser(userId) {
+    if (!userId) {
+      throw new Error('User ID is required');
+    }
+
+    console.log(`Getting tickets for user ID: ${userId}`);
+
+    const endpoints = [
+      `/api/v1/tickets/search?query=owner.id:${userId}`,
+      `/api/v1/tickets?filter[owner_id]=${userId}`,
+      `/api/v1/tickets?owner_id=${userId}`
+    ];
+
+    for (const endpoint of endpoints) {
+      try {
+        console.log(`Trying endpoint for user tickets: ${endpoint}`);
+        const result = await this.request(endpoint);
+        console.log(`Successfully got ${result ? result.length : 0} tickets for user ${userId}`);
+        return result;
+      } catch (error) {
+        console.error(`Error with endpoint ${endpoint}:`, error);
+        // Continue with next endpoint
+      }
+    }
+
+    throw new Error(`Failed to get tickets for user ${userId}`);
+  }
+
+  /**
+   * Get all tickets without filtering
+   * @returns {Array} Array of tickets
+   */
+  async getAllTicketsUnfiltered() {
+    console.log('Getting all tickets (unfiltered)');
+
+    const endpoints = [
+      '/api/v1/tickets',
+      '/api/v1/tickets/search?query=*',
+      '/api/v1/tickets/search'
+    ];
+
+    for (const endpoint of endpoints) {
+      try {
+        console.log(`Trying endpoint for all tickets: ${endpoint}`);
+        const result = await this.request(endpoint);
+        console.log(`Successfully got ${result ? result.length : 0} tickets`);
+        return result;
+      } catch (error) {
+        console.error(`Error with endpoint ${endpoint}:`, error);
+        // Continue with next endpoint
+      }
+    }
+
+    throw new Error('Failed to get all tickets');
+  }
+
+  /**
+   * Get all users from the API
+   * @returns {Array} Array of users
+   */
+  async getAllUsers() {
+    console.log('Getting all users from API');
+
+    // Try cached endpoint first
+    if (this.successfulEndpoints.allUsers) {
+      try {
+        console.log('Trying cached all users endpoint:', this.successfulEndpoints.allUsers);
+        const users = await this.request(this.successfulEndpoints.allUsers);
+        console.log(`Successfully got ${users ? users.length : 0} users from cached endpoint`);
+        return users;
+      } catch (error) {
+        console.error('Cached all users endpoint failed:', error);
+        this.successfulEndpoints.allUsers = null;
+      }
+    }
+
+    // Try different endpoints for getting users
+    const endpoints = [
+      '/api/v1/users',
+      '/api/v1/users/search?query=*',
+      '/api/v1/users?expand=true',
+      '/api/v1/users?per_page=100'
+    ];
+
+    for (const endpoint of endpoints) {
+      try {
+        console.log(`Trying all users endpoint: ${endpoint}`);
+        const users = await this.request(endpoint);
+
+        if (Array.isArray(users) && users.length > 0) {
+          console.log(`Successfully got ${users.length} users from endpoint: ${endpoint}`);
+
+          // Cache the successful endpoint
+          this.successfulEndpoints.allUsers = endpoint;
+          this.saveCachedEndpoints();
+
+          return users;
+        } else {
+          console.warn(`Endpoint ${endpoint} returned no users or invalid format`);
+        }
+      } catch (error) {
+        console.error(`Error with all users endpoint ${endpoint}:`, error);
+      }
+    }
+
+    // If all endpoints failed, try to use the current user as a fallback
+    console.warn('All user endpoints failed, using current user as fallback');
+    try {
+      const currentUser = await this.fetchCurrentUser();
+      if (currentUser) {
+        return [currentUser];
+      }
+    } catch (error) {
+      console.error('Failed to get current user as fallback:', error);
+    }
+
+    // If everything failed, return an empty array
+    console.error('Failed to get users from any endpoint');
+    return [];
   }
 
   /**
