@@ -23,6 +23,17 @@ function updateUILanguage() {
         timeSpentElement.title = t('edit_time');
     }
 
+    // Time edit form labels
+    const timeEditInputLabel = document.getElementById('timeEditInputLabel');
+    if (timeEditInputLabel) {
+        timeEditInputLabel.textContent = t('min');
+    }
+
+    const timeEditDateLabel = document.getElementById('timeEditDateLabel');
+    if (timeEditDateLabel) {
+        timeEditDateLabel.textContent = t('edit_date');
+    }
+
     // Save and cancel buttons in time edit form
     const saveTimeBtn = document.getElementById('saveTimeBtn');
     if (saveTimeBtn) {
@@ -122,6 +133,7 @@ class TimetrackingPopup {
         this.editTimeIcon = document.getElementById('editTimeIcon');
         this.timeEditForm = document.getElementById('timeEditForm');
         this.timeEditInput = document.getElementById('timeEditInput');
+        this.timeEditDate = document.getElementById('timeEditDate');
         this.saveTimeBtn = document.getElementById('saveTimeBtn');
         this.cancelTimeBtn = document.getElementById('cancelTimeBtn');
 
@@ -1466,16 +1478,29 @@ class TimetrackingPopup {
             return;
         }
 
-        // Position the form near the time spent element
+        // Position the form centered below the time spent element
         const rect = this.timeSpent.getBoundingClientRect();
-        this.timeEditForm.style.left = rect.left + 'px';
+
+        // Make the form visible but with opacity 0 to calculate its width
+        this.timeEditForm.style.display = 'block';
+        this.timeEditForm.style.opacity = '0';
+
+        // Calculate center position
+        const formWidth = this.timeEditForm.offsetWidth;
+        const centerPosition = rect.left + (rect.width / 2) - (formWidth / 2);
+
+        // Position the form
+        this.timeEditForm.style.left = centerPosition + 'px';
         this.timeEditForm.style.top = (rect.bottom + 5) + 'px';
+        this.timeEditForm.style.opacity = '1';
 
         // Set the current value in the input
         this.timeEditInput.value = Math.round(this.currentTimeSpent);
 
-        // Show the form
-        this.timeEditForm.style.display = 'block';
+        // Set the current date as default
+        const today = new Date();
+        const formattedDate = today.toISOString().split('T')[0]; // Format: YYYY-MM-DD
+        this.timeEditDate.value = formattedDate;
 
         // Focus the input
         this.timeEditInput.focus();
@@ -1542,8 +1567,11 @@ class TimetrackingPopup {
                         // Submit the time entry with a comment indicating it's a correction
                         const comment = 'Korrektur der erfassten Zeit';
 
-                        this.debug('Submitting time adjustment: ' + adjustmentValue + ' min');
-                        const response = await zammadApi.submitTimeEntry(this.currentTicketId, adjustmentValue, comment);
+                        // Get the selected date from the date field
+                        const selectedDate = this.timeEditDate.value;
+
+                        this.debug('Submitting time adjustment: ' + adjustmentValue + ' min for date: ' + selectedDate);
+                        const response = await zammadApi.submitTimeEntry(this.currentTicketId, adjustmentValue, comment, selectedDate);
 
                         if (response) {
                             this.debug('Time updated successfully');

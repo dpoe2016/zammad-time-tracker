@@ -324,12 +324,37 @@
             margin-top: 5px;
         }
 
+        .time-edit-field {
+            margin-bottom: 8px;
+        }
+
+        .time-edit-field label {
+            display: block;
+            font-size: 12px;
+            margin-bottom: 2px;
+            color: #495057;
+        }
+
         .time-edit-form input {
-            width: 60px;
             padding: 4px;
             border: 1px solid #ced4da;
             border-radius: 4px;
             text-align: center;
+            width: 100%;
+        }
+
+        .time-edit-form input[type="number"] {
+            width: 80px;
+        }
+
+        .time-edit-form input[type="date"] {
+            width: 140px;
+        }
+
+        .time-edit-buttons {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 8px;
         }
 
         .time-edit-form button {
@@ -534,9 +559,18 @@
 
         <!-- Time Edit Form -->
         <div class="time-edit-form" id="timeEditForm">
-            <input type="number" id="timeEditInput" min="0" placeholder="Minutes">
-            <button class="save" id="saveTimeBtn">Save</button>
-            <button class="cancel" id="cancelTimeBtn">Cancel</button>
+            <div class="time-edit-field">
+                <label for="timeEditInput" id="timeEditInputLabel">Minutes</label>
+                <input type="number" id="timeEditInput" min="0" placeholder="Minutes">
+            </div>
+            <div class="time-edit-field">
+                <label for="timeEditDate" id="timeEditDateLabel">Date</label>
+                <input type="date" id="timeEditDate" class="time-edit-date">
+            </div>
+            <div class="time-edit-buttons">
+                <button class="save" id="saveTimeBtn">Save</button>
+                <button class="cancel" id="cancelTimeBtn">Cancel</button>
+            </div>
         </div>
 
         <!-- Timer Display -->
