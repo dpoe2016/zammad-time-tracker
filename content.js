@@ -17,6 +17,7 @@ if (typeof window.ZammadTimetracker === 'undefined') {
     this.waitForZammad(() => {
       // Initialize API
       this.initializeApi().then(() => {
+
         // Load tracking state after API is initialized
         this.loadTrackingState();
       }).catch(error => {

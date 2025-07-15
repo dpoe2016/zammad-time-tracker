@@ -156,29 +156,24 @@ class ZammadDashboard {
                 throw new Error('API not initialized');
             }
 
-            // Load users if we haven't already
-            if (this.users.length === 0) {
-                await this.loadUsers();
-            }
-
             // Get tickets based on selected user filter
             let tickets;
             if (this.selectedUserId === 'all') {
-                // Get all tickets
                 tickets = await zammadApi.getAllTickets();
                 logger.info(`Loaded ${tickets ? tickets.length : 0} tickets from all users`);
             } else if (this.selectedUserId === 'me') {
-                // Get current user's tickets
                 tickets = await zammadApi.getAssignedTickets();
                 logger.info(`Loaded ${tickets ? tickets.length : 0} tickets assigned to current user`);
             } else {
-                // Get tickets for specific user
                 tickets = await zammadApi.getAllTickets(this.selectedUserId);
                 logger.info(`Loaded ${tickets ? tickets.length : 0} tickets for user ${this.selectedUserId}`);
             }
 
             // Store tickets
             this.tickets = Array.isArray(tickets) ? tickets : [];
+
+            // Populate user filter with actual ticket owners
+            await this.populateUserFilterFromTickets();
 
             // Process and display tickets
             this.processTickets();
@@ -193,87 +188,12 @@ class ZammadDashboard {
     }
 
     /**
-     * Load users from API and populate user filter
+     * Initialize user cache if not exists
      */
-    async loadUsers() {
-        try {
-            logger.info('Loading users from API');
-
-            // Get all users
-            const users = await zammadApi.getAllUsers();
-            logger.info(`Loaded ${users ? users.length : 0} users`);
-
-            // Store users
-            this.users = Array.isArray(users) ? users : [];
-
-            // Populate user filter dropdown
-            await this.populateUserFilter();
-
-        } catch (error) {
-            logger.error('Error loading users:', error);
-            // Don't show error, just log it - we can still show tickets without user filter
+    initializeUserCache() {
+        if (!this.userCache) {
+            this.userCache = new Map();
         }
-    }
-
-    /**
-     * Populate user filter dropdown with users
-     */
-    async populateUserFilter() {
-        logger.info('Populating user filter dropdown');
-
-        // Keep the first two options (All Users and My Tickets)
-        const allOption = this.userFilter.options[0];
-        const meOption = this.userFilter.options[1];
-
-        // Clear existing options
-        this.userFilter.innerHTML = '';
-
-        // Add back the first two options
-        this.userFilter.appendChild(allOption);
-        this.userFilter.appendChild(meOption);
-
-        // Get configured user IDs from API settings
-        let configuredUserIds = [];
-        try {
-            const apiSettings = await storage.load('zammadApiSettings');
-            if (apiSettings && apiSettings.userIds) {
-                configuredUserIds = apiSettings.userIds.split(',').map(id => id.trim()).filter(id => id);
-                logger.info(`Found configured user IDs: ${configuredUserIds.join(', ')}`);
-            }
-        } catch (error) {
-            logger.error('Error loading configured user IDs:', error);
-        }
-
-        // Sort users by name
-        const sortedUsers = [...this.users].sort((a, b) => {
-            const nameA = `${a.firstname || ''} ${a.lastname || ''}`.trim() || a.login || a.email || '';
-            const nameB = `${b.firstname || ''} ${b.lastname || ''}`.trim() || b.login || b.email || '';
-            return nameA.localeCompare(nameB);
-        });
-
-        // Filter users if we have configured user IDs
-        const filteredUsers = configuredUserIds.length > 0
-            ? sortedUsers.filter(user => configuredUserIds.includes(String(user.id)))
-            : sortedUsers;
-
-        // Add user options
-        filteredUsers.forEach(user => {
-            // Skip users without an ID
-            if (!user.id) return;
-
-            // Create display name
-            const displayName = `${user.firstname || ''} ${user.lastname || ''}`.trim() || user.login || user.email || `User ${user.id}`;
-
-            // Create option
-            const option = document.createElement('option');
-            option.value = user.id;
-            option.textContent = displayName;
-
-            // Add option to dropdown
-            this.userFilter.appendChild(option);
-        });
-
-        logger.info(`Added ${filteredUsers.length} users to filter dropdown`);
     }
 
     /**
@@ -339,6 +259,84 @@ class ZammadDashboard {
     }
 
     /**
+    * Populate user filter dropdown with actual ticket owners
+    */
+    async populateUserFilterFromTickets() {
+        const userFilter = document.getElementById('userFilter');
+        if (!userFilter) return;
+
+        // Get unique owner IDs from tickets
+        const ownerIds = [...new Set(this.tickets.map(t => t.owner_id).filter(id => id))];
+
+        if (ownerIds.length === 0) {
+            console.log('No ticket owners found');
+            return;
+        }
+
+        console.log(`Found ${ownerIds.length} unique ticket owners: ${ownerIds.join(', ')}`);
+
+        // Preserve current selection
+        const currentSelection = userFilter.value;
+
+        // Clear existing user options (keep "All" and "Me")
+        const optionsToRemove = Array.from(userFilter.options).filter(opt =>
+          opt.value !== 'all' && opt.value !== 'me'
+        );
+        optionsToRemove.forEach(option => option.remove());
+
+        // Fetch user information for all owners
+        const userPromises = ownerIds.map(async (ownerId) => {
+            try {
+                // Check cache first
+                if (this.userCache && this.userCache.has(ownerId)) {
+                    return { id: ownerId, name: this.userCache.get(ownerId) };
+                }
+
+                // Fetch from API
+                const user = await this.fetchUserInfo(ownerId);
+                if (user) {
+                    const fullName = `${user.firstname || ''} ${user.lastname || ''}`.trim() ||
+                      user.login || user.email || `User ${user.id}`;
+
+                    // Cache the result
+                    if (this.userCache) {
+                        this.userCache.set(ownerId, fullName);
+                    }
+
+                    return { id: ownerId, name: fullName };
+                } else {
+                    return { id: ownerId, name: `User ${ownerId}` };
+                }
+            } catch (error) {
+                console.error(`Failed to fetch user ${ownerId}:`, error);
+                return { id: ownerId, name: `User ${ownerId}` };
+            }
+        });
+
+        // Wait for all user data to load
+        const users = await Promise.all(userPromises);
+
+        // Sort users by name
+        users.sort((a, b) => a.name.localeCompare(b.name));
+
+        // Add user options to dropdown
+        users.forEach(user => {
+            const option = document.createElement('option');
+            option.value = user.id;
+            option.textContent = user.name;
+            userFilter.appendChild(option);
+        });
+
+        // Restore previous selection if it still exists
+        if (currentSelection && Array.from(userFilter.options).some(opt => opt.value === currentSelection)) {
+            userFilter.value = currentSelection;
+        }
+
+        console.log(`Added ${users.length} users to filter dropdown`);
+    }
+
+
+    /**
      * Determine ticket category based on state
      * @param {Object} ticket - Ticket object
      * @returns {string} Category: 'open', 'progress', 'waiting', or 'closed'
@@ -386,6 +384,7 @@ class ZammadDashboard {
         return 'open';
     }
 
+
     /**
      * Create a ticket element
      * @param {Object} ticket - Ticket object
@@ -403,13 +402,14 @@ class ZammadDashboard {
         let userId = '';
 
         // First try to get user info from owner_data (added by our API)
-        if (ticket.owner_data) {
+        if (ticket.owner_data && ticket.owner_data.fullname) {
             userName = ticket.owner_data.fullname;
             userId = ticket.owner_data.id;
-        } 
+        }
         // Then try to get from owner fields
         else if (ticket.owner_id) {
             userId = ticket.owner_id;
+
             // Try to get a more descriptive name from the ticket if available
             if (ticket.owner && typeof ticket.owner === 'object') {
                 // If owner object is available with name information
@@ -424,8 +424,8 @@ class ZammadDashboard {
                 if (user) {
                     userName = `${user.firstname || ''} ${user.lastname || ''}`.trim() || user.login || user.email || `User ${user.id}`;
                 } else {
-                    // Fallback to User ID
-                    userName = `User ${userId}`;
+                    // User not found in our limited users array - try to fetch from API
+                    userName = this.getUserDisplayName(userId);
                 }
             }
         }
@@ -443,15 +443,15 @@ class ZammadDashboard {
 
         // Add ticket content
         ticketItem.innerHTML = `
-            <div class="ticket-item-title">${ticketTitle}</div>
-            <div class="ticket-item-details">
-                <span class="ticket-item-id">${userName || `#${ticketId}`}</span>
-                <div class="ticket-item-meta">
-                    <span class="ticket-item-priority ${this.getPriorityClass(ticketPriority)}">${ticketPriority}</span>
-                    <span class="ticket-number">#${ticketId}</span>
-                </div>
+        <div class="ticket-item-title">${ticketTitle}</div>
+        <div class="ticket-item-details">
+            <span class="ticket-item-id">${userName || `#${ticketId}`}</span>
+            <div class="ticket-item-meta">
+                <span class="ticket-item-priority ${this.getPriorityClass(ticketPriority)}">${ticketPriority}</span>
+                <span class="ticket-number">#${ticketId}</span>
             </div>
-        `;
+        </div>
+    `;
 
         // Add click event with selection functionality
         ticketItem.addEventListener('click', (event) => {
@@ -470,6 +470,89 @@ class ZammadDashboard {
         return ticketItem;
     }
 
+    /**
+     * Get user display name by ID, using cache or fetching from API
+     * @param {string|number} userId - User ID
+     * @returns {string} User display name
+     */
+    getUserDisplayName(userId) {
+        // Check cache first
+        if (this.userCache && this.userCache.has(userId)) {
+            return this.userCache.get(userId);
+        }
+
+        // Start with fallback
+        let displayName = `User ${userId}`;
+
+        // Try to fetch user info from API asynchronously
+        this.fetchUserInfo(userId).then(user => {
+            if (user) {
+                // More robust name extraction
+                let fullName = '';
+
+                // Try different name combinations
+                if (user.firstname && user.lastname) {
+                    fullName = `${user.firstname} ${user.lastname}`.trim();
+                } else if (user.firstname) {
+                    fullName = user.firstname;
+                } else if (user.lastname) {
+                    fullName = user.lastname;
+                } else if (user.login) {
+                    fullName = user.login;
+                } else if (user.email) {
+                    fullName = user.email;
+                } else {
+                    fullName = `User ${user.id}`;
+                }
+
+                console.log(`Resolved user ${userId} to: ${fullName}`, user);
+
+                // Cache and update
+                if (this.userCache) {
+                    this.userCache.set(userId, fullName);
+                }
+                this.updateTicketElementsWithUserName(userId, fullName);
+            } else {
+                console.warn(`No user data returned for ${userId}`);
+            }
+        });
+
+
+        return displayName;
+    }
+
+// Check if certain users are restricted
+    async fetchUserInfo(userId) {
+        try {
+            const user = await zammadApi.request(`/api/v1/users/${userId}`);
+            return user;
+        } catch (error) {
+            // Log specific error types
+            if (error.message.includes('403')) {
+                console.warn(`No permission to access user ${userId}`);
+            } else if (error.message.includes('404')) {
+                console.warn(`User ${userId} not found`);
+            }
+            logger.error(`Error fetching user ${userId}:`, error);
+            return null;
+        }
+    }
+
+    /**
+     * Update all ticket elements that have a specific user ID with the user's name
+     * @param {string|number} userId - User ID
+     * @param {string} userName - User display name
+     */
+    updateTicketElementsWithUserName(userId, userName) {
+        const ticketElements = document.querySelectorAll(`[data-user-id="${userId}"]`);
+
+        ticketElements.forEach(element => {
+            const userElement = element.querySelector('.ticket-item-id');
+            if (userElement) {
+                userElement.textContent = userName;
+            }
+        });
+    }
     /**
      * Get ticket priority
      * @param {Object} ticket - Ticket object

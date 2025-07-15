@@ -408,156 +408,8 @@ class ZammadAPI {
       return false;
     }
   }
+
   /**
-   * Make an API request to Zammad - FORCE TOKEN ONLY
-   * Enhanced with retry mechanism for auth failures and better error handling
-   */
-  async request(endpoint, method = 'GET', data = null, options = {}) {
-    // Set default options
-    const requestOptions = {
-      retry: true,
-      maxRetries: 1,
-      retryCount: 0,
-      ...options
-    };
-
-    // Check basic initialization (not validation) for requests
-    if (!this.initialized || !this.baseUrl || !this.token) {
-      throw new Error('API not initialized. Call init() first.');
-    }
-
-    // Ensure endpoint starts with /
-    if (!endpoint.startsWith('/')) {
-      endpoint = '/' + endpoint;
-    }
-
-    const url = `${this.baseUrl}${endpoint}`;
-
-    const fetchOptions = {
-      method: method,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Token token=${this.token}`,
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache',
-        // CRITICAL: Override any session-based authentication
-        'X-Requested-With': 'XMLHttpRequest'
-      },
-      // CRITICAL: Prevent session cookies from being sent
-      credentials: 'omit',
-      // CRITICAL: Ensure fresh request
-      cache: 'no-cache'
-    };
-
-    // For POST/PUT requests, add the data
-    if ((method === 'POST' || method === 'PUT' || method === 'DELETE') && data) {
-      fetchOptions.body = JSON.stringify(data);
-    }
-
-    console.log(`Making ${method} request to: ${url}`);
-    console.log('Headers:', fetchOptions.headers);
-    console.log('Credentials:', fetchOptions.credentials);
-
-    try {
-      const response = await fetch(url, fetchOptions);
-
-      console.log(`Response status: ${response.status}`);
-      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-
-      // Handle authentication errors with retry mechanism
-      if ((response.status === 401 || response.status === 403) && 
-          requestOptions.retry && 
-          requestOptions.retryCount < requestOptions.maxRetries) {
-
-        console.warn(`Authentication error (${response.status}), attempting to refresh token...`);
-
-        // Check if token is still valid
-        const isValid = await this.isTokenValid();
-
-        if (!isValid) {
-          console.warn('Token appears to be invalid, attempting to refresh settings...');
-
-          // Try to refresh settings from storage
-          try {
-            await this.forceRefreshSettings();
-
-            // Retry the request with incremented retry count
-            console.log(`Retrying request after token refresh (attempt ${requestOptions.retryCount + 1}/${requestOptions.maxRetries})...`);
-            return this.request(endpoint, method, data, {
-              ...requestOptions,
-              retryCount: requestOptions.retryCount + 1
-            });
-          } catch (refreshError) {
-            console.error('Failed to refresh token:', refreshError);
-            throw new Error(`Authentication failed: Token expired and refresh failed. Please check your API settings.`);
-          }
-        } else {
-          console.warn('Token appears valid but request failed. Possible permission issue.');
-        }
-      }
-
-      if (!response.ok) {
-        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-
-        try {
-          const errorText = await response.text();
-          console.error('Error response body:', errorText);
-
-          // Try to parse as JSON for more details
-          try {
-            const errorJson = JSON.parse(errorText);
-            if (errorJson.error || errorJson.message) {
-              errorMessage += ` - ${errorJson.error || errorJson.message}`;
-            }
-          } catch (parseError) {
-            // Not JSON, use raw text
-            if (errorText.length < 200) {
-              errorMessage += ` - ${errorText}`;
-            }
-          }
-        } catch (textError) {
-          console.error('Could not read error response:', textError);
-        }
-
-        throw new Error(errorMessage);
-      }
-
-      // Handle empty responses
-      const contentType = response.headers.get('content-type');
-      if (contentType && contentType.includes('application/json')) {
-        const result = await response.json();
-        console.log('API Response:', result);
-        return result;
-      } else {
-        // For DELETE requests or other non-JSON responses
-        const text = await response.text();
-        console.log('API Response (text):', text);
-        return text || true; // Return true for successful operations without content
-      }
-
-    } catch (error) {
-      console.error(`API request failed:`, error);
-
-      // Provide more context for common errors
-      if (error.message.includes('Failed to fetch')) {
-        throw new Error(`Network error: Could not connect to ${this.baseUrl}. Check URL and network connection.`);
-      } else if (error.message.includes('401')) {
-        throw new Error(`Authentication failed: Invalid API token or token expired. Please check your API settings.`);
-      } else if (error.message.includes('403')) {
-        throw new Error(`Permission denied: API token doesn't have sufficient permissions for this operation.`);
-      } else if (error.message.includes('404')) {
-        throw new Error(`Not found: The requested resource doesn't exist at ${url}.`);
-      } else if (error.message.includes('429')) {
-        throw new Error(`Rate limit exceeded: Too many requests to the API. Please try again later.`);
-      } else if (error.message.includes('500')) {
-        throw new Error(`Server error: The Zammad server encountered an internal error. Please try again later.`);
-      } else if (error.message.includes('502') || error.message.includes('503') || error.message.includes('504')) {
-        throw new Error(`Server unavailable: The Zammad server is currently unavailable. Please try again later.`);
-      }
-
-      throw error;
-    }
-  }  /**
    * Validate the API token by making a test request
    */
   async validateToken() {
@@ -830,18 +682,173 @@ class ZammadAPI {
   }
 
   /**
-   * Get API settings from storage
+   * Get API settings from storage with better error handling
+   */
+  /**
+   * Enhanced method to get and validate API settings
    */
   async getSettings() {
     try {
       const result = await chrome.storage.local.get(['zammadApiSettings']);
-      return result.zammadApiSettings || {};
+      const settings = result.zammadApiSettings || {};
+
+      console.log('Loaded API settings:', {
+        baseUrl: settings.baseUrl,
+        hasToken: !!settings.token,
+        tokenLength: settings.token ? settings.token.length : 0,
+        tokenStart: settings.token ? settings.token.substring(0, 10) + '...' : 'No token'
+      });
+
+      // Validate settings
+      if (!settings.baseUrl) {
+        console.error('Base URL is missing from settings');
+      }
+      if (!settings.token) {
+        console.error('API token is missing from settings');
+      }
+
+      return settings;
     } catch (error) {
-      console.error('Error getting API settings:', error);
+      console.error('Error loading API settings:', error);
       return {};
     }
   }
 
+  /**
+   * Enhanced request method with better token handling
+   */
+  async request(endpoint, method = 'GET', data = null, options = {}) {
+    // Set default options
+    const requestOptions = {
+      retry: true,
+      maxRetries: 1,
+      retryCount: 0,
+      ...options
+    };
+
+    // Check basic initialization
+    if (!this.initialized || !this.baseUrl || !this.token) {
+      throw new Error('API not initialized. Call init() first.');
+    }
+
+    // Clean and validate token
+    const cleanToken = this.token.trim();
+    if (!cleanToken) {
+      throw new Error('API token is empty or invalid');
+    }
+
+    // Ensure endpoint starts with /
+    if (!endpoint.startsWith('/')) {
+      endpoint = '/' + endpoint;
+    }
+
+    const url = `${this.baseUrl}${endpoint}`;
+
+    const fetchOptions = {
+      method: method,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Token token=${cleanToken}`,
+        'Accept': 'application/json',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      credentials: 'omit',
+      cache: 'no-cache'
+    };
+
+    // Add body for POST/PUT requests
+    if ((method === 'POST' || method === 'PUT' || method === 'DELETE') && data) {
+      fetchOptions.body = JSON.stringify(data);
+    }
+
+    console.log(`Making ${method} request to: ${url}`);
+    console.log('Request headers:', {
+      'Content-Type': fetchOptions.headers['Content-Type'],
+      'Authorization': `Token token=${cleanToken.substring(0, 10)}...`, // Log only first 10 chars
+      'Accept': fetchOptions.headers['Accept']
+    });
+
+    try {
+      const response = await fetch(url, fetchOptions);
+
+      console.log(`Response status: ${response.status}`);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
+      // Enhanced error handling for 401/403
+      if (response.status === 401 || response.status === 403) {
+        let errorDetails = '';
+        try {
+          const errorText = await response.text();
+          console.error('Authentication error details:', errorText);
+
+          // Try to parse JSON error
+          try {
+            const errorJson = JSON.parse(errorText);
+            errorDetails = errorJson.error || errorJson.error_human || errorJson.message || errorText;
+          } catch (parseError) {
+            errorDetails = errorText;
+          }
+        } catch (textError) {
+          errorDetails = 'Unable to read error response';
+        }
+
+        // Provide specific guidance based on error
+        if (response.status === 401) {
+          throw new Error(`Authentication failed (401): ${errorDetails}. Please check your API token - it may be invalid or expired.`);
+        } else {
+          throw new Error(`Access denied (403): ${errorDetails}. Please check your user permissions - you may need Agent role or higher.`);
+        }
+      }
+
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+
+        try {
+          const errorText = await response.text();
+          console.error('Error response body:', errorText);
+
+          try {
+            const errorJson = JSON.parse(errorText);
+            if (errorJson.error || errorJson.error_human || errorJson.message) {
+              errorMessage += ` - ${errorJson.error || errorJson.error_human || errorJson.message}`;
+            }
+          } catch (parseError) {
+            if (errorText.length < 200) {
+              errorMessage += ` - ${errorText}`;
+            }
+          }
+        } catch (textError) {
+          console.error('Could not read error response:', textError);
+        }
+
+        throw new Error(errorMessage);
+      }
+
+      // Handle response
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const result = await response.json();
+        console.log('API Response received successfully');
+        return result;
+      } else {
+        const text = await response.text();
+        console.log('API Response (text):', text);
+        return text || true;
+      }
+
+    } catch (error) {
+      console.error(`API request failed:`, error);
+
+      // Provide helpful error messages
+      if (error.message.includes('Failed to fetch')) {
+        throw new Error(`Network error: Could not connect to ${this.baseUrl}. Please check your URL and network connection.`);
+      }
+
+      throw error;
+    }
+  }
   /**
    * Save API settings to storage
    */
