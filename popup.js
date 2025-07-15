@@ -777,8 +777,8 @@ class TimetrackingPopup {
 
             this.debug(`Calling API to delete time entry ${entryId}`);
 
-            // Delete the entry via API
-            const result = await zammadApi.deleteTimeEntry(entryId);
+            // Delete the entry via API - pass ticket ID if available
+            const result = await zammadApi.deleteTimeEntry(entryId, ticketId);
 
             this.debug(`Successfully deleted time entry ${entryId}`, result);
 

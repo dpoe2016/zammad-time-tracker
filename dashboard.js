@@ -480,22 +480,19 @@ class ZammadDashboard {
         if (!ticket.priority && !ticket.priority_id) {
             return t('dashboard_priority_medium');
         }
-
-        // Get priority information
         const priorityId = ticket.priority_id;
-        const priorityName = String(ticket.priority || '').toLowerCase();
-
-        // High priority
-        if (priorityId === 3 || 
-            priorityName.includes('high') || 
-            priorityName.includes('urgent')) {
-            return t('dashboard_priority_high');
-        }
 
         // Low priority
-        if (priorityId === 1 || 
-            priorityName.includes('low')) {
+        if (priorityId === 2 || priorityId === 1) {
             return t('dashboard_priority_low');
+        }
+        // Medium priority
+        if (priorityId === 3) {
+            return t('dashboard_priority_medium');
+        }
+        // High priority
+        if (priorityId === 4 || priorityId === 5) {
+            return t('dashboard_priority_high');
         }
 
         // Default to medium
