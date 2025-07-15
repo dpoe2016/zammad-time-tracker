@@ -960,7 +960,7 @@ class ZammadAPI {
    * @param {string} comment - Optional comment for the time entry
    * @returns {Promise<object>} The created time entry
    */
-  async submitTimeEntry(ticketId, timeSpent, comment = '') {
+  async submitTimeEntry(ticketId, timeSpent, comment = '', date = '') {
     if (!ticketId) {
       throw new Error('Ticket ID is required');
     }
@@ -987,6 +987,11 @@ class ZammadAPI {
 
     if (comment) {
       data.comment = comment;
+    }
+
+    // Add date if provided
+    if (date) {
+      data.created_at = date;
     }
 
     // Try cached endpoint first

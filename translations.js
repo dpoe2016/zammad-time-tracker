@@ -324,6 +324,10 @@ const translations = {
     [LANGUAGES.DE]: 'Klicken zum Bearbeiten',
     [LANGUAGES.EN]: 'Click to edit'
   },
+  'edit_date': {
+    [LANGUAGES.DE]: 'Datum',
+    [LANGUAGES.EN]: 'Date'
+  },
   'invalid_time_value': {
     [LANGUAGES.DE]: 'Ungültiger Zeitwert',
     [LANGUAGES.EN]: 'Invalid time value'
