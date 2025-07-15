@@ -114,7 +114,7 @@
 
     <div class="options-container">
         <div class="section-title" id="apiSettingsTitle">Zammad API Settings</div>
-        
+
         <div class="form-group">
             <label for="apiBaseUrl" id="apiBaseUrlLabel">Base URL</label>
             <input type="text" id="apiBaseUrl" placeholder="https://zammad.example.com" class="form-control">
@@ -127,8 +127,14 @@
             <small>Your personal access token from Zammad</small>
         </div>
 
+        <div class="form-group">
+            <label for="userIds" id="userIdsLabel">Filter User IDs</label>
+            <input type="text" id="userIds" placeholder="Comma-separated user IDs (e.g., 1,2,3)" class="form-control">
+            <small>Enter comma-separated user IDs to filter tickets in the dashboard</small>
+        </div>
+
         <button id="apiSaveBtn" class="btn btn-primary">Save Settings</button>
-        
+
         <div id="statusMessage" class="status-message"></div>
     </div>
 

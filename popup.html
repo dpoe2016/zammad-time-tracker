@@ -324,12 +324,37 @@
             margin-top: 5px;
         }
 
+        .time-edit-field {
+            margin-bottom: 8px;
+        }
+
+        .time-edit-field label {
+            display: block;
+            font-size: 12px;
+            margin-bottom: 2px;
+            color: #495057;
+        }
+
         .time-edit-form input {
-            width: 60px;
             padding: 4px;
             border: 1px solid #ced4da;
             border-radius: 4px;
             text-align: center;
+            width: 100%;
+        }
+
+        .time-edit-form input[type="number"] {
+            width: 80px;
+        }
+
+        .time-edit-form input[type="date"] {
+            width: 140px;
+        }
+
+        .time-edit-buttons {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 8px;
         }
 
         .time-edit-form button {
@@ -490,6 +515,27 @@
             color: #6c757d;
             font-style: italic;
         }
+
+        /* Styles for selected tickets */
+        .ticket-item.selected {
+            background-color: #e3f2fd;
+            border-left: 3px solid #2196f3;
+            box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3);
+        }
+
+        /* Styles for ticket number */
+        .ticket-number {
+            font-size: 11px;
+            color: #6c757d;
+            margin-left: 5px;
+        }
+
+        /* Adjust ticket-item-meta to display items properly */
+        .ticket-item-meta {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
     </style>
 </head>
 <body>
@@ -534,9 +580,18 @@
 
         <!-- Time Edit Form -->
         <div class="time-edit-form" id="timeEditForm">
-            <input type="number" id="timeEditInput" min="0" placeholder="Minutes">
-            <button class="save" id="saveTimeBtn">Save</button>
-            <button class="cancel" id="cancelTimeBtn">Cancel</button>
+            <div class="time-edit-field">
+                <label for="timeEditInput" id="timeEditInputLabel">Minutes</label>
+                <input type="number" id="timeEditInput" min="0" placeholder="Minutes">
+            </div>
+            <div class="time-edit-field">
+                <label for="timeEditDate" id="timeEditDateLabel">Date</label>
+                <input type="date" id="timeEditDate" class="time-edit-date">
+            </div>
+            <div class="time-edit-buttons">
+                <button class="save" id="saveTimeBtn">Save</button>
+                <button class="cancel" id="cancelTimeBtn">Cancel</button>
+            </div>
         </div>
 
         <!-- Timer Display -->
@@ -584,6 +639,11 @@
             <span id="apiSettingsLabel">API Settings</span>
             <button class="btn btn-primary" id="apiSettingsBtn">Options</button>
         </div>
+
+        <div class="setting-item">
+            <span id="dashboardLabel">Dashboard</span>
+            <button class="btn btn-primary" id="dashboardBtn">Open</button>
+        </div>
     </div>
 
     <!-- Debug Info -->
@@ -596,6 +656,17 @@
         <span>Loading tickets...</span>
     </div>
     <div class="info" id="ticketsInfo">Loading assigned tickets...</div>
+
+    <!-- User Filter -->
+    <div class="filter-container" style="margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+        <label for="popupUserFilter" id="popupUserFilterLabel">User:</label>
+        <select id="popupUserFilter" class="filter-select" style="flex-grow: 1; padding: 6px 10px; border-radius: 4px; border: 1px solid #ced4da; background-color: #fff; font-size: 14px; color: #495057;">
+            <option value="all">All Users</option>
+            <option value="me">My Tickets</option>
+            <!-- Other users will be added dynamically -->
+        </select>
+    </div>
+
     <div class="ticket-list" id="ticketList"></div>
 </div>
 
@@ -609,6 +680,9 @@
 </div>
 
 <!-- Scripts -->
+<script src="utilities.js"></script>
+<script src="logger.js"></script>
+<script src="storage.js"></script>
 <script src="api.js"></script>
 <script src="popup.js"></script>
 </body>
