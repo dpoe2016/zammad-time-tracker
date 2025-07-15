@@ -79,6 +79,7 @@ class TimetrackingPopup {
         this.isLoadingTickets = false;
         this.users = []; // Store users for the user filter
         this.selectedUserId = 'all'; // Default to all users
+        this.userCache = new Map(); // Cache user data to avoid repeated API calls
 
         // For history tab
         this.timeHistory = [];
@@ -366,6 +367,9 @@ class TimetrackingPopup {
             // Store tickets
             this.assignedTickets = Array.isArray(tickets) ? tickets : [];
 
+            // Update user filter with actual ticket owners
+            await this.populateUserFilterFromTickets();
+
             // Display tickets
             this.displayAssignedTickets();
 
@@ -407,6 +411,171 @@ class TimetrackingPopup {
             this.isLoadingTickets = false;
             this.ticketsLoading.style.display = 'none';
         }
+    }
+
+    /**
+     * Fetch user information from the API
+     * @param {string|number} userId - User ID
+     * @returns {Promise<Object|null>} User object or null if not found
+     */
+    async fetchUserInfo(userId) {
+        try {
+            const user = await zammadApi.request(`/api/v1/users/${userId}`);
+            return user;
+        } catch (error) {
+            // Log specific error types
+            if (error.message.includes('403')) {
+                console.warn(`No permission to access user ${userId}`);
+            } else if (error.message.includes('404')) {
+                console.warn(`User ${userId} not found`);
+            }
+            this.debug(`Error fetching user ${userId}: ${error.message}`);
+            return null;
+        }
+    }
+
+    /**
+     * Get user display name by ID, using cache or fetching from API
+     * @param {string|number} userId - User ID
+     * @returns {string} User display name
+     */
+    getUserDisplayName(userId) {
+        // Check cache first
+        if (this.userCache && this.userCache.has(userId)) {
+            return this.userCache.get(userId);
+        }
+
+        // Start with fallback
+        let displayName = `User ${userId}`;
+
+        // Try to fetch user info from API asynchronously
+        this.fetchUserInfo(userId).then(user => {
+            if (user) {
+                // More robust name extraction
+                let fullName = '';
+
+                // Try different name combinations
+                if (user.firstname && user.lastname) {
+                    fullName = `${user.firstname} ${user.lastname}`.trim();
+                } else if (user.firstname) {
+                    fullName = user.firstname;
+                } else if (user.lastname) {
+                    fullName = user.lastname;
+                } else if (user.login) {
+                    fullName = user.login;
+                } else if (user.email) {
+                    fullName = user.email;
+                } else {
+                    fullName = `User ${user.id}`;
+                }
+
+                this.debug(`Resolved user ${userId} to: ${fullName}`);
+
+                // Cache and update
+                if (this.userCache) {
+                    this.userCache.set(userId, fullName);
+                }
+                this.updateTicketElementsWithUserName(userId, fullName);
+            } else {
+                this.debug(`No user data returned for ${userId}`);
+            }
+        }).catch(error => {
+            this.debug(`Error fetching user ${userId}: ${error.message}`);
+        });
+
+        return displayName;
+    }
+
+    /**
+     * Update all ticket elements that have a specific user ID with the user's name
+     * @param {string|number} userId - User ID
+     * @param {string} userName - User display name
+     */
+    updateTicketElementsWithUserName(userId, userName) {
+        const ticketElements = document.querySelectorAll(`[data-user-id="${userId}"]`);
+
+        ticketElements.forEach(element => {
+            const userSpan = element.querySelector('.ticket-item-id');
+            if (userSpan) {
+                userSpan.textContent = userName;
+            }
+        });
+    }
+
+    /**
+     * Populate user filter dropdown with actual ticket owners
+     */
+    async populateUserFilterFromTickets() {
+        if (!this.popupUserFilter) return;
+
+        // Get unique owner IDs from tickets
+        const ownerIds = [...new Set(this.assignedTickets.map(t => t.owner_id).filter(id => id))];
+
+        if (ownerIds.length === 0) {
+            this.debug('No ticket owners found');
+            return;
+        }
+
+        this.debug(`Found ${ownerIds.length} unique ticket owners: ${ownerIds.join(', ')}`);
+
+        // Preserve current selection
+        const currentSelection = this.popupUserFilter.value;
+
+        // Clear existing user options (keep "All" and "Me")
+        const optionsToRemove = Array.from(this.popupUserFilter.options).filter(opt =>
+            opt.value !== 'all' && opt.value !== 'me'
+        );
+        optionsToRemove.forEach(option => option.remove());
+
+        // Fetch user information for all owners
+        const userPromises = ownerIds.map(async (ownerId) => {
+            try {
+                // Check cache first
+                if (this.userCache && this.userCache.has(ownerId)) {
+                    return { id: ownerId, name: this.userCache.get(ownerId) };
+                }
+
+                // Fetch from API
+                const user = await this.fetchUserInfo(ownerId);
+                if (user) {
+                    const fullName = `${user.firstname || ''} ${user.lastname || ''}`.trim() ||
+                        user.login || user.email || `User ${user.id}`;
+
+                    // Cache the result
+                    if (this.userCache) {
+                        this.userCache.set(ownerId, fullName);
+                    }
+
+                    return { id: ownerId, name: fullName };
+                } else {
+                    return { id: ownerId, name: `User ${ownerId}` };
+                }
+            } catch (error) {
+                this.debug(`Failed to fetch user ${ownerId}: ${error.message}`);
+                return { id: ownerId, name: `User ${ownerId}` };
+            }
+        });
+
+        // Wait for all user data to load
+        const users = await Promise.all(userPromises);
+
+        // Sort users by name
+        users.sort((a, b) => a.name.localeCompare(b.name));
+
+        // Add user options to dropdown
+        users.forEach(user => {
+            const option = document.createElement('option');
+            option.value = user.id;
+            option.textContent = user.name;
+            this.popupUserFilter.appendChild(option);
+        });
+
+        // Restore previous selection if it still exists
+        if (currentSelection && Array.from(this.popupUserFilter.options).some(opt => opt.value === currentSelection)) {
+            this.popupUserFilter.value = currentSelection;
+        }
+
+        this.debug(`Added ${users.length} users to filter dropdown`);
     }
 
     /**
@@ -540,14 +709,8 @@ class TimetrackingPopup {
                     // If owner is just a string
                     userName = ticket.owner;
                 } else {
-                    // Try to find user in our users array
-                    const user = this.users.find(u => u.id == userId);
-                    if (user) {
-                        userName = `${user.firstname || ''} ${user.lastname || ''}`.trim() || user.login || user.email || `User ${user.id}`;
-                    } else {
-                        // Fallback to User ID
-                        userName = `User ${userId}`;
-                    }
+                    // Use our getUserDisplayName method which handles caching and async fetching
+                    userName = this.getUserDisplayName(userId);
                 }
             }
 
