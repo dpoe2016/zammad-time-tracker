@@ -439,6 +439,72 @@ const translations = {
   'delete_entry_error': {
     [LANGUAGES.DE]: 'Fehler beim Löschen des Eintrags',
     [LANGUAGES.EN]: 'Failed to delete entry'
+  },
+
+  // Dashboard priorities
+  'dashboard_priority_high': {
+    [LANGUAGES.DE]: 'Hoch',
+    [LANGUAGES.EN]: 'High'
+  },
+  'dashboard_priority_medium': {
+    [LANGUAGES.DE]: 'Mittel',
+    [LANGUAGES.EN]: 'Medium'
+  },
+  'dashboard_priority_low': {
+    [LANGUAGES.DE]: 'Niedrig',
+    [LANGUAGES.EN]: 'Low'
+  },
+
+  // Dashboard labels
+  'dashboard_title': {
+    [LANGUAGES.DE]: 'Zammad Ticket Dashboard',
+    [LANGUAGES.EN]: 'Zammad Ticket Dashboard'
+  },
+  'dashboard_refresh': {
+    [LANGUAGES.DE]: 'Aktualisieren',
+    [LANGUAGES.EN]: 'Refresh'
+  },
+  'dashboard_back': {
+    [LANGUAGES.DE]: 'Zurück',
+    [LANGUAGES.EN]: 'Back'
+  },
+  'dashboard_loading': {
+    [LANGUAGES.DE]: 'Lade Tickets...',
+    [LANGUAGES.EN]: 'Loading tickets...'
+  },
+  'dashboard_user_filter': {
+    [LANGUAGES.DE]: 'Benutzer:',
+    [LANGUAGES.EN]: 'User:'
+  },
+  'dashboard_open': {
+    [LANGUAGES.DE]: 'Offen',
+    [LANGUAGES.EN]: 'Open'
+  },
+  'dashboard_in_progress': {
+    [LANGUAGES.DE]: 'In Bearbeitung',
+    [LANGUAGES.EN]: 'In Progress'
+  },
+  'dashboard_waiting': {
+    [LANGUAGES.DE]: 'Wartend',
+    [LANGUAGES.EN]: 'Waiting'
+  },
+  'dashboard_closed': {
+    [LANGUAGES.DE]: 'Geschlossen',
+    [LANGUAGES.EN]: 'Closed'
+  },
+  'dashboard_no_tickets': {
+    [LANGUAGES.DE]: 'Keine Tickets gefunden',
+    [LANGUAGES.EN]: 'No tickets found'
+  },
+  'dashboard_label': {
+    [LANGUAGES.DE]: 'Dashboard',
+    [LANGUAGES.EN]: 'Dashboard'
+  },
+
+  // Popup user filter
+  'popup_user_filter': {
+    [LANGUAGES.DE]: 'Benutzer:',
+    [LANGUAGES.EN]: 'User:'
   }
 };
 
