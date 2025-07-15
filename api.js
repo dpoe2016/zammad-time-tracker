@@ -483,10 +483,6 @@ class ZammadAPI {
     // Define multiple endpoints to try
     let endpoints = [
       '/api/v1/users/me',              // Official Zammad API endpoint
-      '/api/v1/users/current',         // Alternative endpoint used in some Zammad versions
-      '/api/v1/users/current_user',    // Another possible endpoint
-      '/api/v1/profile',               // Some Zammad instances use this endpoint
-      '/api/v1/user_current'           // Yet another possible endpoint
     ];
 
     // Prioritize endpoints based on detected API features
@@ -891,7 +887,6 @@ class ZammadAPI {
     const endpoints = [
       `/api/v1/tickets/${ticketId}`, // Official API endpoint
       `/api/v1/tickets/search?number=${ticketId}`, // Alternative using search
-      `/api/v1/tickets/by_number/${ticketId}`, // Alternative by number
       `/api/v1/tickets?number=${ticketId}` // Alternative using query parameter
     ];
 

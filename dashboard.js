@@ -47,6 +47,7 @@ class ZammadDashboard {
         this.users = [];
         this.isLoading = false;
         this.selectedUserId = 'all'; // Default to all users
+        this.draggedTicket = null; // Track the currently dragged ticket
 
         // ADD THESE NEW PROPERTIES:
         this.userCache = new Map(); // Cache user data to avoid repeated API calls
@@ -57,6 +58,7 @@ class ZammadDashboard {
         this.updateUILanguage();
         this.initEventListeners();
         this.initializeApi();
+        this.initDragAndDrop();
     }
 
     /**
@@ -107,6 +109,116 @@ class ZammadDashboard {
             this.selectedUserId = selectedValue;
             this.loadTickets();
         });
+    }
+
+    /**
+     * Initialize drag and drop functionality
+     */
+    initDragAndDrop() {
+        logger.info('Setting up drag and drop functionality');
+
+        // Set up drop zones
+        this.setupDropZone(this.openTickets, 'open');
+        this.setupDropZone(this.progressTickets, 'progress');
+        this.setupDropZone(this.waitingTickets, 'waiting');
+        this.setupDropZone(this.closedTickets, 'closed');
+    }
+
+    /**
+     * Set up a drop zone for a ticket container
+     * @param {HTMLElement} container - The container element
+     * @param {string} category - The category of the container (open, progress, waiting, closed)
+     */
+    setupDropZone(container, category) {
+        if (!container) return;
+
+        // Add data attribute for category
+        container.setAttribute('data-category', category);
+
+        // Add dragover event listener
+        container.addEventListener('dragover', (event) => {
+            event.preventDefault();
+            container.classList.add('drag-over');
+        });
+
+        // Add dragleave event listener
+        container.addEventListener('dragleave', () => {
+            container.classList.remove('drag-over');
+        });
+
+        // Add drop event listener
+        container.addEventListener('drop', (event) => {
+            event.preventDefault();
+            container.classList.remove('drag-over');
+
+            // Get the dragged ticket ID
+            if (!this.draggedTicket) return;
+
+            const ticketId = this.draggedTicket.getAttribute('data-ticket-id');
+            const currentCategory = this.getTicketCategory(this.tickets.find(t => t.id == ticketId));
+
+            // If dropped in the same category, do nothing
+            if (currentCategory === category) {
+                logger.info(`Ticket #${ticketId} dropped in the same category (${category})`);
+                return;
+            }
+
+            logger.info(`Ticket #${ticketId} dropped in ${category} category`);
+
+            // Update the ticket state
+            this.updateTicketState(ticketId, category);
+        });
+    }
+
+    /**
+     * Update a ticket's state via API
+     * @param {string|number} ticketId - The ticket ID
+     * @param {string} category - The new category (open, progress, waiting, closed)
+     */
+    async updateTicketState(ticketId, category) {
+        try {
+            logger.info(`Updating ticket #${ticketId} to ${category} state`);
+
+            // Show loading indicator
+            this.showLoading();
+
+            // Map category to state name
+            let stateName;
+            switch (category) {
+                case 'open':
+                    stateName = 'new';
+                    break;
+                case 'progress':
+                    stateName = 'in progress';
+                    break;
+                case 'waiting':
+                    stateName = 'pending reminder';
+                    break;
+                case 'closed':
+                    stateName = 'closed';
+                    break;
+                default:
+                    throw new Error(`Unknown category: ${category}`);
+            }
+
+            // Prepare update data
+            const updateData = {
+                state: stateName
+            };
+
+            // Make API request to update ticket
+            const endpoint = `/api/v1/tickets/${ticketId}`;
+            await zammadApi.request(endpoint, 'PUT', updateData);
+
+            logger.info(`Successfully updated ticket #${ticketId} to ${stateName} state`);
+
+            // Reload tickets to reflect changes
+            await this.loadTickets();
+
+        } catch (error) {
+            logger.error(`Error updating ticket state:`, error);
+            this.showError(`Failed to update ticket: ${error.message}`);
+        }
     }
 
     /**
@@ -440,6 +552,36 @@ class ZammadDashboard {
 
         // Add selectable attribute
         ticketItem.setAttribute('data-selectable', 'true');
+
+        // Make the ticket draggable
+        ticketItem.setAttribute('draggable', 'true');
+
+        // Add drag events
+        ticketItem.addEventListener('dragstart', (event) => {
+            // Set the dragged ticket
+            this.draggedTicket = ticketItem;
+
+            // Add dragging class for visual feedback
+            ticketItem.classList.add('dragging');
+
+            // Set drag data (required for Firefox)
+            event.dataTransfer.setData('text/plain', ticketId);
+
+            // Set drag effect
+            event.dataTransfer.effectAllowed = 'move';
+
+            logger.info(`Started dragging ticket #${ticketId}`);
+        });
+
+        ticketItem.addEventListener('dragend', () => {
+            // Remove dragging class
+            ticketItem.classList.remove('dragging');
+
+            // Clear the dragged ticket
+            this.draggedTicket = null;
+
+            logger.info(`Stopped dragging ticket #${ticketId}`);
+        });
 
         // Add ticket content
         ticketItem.innerHTML = `
