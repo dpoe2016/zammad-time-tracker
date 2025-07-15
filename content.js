@@ -508,6 +508,13 @@ if (typeof window.ZammadTimetracker === 'undefined') {
         }
       });
 
+      // Show notification about the failure
+      chrome.runtime.sendMessage({
+        action: 'showNotification',
+        title: 'Time Entry Failed',
+        message: `Time tracking stopped but entry not saved. Please configure API settings or manually enter ${Math.round(duration / 60)} minutes for ticket #${this.ticketId}.`
+      });
+
       return false;
     }
   }
@@ -555,10 +562,18 @@ if (typeof window.ZammadTimetracker === 'undefined') {
         }
 
         // If we get here, API submission either failed or wasn't available
-        // Since there's no fallback implementation, we'll just resolve with true
-        // to indicate the tracking was stopped successfully
-        console.log('No API submission, but tracking stopped successfully');
-        resolve(true);
+        // Since there's no fallback implementation, we should indicate failure
+        // so the user knows the time was not actually saved
+        console.log('No API submission available - time entry not saved');
+
+        // Show notification about the failure
+        chrome.runtime.sendMessage({
+          action: 'showNotification',
+          title: 'Time Entry Not Saved',
+          message: `Time tracking stopped (${formatDuration(durationInSeconds)}) but entry not saved. Please configure API settings or manually enter ${durationInMinutes} minutes for ticket #${this.ticketId}.`
+        });
+
+        resolve(false);
 
       } catch (error) {
         console.error('Critical error in submitTimeEntry:', error);

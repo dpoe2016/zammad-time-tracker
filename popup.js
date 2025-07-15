@@ -1500,16 +1500,9 @@ class TimetrackingPopup {
             this.infoText.textContent = t('tracking_started');
             this.infoText.className = 'info success';
 
-            // Notify background script
-            try {
-                chrome.runtime.sendMessage({
-                    action: 'trackingStarted',
-                    data: { ticketId: ticketId, startTime: this.startTime.toISOString() }
-                });
-                this.debug('Background script notified');
-            } catch (error) {
-                this.debug('Background script error: ' + error.message);
-            }
+            // Background script will be notified by content script
+            // Removed duplicate message sending to prevent double notifications
+            this.debug('Content script will notify background script');
 
             this.debug('Time tracking successfully started');
 
@@ -1602,44 +1595,45 @@ class TimetrackingPopup {
             this.updateUI();
             this.stopTimer();
 
-            // Notify content script to stop tracking
+            // Notify content script to stop tracking and wait for completion
+            let timeSubmissionSuccess = false;
             try {
                 const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+                this.debug('Sending stop tracking message to content script...');
+
                 const stopResponse = await chrome.tabs.sendMessage(tab.id, {
                     action: 'stopTracking'
                 });
 
                 if (!stopResponse || !stopResponse.success) {
-                    this.debug('Content script could not stop tracking');
+                    this.debug('Content script could not stop tracking or time submission failed');
+                    timeSubmissionSuccess = false;
                 } else {
-                    this.debug('Content script has stopped tracking');
+                    this.debug('Content script has stopped tracking and submitted time successfully');
+                    timeSubmissionSuccess = true;
                 }
             } catch (error) {
                 this.debug('Error stopping tracking in content script: ' + error.message);
+                timeSubmissionSuccess = false;
             }
 
 
-            // UI feedback
+            // UI feedback based on submission success
             this.ticketInfo.style.display = 'none';
-            this.infoText.textContent = t('time_recorded') + ': ' + durationMinutes + ' ' + t('min');
-            this.infoText.className = 'info success';
 
-            // Notify background script
-            try {
-                chrome.runtime.sendMessage({
-                    action: 'trackingStopped',
-                    data: {
-                        ticketId: ticketId,
-                        title: ticketTitle,
-                        duration: durationText,
-                        success: true
-                    }
-                });
-            } catch (error) {
-                this.debug('Background script error: ' + error.message);
+            if (timeSubmissionSuccess) {
+                this.infoText.textContent = t('time_recorded') + ': ' + durationMinutes + ' ' + t('min') + ' - ' + t('auto_time_entry');
+                this.infoText.className = 'info success';
+                this.debug('Time tracking successfully ended with time entry submitted');
+            } else {
+                this.infoText.textContent = t('time_recorded') + ': ' + durationMinutes + ' ' + t('min') + ' - ' + t('manual_time_entry');
+                this.infoText.className = 'info warning';
+                this.debug('Time tracking ended but time entry not submitted - manual entry required');
             }
 
-            this.debug('Time tracking successfully ended');
+            // Background script will be notified by content script
+            // Removed duplicate message sending to prevent double notifications
+            this.debug('Content script will notify background script');
 
             // Reset local variables
             this.currentTicketId = null;
@@ -1647,13 +1641,17 @@ class TimetrackingPopup {
             this.currentTimeSpent = 0;
 
             // Close popup after a delay to ensure all operations complete
-            setTimeout(() => window.close(), 3000);
+            // Give more time if submission failed so user can see the message
+            const closeDelay = timeSubmissionSuccess ? 3000 : 5000;
+            setTimeout(() => window.close(), closeDelay);
 
         } catch (error) {
             this.debug('Stop error: ' + error.message);
             logger.error('Stop error:', error);
             this.infoText.textContent = t('stop_error') + ': ' + error.message;
             this.infoText.className = 'info error';
+            // Re-enable stop button in case of error
+            this.stopBtn.disabled = false;
         }
     }
 
