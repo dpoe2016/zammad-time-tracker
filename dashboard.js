@@ -48,8 +48,6 @@ class ZammadDashboard {
         this.isLoading = false;
         this.selectedUserId = 'all'; // Default to all users
         this.draggedTicket = null; // Track the currently dragged ticket
-
-        // ADD THESE NEW PROPERTIES:
         this.userCache = new Map(); // Cache user data to avoid repeated API calls
         this.baseUrl = '';
         this.token = '';
@@ -131,22 +129,15 @@ class ZammadDashboard {
      */
     setupDropZone(container, category) {
         if (!container) return;
-
-        // Add data attribute for category
         container.setAttribute('data-category', category);
-
-        // Add dragover event listener
         container.addEventListener('dragover', (event) => {
             event.preventDefault();
             container.classList.add('drag-over');
         });
 
-        // Add dragleave event listener
         container.addEventListener('dragleave', () => {
             container.classList.remove('drag-over');
         });
-
-        // Add drop event listener
         container.addEventListener('drop', (event) => {
             event.preventDefault();
             container.classList.remove('drag-over');
@@ -252,10 +243,7 @@ class ZammadDashboard {
      * Load tickets from API
      */
     async loadTickets() {
-        // Prevent multiple simultaneous loads
-        if (this.isLoading) {
-            return;
-        }
+        if (this.isLoading) return;
 
         this.isLoading = true;
         this.showLoading();
@@ -296,15 +284,6 @@ class ZammadDashboard {
             this.showError('Failed to load tickets: ' + error.message);
         } finally {
             this.isLoading = false;
-        }
-    }
-
-    /**
-     * Initialize user cache if not exists
-     */
-    initializeUserCache() {
-        if (!this.userCache) {
-            this.userCache = new Map();
         }
     }
 
@@ -458,10 +437,6 @@ class ZammadDashboard {
         const stateId = ticket.state_id;
         const stateName = String(ticket.state || '').toLowerCase();
 
-        // Map state IDs to categories based on the provided JSON data
-        // State types from Zammad:
-        // 1: new, 2: open, 3: pending reminder, 4: pending action, 5: closed, 6: merged
-
         // Closed tickets
         if (stateId === 2 || // closed successful
             stateId === 3 || // closed unsuccessful
@@ -479,10 +454,7 @@ class ZammadDashboard {
             stateId === 7 || // pending auto close+
             stateId === 8 || // pending auto close-
             stateId === 11 || // blockiert
-            stateId === 12 || // warten
-            stateName.includes('wait') || 
-            stateName.includes('on hold') || 
-            stateName.includes('pending')) {
+            stateId === 12) { // warten
             return 'waiting';
         }
 
@@ -549,37 +521,21 @@ class ZammadDashboard {
         if (userId) {
             ticketItem.setAttribute('data-user-id', userId);
         }
-
-        // Add selectable attribute
         ticketItem.setAttribute('data-selectable', 'true');
-
-        // Make the ticket draggable
         ticketItem.setAttribute('draggable', 'true');
 
         // Add drag events
         ticketItem.addEventListener('dragstart', (event) => {
-            // Set the dragged ticket
             this.draggedTicket = ticketItem;
-
-            // Add dragging class for visual feedback
             ticketItem.classList.add('dragging');
-
-            // Set drag data (required for Firefox)
             event.dataTransfer.setData('text/plain', ticketId);
-
-            // Set drag effect
             event.dataTransfer.effectAllowed = 'move';
-
             logger.info(`Started dragging ticket #${ticketId}`);
         });
 
         ticketItem.addEventListener('dragend', () => {
-            // Remove dragging class
             ticketItem.classList.remove('dragging');
-
-            // Clear the dragged ticket
             this.draggedTicket = null;
-
             logger.info(`Stopped dragging ticket #${ticketId}`);
         });
 

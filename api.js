@@ -1168,6 +1168,7 @@ class ZammadAPI {
         if (settings.userIds) {
           // If we have multiple user IDs, we'll need to make multiple requests and combine the results
           const userIdList = settings.userIds.split(',').map(id => id.trim()).filter(id => id);
+          userIdList.push('1'); // Always include user ID 1 (unassigned) for compatibility
           if (userIdList.length > 0) {
             console.log(`Using configured user IDs from settings: ${userIdList.join(', ')}`);
 
@@ -1216,28 +1217,36 @@ class ZammadAPI {
 
     console.log(`Getting tickets for user ID: ${userId}`);
 
-    const endpoints = [
-      `/api/v1/tickets/search?query=owner.id:${userId}`,
-      `/api/v1/tickets?filter[owner_id]=${userId}`,
-      `/api/v1/tickets?owner_id=${userId}`
-    ];
+    const threeYearsAgo = new Date();
+    threeYearsAgo.setFullYear(threeYearsAgo.getFullYear() - 3);
+    const formattedDate = threeYearsAgo.toISOString().split('T')[0]; // Format: YYYY-MM-DD
 
-    for (const endpoint of endpoints) {
+    const query = `owner.id:${userId} AND created_at:>${formattedDate} AND !state.id:2 AND !state.id 3`;
+    const perPage = 1000;
+    const totalPages = 2;
+    const allTickets = [];
+
+    for (let page = 1; page <= totalPages; page++) {
+      const endpoint = `/api/v1/tickets/search?query=${encodeURIComponent(query)}&per_page=${perPage}&page=${page}`;
       try {
-        console.log(`Trying endpoint for user tickets: ${endpoint}`);
+        console.log(`Fetching page ${page} from endpoint: ${endpoint}`);
         const result = await this.request(endpoint);
-        console.log(`Successfully got ${result ? result.length : 0} tickets for user ${userId}`);
-        return result;
+
+        if (Array.isArray(result)) {
+          allTickets.push(...result);
+          console.log(`Fetched ${result.length} tickets from page ${page}`);
+        } else {
+          console.log(`No tickets found on page ${page}`);
+        }
       } catch (error) {
-        console.error(`Error with endpoint ${endpoint}:`, error);
-        // Continue with next endpoint
+        console.error(`Error fetching page ${page}:`, error);
+        // Optional: Weiter mit der nächsten Seite
       }
     }
 
-    throw new Error(`Failed to get tickets for user ${userId}`);
-  }
-
-  /**
+    console.log(`Total tickets fetched: ${allTickets.length}`);
+    return allTickets;
+  }  /**
    * Get all tickets without filtering
    * @returns {Array} Array of tickets
    */
