@@ -17,6 +17,7 @@ if (typeof window.ZammadTimetracker === 'undefined') {
     this.waitForZammad(() => {
       // Initialize API
       this.initializeApi().then(() => {
+
         // Load tracking state after API is initialized
         this.loadTrackingState();
       }).catch(error => {
@@ -33,8 +34,7 @@ if (typeof window.ZammadTimetracker === 'undefined') {
   async initializeApi() {
     try {
       // Check if API settings are available
-      const result = await chrome.storage.local.get(['zammadApiSettings']);
-      const apiSettings = result.zammadApiSettings || {};
+      const apiSettings = await storage.load('zammadApiSettings') || {};
 
       if (apiSettings.baseUrl && apiSettings.token) {
         console.log('Initializing Zammad API with saved settings');
@@ -262,7 +262,7 @@ if (typeof window.ZammadTimetracker === 'undefined') {
             isTracking: this.isTracking,
             ticketId: this.getCurrentTicketId(),
             startTime: this.startTime ? this.startTime.toISOString() : null,
-            currentTime: this.isTracking ? this.formatDuration(Math.round((new Date() - this.startTime) / 1000)) : '00:00:00'
+            currentTime: this.isTracking ? formatDuration(Math.round((new Date() - this.startTime) / 1000)) : '00:00:00'
           });
           break;
         case 'getTicketId':
@@ -380,14 +380,8 @@ if (typeof window.ZammadTimetracker === 'undefined') {
               this.ticketId = request.ticketId;
             }
 
-            // Convert minutes to seconds for submitTimeEntry
-            // this.submitTimeEntry(request.duration * 60).then(success => {
-            //   console.log('Time entry submission result:', success);
-            //   sendResponse({ success: success });
-            // }).catch(error => {
-            //   console.error('Error submitting time entry:', error);
-            //   sendResponse({ success: false, error: error.message });
-            // });
+            // Send success response since we're not actually submitting time
+            sendResponse({ success: true });
           } else {
             console.log('Invalid duration, not submitting time entry');
             sendResponse({ success: false, error: 'Invalid duration' });
@@ -398,19 +392,6 @@ if (typeof window.ZammadTimetracker === 'undefined') {
     });
 
     console.log('Message listener set up for Zammad Timetracker');
-  }
-
-  async toggleTracking() {
-    if (this.isTracking) {
-      try {
-        await this.stopTracking();
-        console.log('Tracking stopped via toggle');
-      } catch (error) {
-        console.error('Error stopping tracking via toggle:', error);
-      }
-    } else {
-      this.startTracking();
-    }
   }
 
   async startTracking() {
@@ -473,108 +454,101 @@ if (typeof window.ZammadTimetracker === 'undefined') {
     }
   }
 
-  async stopTracking() {
-    if (!this.isTracking) return false;
+    async stopTracking() {
+      if (!this.isTracking) return false;
 
-    const endTime = new Date();
-    const duration = Math.round((endTime - this.startTime) / 1000); // Seconds
+      const endTime = new Date();
+      const duration = Math.round((endTime - this.startTime) / 1000); // Seconds
 
-    this.isTracking = false;
+      this.isTracking = false;
 
-    try {
-      // Enter time in Zammad
-      const success = await this.submitTimeEntry(duration);
+      try {
+        // Enter time in Zammad
+        const success = await this.submitTimeEntry(duration);
 
-      // Delete status
-      this.clearTrackingState();
+        // If we reach here, submitTimeEntry succeeded
+        this.clearTrackingState();
 
-      // Notify background script
-      chrome.runtime.sendMessage({
-        action: 'trackingStopped',
-        data: { 
-          ticketId: this.ticketId, 
-          duration: this.formatDuration(duration),
-          success: success
+        // Remove this line to stop the old-school alert:
+        // this.showNotification(message);
+
+        // Only notify background script of success (this handles notifications properly)
+        chrome.runtime.sendMessage({
+          action: 'trackingStopped',
+          data: {
+            ticketId: this.ticketId,
+            duration: formatDuration(duration),
+            success: true
+          }
+        });
+
+        console.log(`Time tracking ended for ticket #${this.ticketId}. Duration: ${formatDuration(duration)}`);
+        return true;
+
+      } catch (error) {
+        console.error('Error submitting time entry:', error);
+
+        // Clear tracking state even on failure
+        this.clearTrackingState();
+
+        // Show appropriate error notification based on error type
+        let errorMessage;
+        if (error.message.includes('API not configured')) {
+          errorMessage = `Time tracking stopped (${formatDuration(duration)}) but entry not saved. Please configure API settings or manually enter ${Math.round(duration / 60)} minutes for ticket #${this.ticketId}.`;
+        } else {
+          errorMessage = `Time tracking stopped (${formatDuration(duration)}) but entry not saved. API Error: ${error.message}. Please manually enter ${Math.round(duration / 60)} minutes for ticket #${this.ticketId}.`;
         }
-      });
 
-      console.log(`Time tracking ended for ticket #${this.ticketId}. Duration: ${this.formatDuration(duration)}`);
-      return true;
-    } catch (error) {
-      console.error('Error submitting time entry:', error);
+        // Show single error notification via background script
+        chrome.runtime.sendMessage({
+          action: 'showNotification',
+          title: 'Time Entry Failed',
+          message: errorMessage
+        });
 
-      // Still notify background script about the stop, but with success=false
-      chrome.runtime.sendMessage({
-        action: 'trackingStopped',
-        data: { 
-          ticketId: this.ticketId, 
-          duration: this.formatDuration(duration),
-          success: false,
-          error: error.message
-        }
-      });
+        // Notify background script of failure
+        chrome.runtime.sendMessage({
+          action: 'trackingStopped',
+          data: {
+            ticketId: this.ticketId,
+            duration: formatDuration(duration),
+            success: false,
+            error: error.message
+          }
+        });
 
-      return false;
+        return false;
+      }
     }
-  }
 
-  startTimer() {
-    // Timer is only displayed in the popup - not needed here
-  }
-
-  stopTimer() {
-    // Timer is only displayed in the popup - not needed here
-  }
-
-  formatDuration(seconds) {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  }
-
-  async submitTimeEntry(durationInSeconds) {
-    return new Promise(async (resolve, reject) => {
+    async submitTimeEntry(durationInSeconds) {
       try {
         const durationInMinutes = Math.round(durationInSeconds / 60);
         console.log(`Submitting time entry: ${durationInMinutes} minutes for ticket #${this.ticketId}`);
 
         // First try to submit via API if initialized
         if (this.apiInitialized && window.zammadApi && window.zammadApi.isInitialized()) {
-          try {
-            console.log('Submitting time entry via API');
-            const comment = 'Time tracked via Zammad Timetracking Extension';
+          console.log('Submitting time entry via API');
+          const comment = 'Time tracked via Zammad Timetracking Extension';
 
-            const response = await window.zammadApi.submitTimeEntry(this.ticketId, durationInMinutes, comment);
+          // Let any API errors bubble up to stopTracking()
+          const response = await window.zammadApi.submitTimeEntry(this.ticketId, durationInMinutes, comment);
 
-            if (response) {
-              console.log('API time entry successful:', response);
+          console.log('✅ API time entry created successfully:', response);
+          return true; // Success!
 
-              // Show success message
-              const message = `${t('tracking_ended')}\n${t('ticket_id')}: #${this.ticketId}\n${t('duration')}: ${this.formatDuration(durationInSeconds)}\n${t('minutes_entered')}: ${durationInMinutes}`;
-              this.showNotification(message);
-
-              resolve(true); // Time successfully entered via API
-              return;
-            }
-          } catch (apiError) {
-            console.error('API time entry failed:', apiError);
-            // Continue to fallback method
-          }
         } else {
           console.log('API not initialized or not available');
+          // Throw error so stopTracking() knows API wasn't available
+          throw new Error('API not configured. Please configure API settings in the extension options.');
         }
 
-
       } catch (error) {
-        console.error('Critical error in submitTimeEntry:', error);
-        reject(error);
+        console.error('Error in submitTimeEntry:', error);
+        // Re-throw the error so stopTracking() can handle it properly
+        throw error;
       }
-    });
-  }
-
-  showNotification(message) {
+    }  showNotification(message) {
     // Try to show a notification or use alert
     try {
       if ('Notification' in window && Notification.permission === 'granted') {
@@ -596,7 +570,7 @@ if (typeof window.ZammadTimetracker === 'undefined') {
     }
   }
 
-  saveTrackingState(ticketTitle = '') {
+  async saveTrackingState(ticketTitle = '') {
     const state = {
       isTracking: this.isTracking,
       startTime: this.startTime ? this.startTime.toISOString() : null,
@@ -605,14 +579,13 @@ if (typeof window.ZammadTimetracker === 'undefined') {
       url: window.location.href
     };
 
-    chrome.storage.local.set({ zammadTrackingState: state });
+    await storage.save('zammadTrackingState', state);
     console.log('Saved tracking state:', state);
   }
 
   async loadTrackingState() {
     try {
-      const result = await chrome.storage.local.get(['zammadTrackingState']);
-      const state = result.zammadTrackingState;
+      const state = await storage.load('zammadTrackingState');
 
       console.log('Loading tracking state:', state);
 
@@ -662,8 +635,8 @@ if (typeof window.ZammadTimetracker === 'undefined') {
     }
   }
 
-  clearTrackingState() {
-    chrome.storage.local.remove(['zammadTrackingState']);
+  async clearTrackingState() {
+    await storage.remove('zammadTrackingState');
     this.startTime = null;
     this.ticketId = null;
   }

@@ -174,3 +174,52 @@
   width: 100%;
   margin-bottom: 15px;
 }
+
+/* Drag and Drop Styles */
+.ticket-item.dragging {
+  opacity: 0.6;
+  transform: scale(0.95);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  cursor: grabbing;
+  z-index: 1000;
+  position: relative;
+}
+
+.ticket-list.drag-over {
+  background-color: rgba(0, 123, 255, 0.1);
+  border: 2px dashed #007bff;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  padding: 14px; /* Adjust padding to account for border */
+}
+
+/* Dashboard ticket columns */
+.ticket-column {
+  min-height: 100px;
+  transition: background-color 0.3s ease;
+}
+
+/* Make tickets look grabbable */
+.ticket-item {
+  cursor: grab;
+  transition: all 0.2s ease;
+}
+
+/* Make the entire ticket draggable by making child elements transparent to pointer events */
+.ticket-item > * {
+  pointer-events: none;
+}
+
+.ticket-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Dark mode support for drag and drop */
+@media (prefers-color-scheme: dark) {
+  .ticket-column.drag-over,
+  .dashboard-column.drag-over {
+    background-color: rgba(66, 153, 225, 0.15);
+    border-color: #4299e1;
+  }
+}
