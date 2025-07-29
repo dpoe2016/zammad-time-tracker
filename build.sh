@@ -3,18 +3,21 @@
 set -e
 
 DIST_DIR="dist"
+ZIP_NAME="zammad-time-tracker-extension.zip"
 
-# Vorheriges Build-Verzeichnis entfernen
+# Vorheriges Build-Verzeichnis und altes ZIP-Archiv entfernen
 rm -rf "$DIST_DIR"
+rm -f "$ZIP_NAME"
+
 mkdir "$DIST_DIR"
 
 # Relevante Dateien und Ordner kopieren
 shopt -s extglob
-cp -r !(dist|*.md|build.sh|.git|.DS_Store) "$DIST_DIR"/
+cp -r !(dist|*.md|build.sh|.git|.DS_Store|$ZIP_NAME) "$DIST_DIR"/
 
-# Optional: ZIP-Archiv erstellen
+# ZIP-Archiv im dist-Verzeichnis erstellen
 cd "$DIST_DIR"
-zip -r ../zammad-time-tracker-extension.zip .
+zip -r "../$ZIP_NAME" .
 cd ..
 
-echo "Build abgeschlossen. Das Deployment-Paket befindet sich in $DIST_DIR und als zammad-time-tracker-extension.zip."
+echo "Build abgeschlossen. Das Deployment-Paket befindet sich in $DIST_DIR und als $ZIP_NAME."
