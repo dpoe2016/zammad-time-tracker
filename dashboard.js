@@ -484,12 +484,28 @@ class ZammadDashboard {
         // Get user information
         let userName = '';
         let userId = '';
+        let updated_at = ticket.updated_at || ticket.updatedAt || 'Unknown';
+        // Format date if available
+        if (updated_at && updated_at !== 'Unknown') {
+            try {
+                const dateObj = new Date(updated_at);
+                if (!isNaN(dateObj)) {
+                    updated_at = dateObj.toLocaleString('de-DE', {
+                        year: 'numeric', month: '2-digit', day: '2-digit',
+                        hour: '2-digit', minute: '2-digit', second: '2-digit'
+                    });
+                }
+            } catch (e) {
+                // Fallback: keep as is
+            }
+        }
 
         // First try to get user info from owner_data (added by our API)
         if (ticket.owner_data && ticket.owner_data.fullname) {
             userName = ticket.owner_data.fullname;
             userId = ticket.owner_data.id;
         }
+
         // Then try to get from owner fields
         else if (ticket.owner_id) {
             userId = ticket.owner_id;
@@ -544,7 +560,8 @@ class ZammadDashboard {
         <div class="ticket-item-title">${ticketTitle}</div>
         <div class="ticket-item-details">
             <span class="ticket-item-id">${userName || `#${ticketId}`}</span>
-            <div class="ticket-item-meta">
+            <div class="ticket-item-meta">  
+                <span>${updated_at}</span>
                 <span class="ticket-item-priority ${this.getPriorityClass(ticketPriority)}">${ticketPriority}</span>
                 <span class="ticket-number">#${ticketId}</span>
             </div>
