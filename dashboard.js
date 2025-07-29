@@ -302,6 +302,13 @@ class ZammadDashboard {
             return;
         }
 
+        // Sort tickets by updated_at descending
+        const sortedTickets = this.tickets.slice().sort((a, b) => {
+            const dateA = new Date(a.updated_at || a.updatedAt || 0);
+            const dateB = new Date(b.updated_at || b.updatedAt || 0);
+            return dateB - dateA;
+        });
+
         // Counters for each category
         let openCount = 0;
         let progressCount = 0;
@@ -309,7 +316,7 @@ class ZammadDashboard {
         let closedCount = 0;
 
         // Process each ticket
-        this.tickets.forEach(ticket => {
+        sortedTickets.forEach(ticket => {
             // Determine ticket status category
             const category = this.getTicketCategory(ticket);
 
