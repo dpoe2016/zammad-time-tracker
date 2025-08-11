@@ -199,3 +199,5 @@ $RECYCLE.BIN/
 # Chrome Extension specific
 *.crx
 *.pem
+
+dist/

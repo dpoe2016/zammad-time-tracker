@@ -133,6 +133,12 @@
             <small>Enter comma-separated user IDs to filter tickets in the dashboard</small>
         </div>
 
+        <div class="form-group">
+            <label for="dashboardRefreshSec" id="dashboardRefreshSecLabel">Dashboard Auto Refresh (seconds)</label>
+            <input type="number" id="dashboardRefreshSec" placeholder="0 (disabled)" class="form-control" min="0" step="1">
+            <small>Set how often the dashboard should auto-refresh. Use 0 to disable.</small>
+        </div>
+
         <button id="apiSaveBtn" class="btn btn-primary">Save Settings</button>
 
         <div id="statusMessage" class="status-message"></div>

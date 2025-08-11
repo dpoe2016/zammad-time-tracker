@@ -57,6 +57,11 @@ class ZammadDashboard {
         this.initEventListeners();
         this.initializeApi();
         this.initDragAndDrop();
+
+        // Auto-refresh setup
+        this.autoRefreshTimer = null;
+        this.autoRefreshSec = 0;
+        this.initAutoRefresh();
     }
 
     /**
@@ -80,6 +85,82 @@ class ZammadDashboard {
         this.closedColumnTitle.textContent = t('dashboard_closed');
 
         logger.info('UI language updated');
+    }
+
+    /**
+     * Initialize auto refresh based on stored settings and listen for changes
+     */
+    initAutoRefresh() {
+        // Load current setting
+        this.applyAutoRefreshFromSettings();
+
+        // Apply on storage changes
+        try {
+            chrome.storage.onChanged.addListener((changes, area) => {
+                if (area === 'local' && changes.zammadApiSettings) {
+                    logger.info('Detected change in API settings, re-evaluating auto-refresh');
+                    this.applyAutoRefreshFromSettings();
+                }
+            });
+        } catch (e) {
+            logger.warn('chrome.storage.onChanged not available or failed to attach listener', e);
+        }
+
+        // Clear timer on page unload
+        window.addEventListener('beforeunload', () => this.stopAutoRefresh());
+    }
+
+    /**
+     * Read setting from storage and start/stop timer accordingly
+     */
+    async applyAutoRefreshFromSettings() {
+        try {
+            const settings = await storage.load('zammadApiSettings', {});
+            const sec = parseInt(settings && settings.dashboardRefreshSec, 10);
+            const nextSec = isNaN(sec) ? 0 : Math.max(0, sec);
+
+            if (nextSec !== this.autoRefreshSec) {
+                this.autoRefreshSec = nextSec;
+                logger.info(`Auto-refresh interval set to ${this.autoRefreshSec} seconds`);
+                this.stopAutoRefresh();
+                if (this.autoRefreshSec > 0) {
+                    this.startAutoRefresh();
+                }
+            } else {
+                // If same but timer missing (e.g., after navigation), ensure it's running
+                if (this.autoRefreshSec > 0 && !this.autoRefreshTimer) {
+                    this.startAutoRefresh();
+                }
+            }
+        } catch (error) {
+            logger.error('Failed to apply auto-refresh setting', error);
+        }
+    }
+
+    /** Start the interval timer */
+    startAutoRefresh() {
+        this.stopAutoRefresh();
+        if (this.autoRefreshSec <= 0) return;
+        const intervalMs = this.autoRefreshSec * 1000;
+        this.autoRefreshTimer = setInterval(async () => {
+            try {
+                // Avoid overlapping loads
+                if (this.isLoading) return;
+                if (!zammadApi || !zammadApi.isInitialized || !zammadApi.isInitialized()) return;
+                logger.debug('Auto-refresh: loading tickets');
+                await this.loadTickets();
+            } catch (e) {
+                logger.warn('Auto-refresh cycle failed', e);
+            }
+        }, intervalMs);
+    }
+
+    /** Stop the interval timer */
+    stopAutoRefresh() {
+        if (this.autoRefreshTimer) {
+            clearInterval(this.autoRefreshTimer);
+            this.autoRefreshTimer = null;
+        }
     }
 
     /**
@@ -302,6 +383,13 @@ class ZammadDashboard {
             return;
         }
 
+        // Sort tickets by updated_at descending
+        const sortedTickets = this.tickets.slice().sort((a, b) => {
+            const dateA = new Date(a.updated_at || a.updatedAt || 0);
+            const dateB = new Date(b.updated_at || b.updatedAt || 0);
+            return dateB - dateA;
+        });
+
         // Counters for each category
         let openCount = 0;
         let progressCount = 0;
@@ -309,7 +397,7 @@ class ZammadDashboard {
         let closedCount = 0;
 
         // Process each ticket
-        this.tickets.forEach(ticket => {
+        sortedTickets.forEach(ticket => {
             // Determine ticket status category
             const category = this.getTicketCategory(ticket);
 
@@ -484,12 +572,28 @@ class ZammadDashboard {
         // Get user information
         let userName = '';
         let userId = '';
+        let updated_at = ticket.updated_at || ticket.updatedAt || 'Unknown';
+        // Format date if available
+        if (updated_at && updated_at !== 'Unknown') {
+            try {
+                const dateObj = new Date(updated_at);
+                if (!isNaN(dateObj)) {
+                    updated_at = dateObj.toLocaleString('de-DE', {
+                        year: 'numeric', month: '2-digit', day: '2-digit',
+                        hour: '2-digit', minute: '2-digit', second: '2-digit'
+                    });
+                }
+            } catch (e) {
+                // Fallback: keep as is
+            }
+        }
 
         // First try to get user info from owner_data (added by our API)
         if (ticket.owner_data && ticket.owner_data.fullname) {
             userName = ticket.owner_data.fullname;
             userId = ticket.owner_data.id;
         }
+
         // Then try to get from owner fields
         else if (ticket.owner_id) {
             userId = ticket.owner_id;
@@ -544,7 +648,8 @@ class ZammadDashboard {
         <div class="ticket-item-title">${ticketTitle}</div>
         <div class="ticket-item-details">
             <span class="ticket-item-id">${userName || `#${ticketId}`}</span>
-            <div class="ticket-item-meta">
+            <div class="ticket-item-meta">  
+                <span>${updated_at}</span>
                 <span class="ticket-item-priority ${this.getPriorityClass(ticketPriority)}">${ticketPriority}</span>
                 <span class="ticket-number">#${ticketId}</span>
             </div>
