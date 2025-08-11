@@ -16,6 +16,7 @@ function initOptionsPage() {
     const userIdsInput = document.getElementById('userIds');
     const apiSaveBtn = document.getElementById('apiSaveBtn');
     const statusMessage = document.getElementById('statusMessage');
+    const dashboardRefreshSecInput = document.getElementById('dashboardRefreshSec');
 
     // Update UI language if translations are available
     if (typeof updateUILanguage === 'function') {
@@ -54,6 +55,10 @@ function initOptionsPage() {
                 userIdsInput.value = settings.userIds;
             }
 
+            if (typeof settings.dashboardRefreshSec !== 'undefined') {
+                dashboardRefreshSecInput.value = settings.dashboardRefreshSec;
+            }
+
             console.log('API settings loaded');
         } catch (error) {
             console.error('Error loading API settings:', error);
@@ -69,6 +74,8 @@ function initOptionsPage() {
             const baseUrl = apiBaseUrlInput.value.trim();
             const token = apiTokenInput.value.trim();
             const userIds = userIdsInput.value.trim();
+            const dashboardRefreshSecRaw = dashboardRefreshSecInput.value.trim();
+            const dashboardRefreshSec = dashboardRefreshSecRaw === '' ? undefined : Math.max(0, parseInt(dashboardRefreshSecRaw, 10) || 0);
 
             // Validate inputs
             if (!baseUrl) {
@@ -83,6 +90,9 @@ function initOptionsPage() {
 
             // Create settings object
             const settings = { baseUrl, token, userIds };
+            if (typeof dashboardRefreshSec !== 'undefined') {
+                settings.dashboardRefreshSec = dashboardRefreshSec;
+            }
 
             // Save to storage
             await chrome.storage.local.set({ zammadApiSettings: settings });
@@ -133,6 +143,8 @@ function updateUILanguage() {
             document.getElementById('apiBaseUrlLabel').textContent = t('api_base_url');
             document.getElementById('apiTokenLabel').textContent = t('api_token');
             document.getElementById('userIdsLabel').textContent = t('user_ids_label') || 'Filter User IDs';
+            const dashRefLabel = document.getElementById('dashboardRefreshSecLabel');
+            if (dashRefLabel) dashRefLabel.textContent = t('dashboard_refresh_interval') || 'Dashboard Auto Refresh (seconds)';
             document.getElementById('apiSaveBtn').textContent = t('api_save');
         }
     } catch (error) {
