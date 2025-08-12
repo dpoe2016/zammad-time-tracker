@@ -672,17 +672,19 @@ class ZammadDashboard {
             logger.info(`Stopped dragging ticket #${ticketId}`);
         });
 
-        // Add ticket content
+        // Add ticket content - 3 row layout
         ticketItem.innerHTML = `
-        <div class="ticket-item-title">${ticketTitle}</div>
-        <div class="ticket-item-details">
-            <span class="ticket-item-id">${userName || `#${ticketId}`}</span>
-            ${groupName ? `<span class="ticket-item-group">📁 ${groupName}</span>` : ''}
-            <div class="ticket-item-meta">  
-                <span>${updated_at}</span>
-                <span class="ticket-item-priority ${this.getPriorityClass(ticketPriority)}">${ticketPriority}</span>
-                <span class="ticket-number">#${ticketId}</span>
-            </div>
+        <div class="ticket-row-1">
+            <div class="ticket-item-title">${ticketTitle}</div>
+        </div>
+        <div class="ticket-row-2">
+        <span class="ticket-number">#${ticketId}</span>
+            <span class="ticket-item-group">${groupName ? `📁 ${groupName}` : '📁 No Group'}</span>
+        </div>
+        <div class="ticket-row-3">
+            <span class="ticket-item-user">${userName || `User #${ticketId}`}</span>
+            <span class="ticket-updated">${updated_at}</span>
+            <span class="ticket-item-priority ${this.getPriorityClass(ticketPriority)}">${ticketPriority}</span>
         </div>
     `;
 
