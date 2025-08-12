@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning where possible.
 
+## [1.0.1] - 2025-08-12
+### Changed
+- Improved dashboard ticket sorting to prioritize tickets by priority level first, then by last updated date.
+
 ## [1.0] - 2025-08-12
 ### Added
 - Initial public release of the Zammad Time Tracking Extension.
