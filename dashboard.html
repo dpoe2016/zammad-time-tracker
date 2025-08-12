@@ -13,12 +13,18 @@
             padding: 0;
             background: #f8f9fa;
             color: #333;
+            height: 100%;
         }
+        html { height: 100%; }
 
         .container {
-            max-width: 1200px;
-            margin: 0 auto;
+            max-width: none;
+            width: 98%;
+            margin: 0;
             padding: 20px;
+            min-height: 90vh;
+            display: flex;
+            flex-direction: column;
         }
 
         .header {
@@ -28,6 +34,10 @@
             margin-bottom: 30px;
             border-bottom: 1px solid #dee2e6;
             padding-bottom: 15px;
+            position: sticky;
+            top: 0;
+            background: #f8f9fa;
+            z-index: 100;
         }
 
         .header h1 {
@@ -71,9 +81,11 @@
 
         .dashboard {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            grid-template-columns: repeat(4, 1fr);
             gap: 20px;
             margin-bottom: 30px;
+            flex: 1;
+            overflow: hidden;
         }
 
         .ticket-column {
@@ -81,6 +93,9 @@
             border-radius: 8px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
             overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            min-height: 0; /* allow child to shrink for proper scrolling */
         }
 
         .column-header {
@@ -103,8 +118,9 @@
 
         .ticket-list {
             padding: 15px;
-            max-height: 600px;
             overflow-y: auto;
+            flex: 1;
+            min-height: 0;
         }
 
         .ticket-item {
