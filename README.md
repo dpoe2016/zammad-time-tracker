@@ -12,6 +12,7 @@ A Chrome extension for time tracking in Zammad tickets.
 - 🌐 **Direct Zammad API Integration** - Reliable communication via the Zammad REST API
 - 📋 **Assigned Tickets List** - View and start tracking for any of your assigned tickets
 - 📊 **Time Tracking History** - View all your time tracking entries
+- 🗂️ **Dashboard** - Kanban-style overview of tickets by status (Open, In Progress, Waiting, Closed)
 - 🐛 **Debug Mode** - Comprehensive logging for troubleshooting
 
 ## 🚀 Installation
@@ -67,13 +68,30 @@ zammad-time-tracker/
 
 3. **Load Extension:**
    - Click on "Load unpacked"
-   - Select the `zammad-timetracking` folder
+   - Select the `zammad-time-tracker` folder
    - Click "Select Folder"
 
 4. **Verify Installation:**
    - Extension should appear in the list
    - Icon should be visible in the Chrome toolbar
    - Status should show "Enabled"
+
+## 🏗️ Build and Packaging
+
+You can build a distributable ZIP of the extension using the provided build script:
+
+```bash
+./build.sh
+```
+
+What it does:
+- Cleans previous build artifacts
+- Copies all necessary files into a fresh dist/ directory
+- Creates zammad-time-tracker-extension.zip at the project root for distribution or manual install
+
+Notes:
+- The script excludes Markdown files, the build script itself, and VCS/system artifacts.
+- You can still load the unpacked extension directly from the project root during development.
 
 ## 📖 Usage
 
@@ -99,6 +117,12 @@ zammad-time-tracker/
 - **Tickets Tab:** Shows a list of tickets assigned to you
 - **History Tab:** Shows your time tracking history
 
+#### Open the Dashboard
+- In the popup, go to Settings → Dashboard → Open
+- A full-page board (dashboard.html) opens with columns for Open, In Progress, Waiting, and Closed tickets
+- Use the user filter to switch between "All Users", "My Tickets", or a specific user
+- Drag and drop between columns to update ticket states where permitted
+
 #### Start Tracking from Assigned Tickets
 - Click on the "Tickets" tab to view all tickets assigned to you
 - Click on any ticket in the list to start tracking time for it
@@ -120,6 +144,10 @@ zammad-time-tracker/
 - **Notifications:** Turn on/off browser notifications when tracking starts/stops
   - When enabled: Shows notifications when time tracking starts/stops
   - When disabled: No notifications are displayed
+  - Details: See notifications-explanation.md
+- **Auto-Submit Time:** Automatically submit tracked time to Zammad when stopping the timer
+  - Toggle in Settings → Auto-Submit Time
+  - Details: See auto-submit-explanation.md
 - **Language:** Select German or English
 
 #### Configure API Settings
@@ -328,6 +356,10 @@ chrome://extensions/
 - Check the `manifest.json` version
 - New features are displayed in Debug mode
 - Background Script shows version information
+
+## 🧭 Architecture Overview
+
+For a high-level view of how the extension components interact (popup, background, content script, API), see flow-chart.md.
 
 ## ⚙️ Development
 

@@ -383,8 +383,17 @@ class ZammadDashboard {
             return;
         }
 
-        // Sort tickets by updated_at descending
+        // Sort tickets by priority descending, then by updated_at descending
         const sortedTickets = this.tickets.slice().sort((a, b) => {
+            // First, sort by priority descending (higher priority numbers first)
+            const priorityA = a.priority_id || 0;
+            const priorityB = b.priority_id || 0;
+            
+            if (priorityA !== priorityB) {
+                return priorityB - priorityA; // Higher priority first
+            }
+            
+            // If priorities are equal, sort by updated_at descending
             const dateA = new Date(a.updated_at || a.updatedAt || 0);
             const dateB = new Date(b.updated_at || b.updatedAt || 0);
             return dateB - dateA;
