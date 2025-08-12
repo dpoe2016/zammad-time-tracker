@@ -45,6 +45,7 @@ class ZammadDashboard {
         // Ticket data
         this.tickets = [];
         this.users = [];
+        this.groups = [];
         this.isLoading = false;
         this.selectedUserId = 'all'; // Default to all users
         this.draggedTicket = null; // Track the currently dragged ticket
@@ -337,6 +338,16 @@ class ZammadDashboard {
                 throw new Error('API not initialized');
             }
 
+            // Fetch groups from Zammad API
+            try {
+                const groups = await zammadApi.getAllGroups();
+                this.groups = Array.isArray(groups) ? groups : [];
+                logger.info(`Loaded ${this.groups.length} groups from API`);
+            } catch (error) {
+                logger.warn('Failed to load groups, continuing without group information:', error);
+                this.groups = [];
+            }
+
             // Get tickets based on selected user filter
             let tickets;
             if (this.selectedUserId === 'all') {
@@ -627,6 +638,15 @@ class ZammadDashboard {
             }
         }
 
+        // Get group information
+        let groupName = '';
+        if (ticket.group_id && this.groups && this.groups.length > 0) {
+            const group = this.groups.find(g => g.id == ticket.group_id);
+            if (group) {
+                groupName = group.name || '';
+            }
+        }
+
         // Create ticket item element
         const ticketItem = document.createElement('div');
         ticketItem.className = 'ticket-item';
@@ -657,6 +677,7 @@ class ZammadDashboard {
         <div class="ticket-item-title">${ticketTitle}</div>
         <div class="ticket-item-details">
             <span class="ticket-item-id">${userName || `#${ticketId}`}</span>
+            ${groupName ? `<span class="ticket-item-group">📁 ${groupName}</span>` : ''}
             <div class="ticket-item-meta">  
                 <span>${updated_at}</span>
                 <span class="ticket-item-priority ${this.getPriorityClass(ticketPriority)}">${ticketPriority}</span>

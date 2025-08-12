@@ -1728,6 +1728,38 @@ class ZammadAPI {
       throw new Error(`Failed to update time entry: ${error.message}`);
     }
   }
+
+  /**
+   * Get all groups from Zammad
+   * 
+   * Uses the official Zammad API endpoint:
+   * GET /api/v1/groups
+   * 
+   * Documentation: docs/zammad/docs.zammad.org/en/latest/api/group.html#list
+   * Required permission: ticket.agent or admin.group
+   * 
+   * @returns {Promise<Array>} Array of groups
+   */
+  async getAllGroups() {
+    console.log('Getting all groups from Zammad API');
+
+    try {
+      const endpoint = '/api/v1/groups';
+      console.log(`Fetching groups from endpoint: ${endpoint}`);
+      const result = await this.request(endpoint);
+      
+      if (Array.isArray(result)) {
+        console.log(`Successfully fetched ${result.length} groups`);
+        return result;
+      } else {
+        console.warn('Groups API returned unexpected format:', result);
+        return [];
+      }
+    } catch (error) {
+      console.error('Error fetching groups:', error);
+      throw new Error(`Failed to get groups: ${error.message}`);
+    }
+  }
 }
 
 // Create and export a singleton instance
