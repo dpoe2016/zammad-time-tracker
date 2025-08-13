@@ -919,7 +919,7 @@ class ZammadDashboard {
         <div class="ticket-row-2">
         <span class="ticket-number">#${ticketId}</span>
             <span class="ticket-item-group">${groupName ? `${groupName}` : 'No Group'}</span>
-            <span class="ticket-item-organization">${organizationName ? `${organizationName}` : 'No Organization'}</span>
+<!--            <span class="ticket-item-organization">${organizationName ? `${organizationName}` : 'No Organization'}</span>-->
         </div>
         <div class="ticket-row-3">
             <span class="ticket-item-user">${userName || `User #${ticketId}`}</span>
