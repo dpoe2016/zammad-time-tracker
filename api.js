@@ -1246,7 +1246,33 @@ class ZammadAPI {
 
     console.log(`Total tickets fetched: ${allTickets.length}`);
     return allTickets;
-  }  /**
+  }
+
+  /**
+   * Get articles for a specific ticket
+   * @param {string|number} ticketId - Ticket ID to get articles for
+   * @returns {Array} Array of ticket articles
+   */
+  async getTicketArticles(ticketId) {
+    if (!ticketId) {
+      throw new Error('Ticket ID is required');
+    }
+
+    console.log(`Getting articles for ticket ID: ${ticketId}`);
+
+    const endpoint = `/api/v1/ticket_articles/by_ticket/${ticketId}`;
+    
+    try {
+      const result = await this.request(endpoint);
+      console.log(`Successfully got ${result ? result.length : 0} articles for ticket ${ticketId}`);
+      return result || [];
+    } catch (error) {
+      console.error(`Error getting articles for ticket ${ticketId}:`, error);
+      return [];
+    }
+  }
+
+  /**
    * Get all tickets without filtering
    * @returns {Array} Array of tickets
    */
@@ -1726,6 +1752,38 @@ class ZammadAPI {
       }
 
       throw new Error(`Failed to update time entry: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get all groups from Zammad
+   * 
+   * Uses the official Zammad API endpoint:
+   * GET /api/v1/groups
+   * 
+   * Documentation: docs/zammad/docs.zammad.org/en/latest/api/group.html#list
+   * Required permission: ticket.agent or admin.group
+   * 
+   * @returns {Promise<Array>} Array of groups
+   */
+  async getAllGroups() {
+    console.log('Getting all groups from Zammad API');
+
+    try {
+      const endpoint = '/api/v1/groups';
+      console.log(`Fetching groups from endpoint: ${endpoint}`);
+      const result = await this.request(endpoint);
+      
+      if (Array.isArray(result)) {
+        console.log(`Successfully fetched ${result.length} groups`);
+        return result;
+      } else {
+        console.warn('Groups API returned unexpected format:', result);
+        return [];
+      }
+    } catch (error) {
+      console.error('Error fetching groups:', error);
+      throw new Error(`Failed to get groups: ${error.message}`);
     }
   }
 }

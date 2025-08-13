@@ -476,6 +476,10 @@ const translations = {
     [LANGUAGES.DE]: 'Benutzer:',
     [LANGUAGES.EN]: 'User:'
   },
+    'dashboard_group_filter': {
+    [LANGUAGES.DE]: 'Gruppe:',
+    [LANGUAGES.EN]: 'Group:'
+    },
   'dashboard_open': {
     [LANGUAGES.DE]: 'Offen',
     [LANGUAGES.EN]: 'Open'
