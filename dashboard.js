@@ -399,6 +399,47 @@ class ZammadDashboard {
     }
 
     /**
+     * Fetch first article content for all tickets
+     */
+    async fetchFirstArticleForTickets() {
+        if (!this.tickets || this.tickets.length === 0) {
+            return;
+        }
+
+        logger.info(`Fetching first article content for ${this.tickets.length} tickets`);
+
+        // Process tickets in batches to avoid overwhelming the API
+        const batchSize = 5;
+        const batches = [];
+        
+        for (let i = 0; i < this.tickets.length; i += batchSize) {
+            batches.push(this.tickets.slice(i, i + batchSize));
+        }
+
+        for (const batch of batches) {
+            const promises = batch.map(async (ticket) => {
+                try {
+                    const articles = await zammadApi.getTicketArticles(ticket.id);
+                    if (articles && articles.length > 0) {
+                        // Get the first article (usually the original message)
+                        const firstArticle = articles[0];
+                        ticket.first_article_content = firstArticle.body || firstArticle.content || '';
+                        logger.debug(`Added first article content to ticket ${ticket.id}`);
+                    }
+                } catch (error) {
+                    logger.warn(`Failed to fetch articles for ticket ${ticket.id}:`, error);
+                    // Continue with other tickets
+                }
+            });
+
+            // Wait for current batch to complete before processing next batch
+            await Promise.all(promises);
+        }
+
+        logger.info('Finished fetching article content for all tickets');
+    }
+
+    /**
      * Process tickets and categorize by status
      */
     processTickets() {
@@ -805,6 +846,33 @@ class ZammadDashboard {
         </div>
     `;
 
+        // Add hover tooltip functionality
+        let tooltipElement = null;
+        let hoverTimeout = null;
+
+        ticketItem.addEventListener('mouseenter', (event) => {
+            // Clear any existing timeout
+            if (hoverTimeout) {
+                clearTimeout(hoverTimeout);
+            }
+
+            // Show tooltip after a brief delay
+            hoverTimeout = setTimeout(() => {
+                this.showTicketTooltip(event.target, ticket);
+            }, 500); // 500ms delay before showing tooltip
+        });
+
+        ticketItem.addEventListener('mouseleave', (event) => {
+            // Clear timeout if mouse leaves before delay
+            if (hoverTimeout) {
+                clearTimeout(hoverTimeout);
+                hoverTimeout = null;
+            }
+            
+            // Hide tooltip
+            this.hideTicketTooltip();
+        });
+
         // Add click event with selection functionality
         ticketItem.addEventListener('click', (event) => {
             // Check if Ctrl/Cmd key is pressed for selection
@@ -820,6 +888,190 @@ class ZammadDashboard {
         });
 
         return ticketItem;
+    }
+
+    /**
+     * Show tooltip with ticket details on hover
+     * @param {HTMLElement} ticketElement - The ticket element being hovered
+     * @param {Object} ticket - The ticket data object
+     */
+    async showTicketTooltip(ticketElement, ticket) {
+        // Remove any existing tooltip
+        this.hideTicketTooltip();
+
+        // Create tooltip element
+        const tooltip = document.createElement('div');
+        tooltip.className = 'ticket-tooltip';
+        tooltip.id = 'ticket-tooltip';
+
+        // Get ticket details for tooltip
+        const ticketId = ticket.id || ticket.number || 'N/A';
+        const ticketTitle = ticket.title || 'No title available';
+        const ticketState = ticket.state || ticket.state_id || 'Unknown';
+        const ticketPriority = this.getTicketPriority(ticket);
+        
+        // Get formatted updated date
+        let updatedDate = ticket.updated_at || ticket.updatedAt || 'Unknown';
+        if (updatedDate && updatedDate !== 'Unknown') {
+            try {
+                const dateObj = new Date(updatedDate);
+                if (!isNaN(dateObj)) {
+                    updatedDate = dateObj.toLocaleString('de-DE', {
+                        year: 'numeric', month: '2-digit', day: '2-digit',
+                        hour: '2-digit', minute: '2-digit'
+                    });
+                }
+            } catch (e) {
+                // Keep original value
+            }
+        }
+
+        // Get user and group info
+        let userName = 'Not assigned';
+        if (ticket.owner_data && ticket.owner_data.fullname) {
+            userName = ticket.owner_data.fullname;
+        } else if (ticket.owner_id) {
+            const user = this.users.find(u => u.id == ticket.owner_id);
+            if (user) {
+                userName = `${user.firstname || ''} ${user.lastname || ''}`.trim() || user.login || user.email || `User ${user.id}`;
+            }
+        }
+
+        let groupName = 'No Group';
+        if (ticket.group_id && this.groups && this.groups.length > 0) {
+            const group = this.groups.find(g => g.id == ticket.group_id);
+            if (group) {
+                groupName = group.name || 'No Group';
+            }
+        }
+
+        // Fetch first article content if not already cached
+        let firstArticleContent = '';
+        if (!ticket.first_article_content && ticket.id) {
+            try {
+                const articles = await zammadApi.getTicketArticles(ticket.id);
+                if (articles && articles.length > 0) {
+                    const firstArticle = articles[0];
+                    const content = firstArticle.body || firstArticle.content || '';
+                    
+                    // Process and truncate content
+                    let processedContent = content.replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, '');
+                    if (processedContent.length > 200) {
+                        processedContent = processedContent.substring(0, 200) + '...';
+                    }
+                    
+                    // Cache the content on the ticket object
+                    ticket.first_article_content = content;
+                    firstArticleContent = processedContent;
+                }
+            } catch (error) {
+                logger.warn(`Failed to fetch articles for ticket ${ticket.id}:`, error);
+                firstArticleContent = 'Failed to load content';
+            }
+        } else if (ticket.first_article_content) {
+            // Use cached content
+            let content = ticket.first_article_content;
+            content = content.replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, '');
+            if (content.length > 200) {
+                content = content.substring(0, 200) + '...';
+            }
+            firstArticleContent = content;
+        }
+
+        // Build tooltip content
+        tooltip.innerHTML = `
+            <div class="ticket-tooltip-title">${ticketTitle}</div>
+            <div class="ticket-tooltip-field">
+                <span class="ticket-tooltip-label">ID:</span>
+                <span class="ticket-tooltip-value">#${ticketId}</span>
+            </div>
+            <div class="ticket-tooltip-field">
+                <span class="ticket-tooltip-label">State:</span>
+                <span class="ticket-tooltip-value">${ticketState}</span>
+            </div>
+            <div class="ticket-tooltip-field">
+                <span class="ticket-tooltip-label">Priority:</span>
+                <span class="ticket-tooltip-value">${ticketPriority}</span>
+            </div>
+            <div class="ticket-tooltip-field">
+                <span class="ticket-tooltip-label">User:</span>
+                <span class="ticket-tooltip-value">${userName}</span>
+            </div>
+            <div class="ticket-tooltip-field">
+                <span class="ticket-tooltip-label">Group:</span>
+                <span class="ticket-tooltip-value">${groupName}</span>
+            </div>
+            <div class="ticket-tooltip-field">
+                <span class="ticket-tooltip-label">Updated:</span>
+                <span class="ticket-tooltip-value">${updatedDate}</span>
+            </div>
+            ${firstArticleContent ? `<div class="ticket-tooltip-field">
+                <span class="ticket-tooltip-label">Content:</span>
+                <span class="ticket-tooltip-value">${firstArticleContent}</span>
+            </div>` : ''}
+        `;
+
+        // Add to document
+        document.body.appendChild(tooltip);
+
+        // Position tooltip
+        this.positionTooltip(tooltip, ticketElement);
+
+        // Show with animation
+        requestAnimationFrame(() => {
+            tooltip.classList.add('visible');
+        });
+    }
+
+    /**
+     * Hide the ticket tooltip
+     */
+    hideTicketTooltip() {
+        const existingTooltip = document.getElementById('ticket-tooltip');
+        if (existingTooltip) {
+            existingTooltip.classList.remove('visible');
+            setTimeout(() => {
+                if (existingTooltip.parentNode) {
+                    existingTooltip.parentNode.removeChild(existingTooltip);
+                }
+            }, 200); // Match transition duration
+        }
+    }
+
+    /**
+     * Position tooltip relative to ticket element
+     * @param {HTMLElement} tooltip - The tooltip element
+     * @param {HTMLElement} ticketElement - The ticket element
+     */
+    positionTooltip(tooltip, ticketElement) {
+        const ticketRect = ticketElement.getBoundingClientRect();
+        const tooltipRect = tooltip.getBoundingClientRect();
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+
+        let left = ticketRect.left + (ticketRect.width / 2) - (tooltipRect.width / 2);
+        let top = ticketRect.bottom + 10; // 10px below the ticket
+
+        // Adjust horizontal position if tooltip would go off-screen
+        if (left < 10) {
+            left = 10;
+        } else if (left + tooltipRect.width > viewportWidth - 10) {
+            left = viewportWidth - tooltipRect.width - 10;
+        }
+
+        // If tooltip would go below viewport, show above the ticket instead
+        if (top + tooltipRect.height > viewportHeight - 10) {
+            top = ticketRect.top - tooltipRect.height - 10;
+            
+            // Adjust arrow position for top placement
+            const arrow = tooltip.querySelector('::before');
+            if (arrow) {
+                tooltip.style.setProperty('--arrow-position', 'bottom');
+            }
+        }
+
+        tooltip.style.left = `${left}px`;
+        tooltip.style.top = `${top}px`;
     }
 
     /**
