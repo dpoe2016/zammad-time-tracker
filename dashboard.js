@@ -31,6 +31,8 @@ class ZammadDashboard {
         // Filter elements
         this.userFilter = document.getElementById('userFilter');
         this.userFilterLabel = document.getElementById('userFilterLabel');
+        this.groupFilter = document.getElementById('groupFilter');
+        this.groupFilterLabel = document.getElementById('groupFilterLabel');
 
         // Text elements
         this.dashboardTitle = document.getElementById('dashboardTitle');
@@ -48,6 +50,7 @@ class ZammadDashboard {
         this.groups = [];
         this.isLoading = false;
         this.selectedUserId = 'all'; // Default to all users
+        this.selectedGroup = 'all'; // Default to all groups
         this.draggedTicket = null; // Track the currently dragged ticket
         this.userCache = new Map(); // Cache user data to avoid repeated API calls
         this.baseUrl = '';
@@ -78,6 +81,9 @@ class ZammadDashboard {
         this.backBtnText.textContent = t('dashboard_back');
         this.loadingText.textContent = t('dashboard_loading');
         this.userFilterLabel.textContent = t('dashboard_user_filter') || 'User:';
+        if (this.groupFilterLabel) {
+            this.groupFilterLabel.textContent = t('dashboard_group_filter') || 'Group:';
+        }
 
         // Column titles
         this.openColumnTitle.textContent = t('dashboard_open');
@@ -189,6 +195,16 @@ class ZammadDashboard {
             this.selectedUserId = selectedValue;
             this.loadTickets();
         });
+
+        // Group filter change
+        if (this.groupFilter) {
+            this.groupFilter.addEventListener('change', () => {
+                const selectedGroup = this.groupFilter.value;
+                logger.info(`Group filter changed to: ${selectedGroup}`);
+                this.selectedGroup = selectedGroup;
+                this.applyGroupFilter();
+            });
+        }
     }
 
     /**
@@ -369,6 +385,11 @@ class ZammadDashboard {
 
             // Process and display tickets
             this.processTickets();
+
+            // Populate group filter from the active result set and apply current selection
+            await this.populateGroupFilterFromTickets();
+            this.applyGroupFilter();
+
             this.hideLoading();
 
         } catch (error) {
@@ -534,6 +555,92 @@ class ZammadDashboard {
         console.log(`Added ${users.length} users to filter dropdown`);
     }
 
+    /**
+     * Populate group filter dropdown with groups present in the active ticket result set
+     */
+    async populateGroupFilterFromTickets() {
+        if (!this.groupFilter) return;
+
+        // Collect unique group IDs from active tickets
+        const groupIds = new Set();
+        const nonePresent = this.tickets.some(t => !t.group_id);
+        this.tickets.forEach(t => { if (t.group_id) groupIds.add(String(t.group_id)); });
+
+        // Build list of group options from this.groups using IDs present in tickets
+        const groupsById = new Map((this.groups || []).map(g => [String(g.id), g]));
+        const options = [];
+
+        // Special: include No Group if present in result set
+        if (nonePresent) {
+            options.push({ value: 'none', name: 'No Group' });
+        }
+
+        groupIds.forEach(id => {
+            const g = groupsById.get(id);
+            if (g && g.name) {
+                options.push({ value: id, name: g.name });
+            }
+        });
+
+        // Sort by name
+        options.sort((a, b) => a.name.localeCompare(b.name));
+
+        // Preserve current selection
+        const currentSelection = this.groupFilter.value || 'all';
+
+        // Clear existing dynamic options (keep 'all')
+        const toRemove = Array.from(this.groupFilter.options).filter(opt => opt.value !== 'all');
+        toRemove.forEach(opt => opt.remove());
+
+        // Add new options
+        options.forEach(opt => {
+            const o = document.createElement('option');
+            o.value = opt.value;
+            o.textContent = opt.name;
+            this.groupFilter.appendChild(o);
+        });
+
+        // Restore selection if still available; otherwise reset to 'all'
+        if (currentSelection && Array.from(this.groupFilter.options).some(opt => opt.value === currentSelection)) {
+            this.groupFilter.value = currentSelection;
+        } else {
+            this.groupFilter.value = 'all';
+            this.selectedGroup = 'all';
+        }
+    }
+
+    /**
+     * Apply current group filter to the displayed tickets and update counts
+     */
+    applyGroupFilter() {
+        if (!this.groupFilter) return;
+        const selected = this.groupFilter.value || 'all';
+
+        const lists = [this.openTickets, this.progressTickets, this.waitingTickets, this.closedTickets];
+        lists.forEach(list => {
+            if (!list) return;
+            const items = list.querySelectorAll('.ticket-item');
+            items.forEach(item => {
+                const itemGroupId = item.getAttribute('data-group-id') || 'none';
+                const match = (selected === 'all') ? true : (itemGroupId === selected);
+                item.style.display = match ? '' : 'none';
+            });
+        });
+
+        this.updateCountsFromDOM();
+    }
+
+    /**
+     * Recalculate and set column counters based on currently visible tickets
+     */
+    updateCountsFromDOM() {
+        const countVisible = (list) => list ? Array.from(list.querySelectorAll('.ticket-item')).filter(it => it.style.display !== 'none').length : 0;
+        this.openCount.textContent = String(countVisible(this.openTickets));
+        this.progressCount.textContent = String(countVisible(this.progressTickets));
+        this.waitingCount.textContent = String(countVisible(this.waitingTickets));
+        this.closedCount.textContent = String(countVisible(this.closedTickets));
+    }
+
 
     /**
      * Determine ticket category based on state
@@ -660,6 +767,12 @@ class ZammadDashboard {
         if (userId) {
             ticketItem.setAttribute('data-user-id', userId);
         }
+        if (ticket.group_id) {
+            ticketItem.setAttribute('data-group-id', String(ticket.group_id));
+        } else {
+            ticketItem.setAttribute('data-group-id', 'none');
+        }
+        ticketItem.setAttribute('data-group-name', groupName || 'No Group');
         ticketItem.setAttribute('data-selectable', 'true');
         ticketItem.setAttribute('draggable', 'true');
 
