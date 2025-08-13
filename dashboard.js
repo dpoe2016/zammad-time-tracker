@@ -411,7 +411,7 @@ class ZammadDashboard {
         // Process tickets in batches to avoid overwhelming the API
         const batchSize = 5;
         const batches = [];
-        
+
         for (let i = 0; i < this.tickets.length; i += batchSize) {
             batches.push(this.tickets.slice(i, i + batchSize));
         }
@@ -459,11 +459,11 @@ class ZammadDashboard {
             // First, sort by priority descending (higher priority numbers first)
             const priorityA = a.priority_id || 0;
             const priorityB = b.priority_id || 0;
-            
+
             if (priorityA !== priorityB) {
                 return priorityB - priorityA; // Higher priority first
             }
-            
+
             // If priorities are equal, sort by updated_at descending
             const dateA = new Date(a.updated_at || a.updatedAt || 0);
             const dateB = new Date(b.updated_at || b.updatedAt || 0);
@@ -518,8 +518,8 @@ class ZammadDashboard {
     }
 
     /**
-    * Populate user filter dropdown with actual ticket owners
-    */
+     * Populate user filter dropdown with actual ticket owners
+     */
     async populateUserFilterFromTickets() {
         const userFilter = document.getElementById('userFilter');
         if (!userFilter) return;
@@ -539,7 +539,7 @@ class ZammadDashboard {
 
         // Clear existing user options (keep "All" and "Me")
         const optionsToRemove = Array.from(userFilter.options).filter(opt =>
-          opt.value !== 'all' && opt.value !== 'me'
+            opt.value !== 'all' && opt.value !== 'me'
         );
         optionsToRemove.forEach(option => option.remove());
 
@@ -548,27 +548,27 @@ class ZammadDashboard {
             try {
                 // Check cache first
                 if (this.userCache && this.userCache.has(ownerId)) {
-                    return { id: ownerId, name: this.userCache.get(ownerId) };
+                    return {id: ownerId, name: this.userCache.get(ownerId)};
                 }
 
                 // Fetch from API
                 const user = await this.fetchUserInfo(ownerId);
                 if (user) {
                     const fullName = `${user.firstname || ''} ${user.lastname || ''}`.trim() ||
-                      user.login || user.email || `User ${user.id}`;
+                        user.login || user.email || `User ${user.id}`;
 
                     // Cache the result
                     if (this.userCache) {
                         this.userCache.set(ownerId, fullName);
                     }
 
-                    return { id: ownerId, name: fullName };
+                    return {id: ownerId, name: fullName};
                 } else {
-                    return { id: ownerId, name: `User ${ownerId}` };
+                    return {id: ownerId, name: `User ${ownerId}`};
                 }
             } catch (error) {
                 console.error(`Failed to fetch user ${ownerId}:`, error);
-                return { id: ownerId, name: `User ${ownerId}` };
+                return {id: ownerId, name: `User ${ownerId}`};
             }
         });
 
@@ -603,7 +603,9 @@ class ZammadDashboard {
         // Collect unique group IDs from active tickets
         const groupIds = new Set();
         const nonePresent = this.tickets.some(t => !t.group_id);
-        this.tickets.forEach(t => { if (t.group_id) groupIds.add(String(t.group_id)); });
+        this.tickets.forEach(t => {
+            if (t.group_id) groupIds.add(String(t.group_id));
+        });
 
         // Build list of group options from this.groups using IDs present in tickets
         const groupsById = new Map((this.groups || []).map(g => [String(g.id), g]));
@@ -611,13 +613,13 @@ class ZammadDashboard {
 
         // Special: include No Group if present in result set
         if (nonePresent) {
-            options.push({ value: 'none', name: 'No Group' });
+            options.push({value: 'none', name: 'No Group'});
         }
 
         groupIds.forEach(id => {
             const g = groupsById.get(id);
             if (g && g.name) {
-                options.push({ value: id, name: g.name });
+                options.push({value: id, name: g.name});
             }
         });
 
@@ -784,7 +786,7 @@ class ZammadDashboard {
             }
         }
 
-        if (userName.trim() === '' || userName === undefined || userName === null) {
+        if (userName.trim() === '-' || userName === undefined || userName === null) {
             // If no user information is available, use a fallback
             // Fallback if no user information is available
             userName = 'NOT ASSIGNED'
@@ -868,7 +870,7 @@ class ZammadDashboard {
                 clearTimeout(hoverTimeout);
                 hoverTimeout = null;
             }
-            
+
             // Hide tooltip
             this.hideTicketTooltip();
         });
@@ -909,7 +911,7 @@ class ZammadDashboard {
         const ticketTitle = ticket.title || 'No title available';
         const ticketState = ticket.state || ticket.state_id || 'Unknown';
         const ticketPriority = this.getTicketPriority(ticket);
-        
+
         // Get formatted updated date
         let updatedDate = ticket.updated_at || ticket.updatedAt || 'Unknown';
         if (updatedDate && updatedDate !== 'Unknown') {
@@ -953,13 +955,13 @@ class ZammadDashboard {
                 if (articles && articles.length > 0) {
                     const firstArticle = articles[0];
                     const content = firstArticle.body || firstArticle.content || '';
-                    
+
                     // Process and truncate content
                     let processedContent = content.replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, '');
                     if (processedContent.length > 200) {
                         processedContent = processedContent.substring(0, 200) + '...';
                     }
-                    
+
                     // Cache the content on the ticket object
                     ticket.first_article_content = content;
                     firstArticleContent = processedContent;
@@ -1062,7 +1064,7 @@ class ZammadDashboard {
         // If tooltip would go below viewport, show above the ticket instead
         if (top + tooltipRect.height > viewportHeight - 10) {
             top = ticketRect.top - tooltipRect.height - 10;
-            
+
             // Adjust arrow position for top placement
             const arrow = tooltip.querySelector('::before');
             if (arrow) {
@@ -1157,6 +1159,7 @@ class ZammadDashboard {
             }
         });
     }
+
     /**
      * Get ticket priority
      * @param {Object} ticket - Ticket object
