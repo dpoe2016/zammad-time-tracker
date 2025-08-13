@@ -31,6 +31,10 @@ class ZammadDashboard {
         // Filter elements
         this.userFilter = document.getElementById('userFilter');
         this.userFilterLabel = document.getElementById('userFilterLabel');
+        this.groupFilter = document.getElementById('groupFilter');
+        this.groupFilterLabel = document.getElementById('groupFilterLabel');
+        this.organizationFilter = document.getElementById('organizationFilter');
+        this.organizationFilterLabel = document.getElementById('organizationFilterLabel');
 
         // Text elements
         this.dashboardTitle = document.getElementById('dashboardTitle');
@@ -45,8 +49,12 @@ class ZammadDashboard {
         // Ticket data
         this.tickets = [];
         this.users = [];
+        this.groups = [];
+        this.organizations = [];
         this.isLoading = false;
         this.selectedUserId = 'all'; // Default to all users
+        this.selectedGroup = 'all'; // Default to all groups
+        this.selectedOrganization = 'all'; // Default to all organizations
         this.draggedTicket = null; // Track the currently dragged ticket
         this.userCache = new Map(); // Cache user data to avoid repeated API calls
         this.baseUrl = '';
@@ -77,6 +85,10 @@ class ZammadDashboard {
         this.backBtnText.textContent = t('dashboard_back');
         this.loadingText.textContent = t('dashboard_loading');
         this.userFilterLabel.textContent = t('dashboard_user_filter') || 'User:';
+        this.groupFilterLabel.textContent = t('dashboard_group_filter') || 'Group:';
+        if (this.organizationFilterLabel) {
+            this.organizationFilterLabel.textContent = t('dashboard_org_filter') || 'Organization:';
+        }
 
         // Column titles
         this.openColumnTitle.textContent = t('dashboard_open');
@@ -186,8 +198,31 @@ class ZammadDashboard {
             const selectedValue = this.userFilter.value;
             logger.info(`User filter changed to: ${selectedValue}`);
             this.selectedUserId = selectedValue;
+            this.saveFilterSettings();
             this.loadTickets();
         });
+
+        // Group filter change
+        if (this.groupFilter) {
+            this.groupFilter.addEventListener('change', () => {
+                const selectedGroup = this.groupFilter.value;
+                logger.info(`Group filter changed to: ${selectedGroup}`);
+                this.selectedGroup = selectedGroup;
+                this.saveFilterSettings();
+                this.applyGroupFilter();
+            });
+        }
+
+        // Organization filter change
+        if (this.organizationFilter) {
+            this.organizationFilter.addEventListener('change', () => {
+                const selectedOrg = this.organizationFilter.value;
+                logger.info(`Organization filter changed to: ${selectedOrg}`);
+                this.selectedOrganization = selectedOrg;
+                this.saveFilterSettings();
+                this.applyOrganizationFilter();
+            });
+        }
     }
 
     /**
@@ -337,6 +372,26 @@ class ZammadDashboard {
                 throw new Error('API not initialized');
             }
 
+            // Fetch groups from Zammad API
+            try {
+                const groups = await zammadApi.getAllGroups();
+                this.groups = Array.isArray(groups) ? groups : [];
+                logger.info(`Loaded ${this.groups.length} groups from API`);
+            } catch (error) {
+                logger.warn('Failed to load groups, continuing without group information:', error);
+                this.groups = [];
+            }
+
+            // Fetch organizations from Zammad API
+            try {
+                const orgs = await zammadApi.getAllOrganizations();
+                this.organizations = Array.isArray(orgs) ? orgs : [];
+                logger.info(`Loaded ${this.organizations.length} organizations from API`);
+            } catch (error) {
+                logger.warn('Failed to load organizations, continuing without organization information:', error);
+                this.organizations = [];
+            }
+
             // Get tickets based on selected user filter
             let tickets;
             if (this.selectedUserId === 'all') {
@@ -358,6 +413,15 @@ class ZammadDashboard {
 
             // Process and display tickets
             this.processTickets();
+
+            // Populate group filter from the active result set and apply current selection
+            await this.populateGroupFilterFromTickets();
+            this.applyGroupFilter();
+
+            // Populate organization filter from the active result set and apply current selection
+            await this.populateOrganizationFilterFromTickets();
+            this.applyOrganizationFilter();
+
             this.hideLoading();
 
         } catch (error) {
@@ -366,6 +430,47 @@ class ZammadDashboard {
         } finally {
             this.isLoading = false;
         }
+    }
+
+    /**
+     * Fetch first article content for all tickets
+     */
+    async fetchFirstArticleForTickets() {
+        if (!this.tickets || this.tickets.length === 0) {
+            return;
+        }
+
+        logger.info(`Fetching first article content for ${this.tickets.length} tickets`);
+
+        // Process tickets in batches to avoid overwhelming the API
+        const batchSize = 5;
+        const batches = [];
+
+        for (let i = 0; i < this.tickets.length; i += batchSize) {
+            batches.push(this.tickets.slice(i, i + batchSize));
+        }
+
+        for (const batch of batches) {
+            const promises = batch.map(async (ticket) => {
+                try {
+                    const articles = await zammadApi.getTicketArticles(ticket.id);
+                    if (articles && articles.length > 0) {
+                        // Get the first article (usually the original message)
+                        const firstArticle = articles[0];
+                        ticket.first_article_content = firstArticle.body || firstArticle.content || '';
+                        logger.debug(`Added first article content to ticket ${ticket.id}`);
+                    }
+                } catch (error) {
+                    logger.warn(`Failed to fetch articles for ticket ${ticket.id}:`, error);
+                    // Continue with other tickets
+                }
+            });
+
+            // Wait for current batch to complete before processing next batch
+            await Promise.all(promises);
+        }
+
+        logger.info('Finished fetching article content for all tickets');
     }
 
     /**
@@ -388,11 +493,11 @@ class ZammadDashboard {
             // First, sort by priority descending (higher priority numbers first)
             const priorityA = a.priority_id || 0;
             const priorityB = b.priority_id || 0;
-            
+
             if (priorityA !== priorityB) {
                 return priorityB - priorityA; // Higher priority first
             }
-            
+
             // If priorities are equal, sort by updated_at descending
             const dateA = new Date(a.updated_at || a.updatedAt || 0);
             const dateB = new Date(b.updated_at || b.updatedAt || 0);
@@ -447,8 +552,8 @@ class ZammadDashboard {
     }
 
     /**
-    * Populate user filter dropdown with actual ticket owners
-    */
+     * Populate user filter dropdown with actual ticket owners
+     */
     async populateUserFilterFromTickets() {
         const userFilter = document.getElementById('userFilter');
         if (!userFilter) return;
@@ -468,7 +573,7 @@ class ZammadDashboard {
 
         // Clear existing user options (keep "All" and "Me")
         const optionsToRemove = Array.from(userFilter.options).filter(opt =>
-          opt.value !== 'all' && opt.value !== 'me'
+            opt.value !== 'all' && opt.value !== 'me'
         );
         optionsToRemove.forEach(option => option.remove());
 
@@ -477,27 +582,27 @@ class ZammadDashboard {
             try {
                 // Check cache first
                 if (this.userCache && this.userCache.has(ownerId)) {
-                    return { id: ownerId, name: this.userCache.get(ownerId) };
+                    return {id: ownerId, name: this.userCache.get(ownerId)};
                 }
 
                 // Fetch from API
                 const user = await this.fetchUserInfo(ownerId);
                 if (user) {
                     const fullName = `${user.firstname || ''} ${user.lastname || ''}`.trim() ||
-                      user.login || user.email || `User ${user.id}`;
+                        user.login || user.email || `User ${user.id}`;
 
                     // Cache the result
                     if (this.userCache) {
                         this.userCache.set(ownerId, fullName);
                     }
 
-                    return { id: ownerId, name: fullName };
+                    return {id: ownerId, name: fullName};
                 } else {
-                    return { id: ownerId, name: `User ${ownerId}` };
+                    return {id: ownerId, name: `User ${ownerId}`};
                 }
             } catch (error) {
                 console.error(`Failed to fetch user ${ownerId}:`, error);
-                return { id: ownerId, name: `User ${ownerId}` };
+                return {id: ownerId, name: `User ${ownerId}`};
             }
         });
 
@@ -521,6 +626,124 @@ class ZammadDashboard {
         }
 
         console.log(`Added ${users.length} users to filter dropdown`);
+    }
+
+    /**
+     * Populate group filter dropdown with groups present in the active ticket result set
+     */
+    async populateGroupFilterFromTickets() {
+        if (!this.groupFilter) return;
+
+        // Collect unique group IDs from active tickets
+        const groupIds = new Set();
+        const nonePresent = this.tickets.some(t => !t.group_id);
+        this.tickets.forEach(t => {
+            if (t.group_id) groupIds.add(String(t.group_id));
+        });
+
+        // Build list of group options from this.groups using IDs present in tickets
+        const groupsById = new Map((this.groups || []).map(g => [String(g.id), g]));
+        const options = [];
+
+        // Special: include No Group if present in result set
+        if (nonePresent) {
+            options.push({value: 'none', name: 'No Group'});
+        }
+
+        groupIds.forEach(id => {
+            const g = groupsById.get(id);
+            if (g && g.name) {
+                options.push({value: id, name: g.name});
+            }
+        });
+
+        // Sort by name
+        options.sort((a, b) => a.name.localeCompare(b.name));
+
+        // Preserve current selection
+        const currentSelection = this.groupFilter.value || 'all';
+
+        // Clear existing dynamic options (keep 'all')
+        const toRemove = Array.from(this.groupFilter.options).filter(opt => opt.value !== 'all');
+        toRemove.forEach(opt => opt.remove());
+
+        // Add new options
+        options.forEach(opt => {
+            const o = document.createElement('option');
+            o.value = opt.value;
+            o.textContent = opt.name;
+            this.groupFilter.appendChild(o);
+        });
+
+        // Restore selection if still available; otherwise reset to 'all'
+        if (currentSelection && Array.from(this.groupFilter.options).some(opt => opt.value === currentSelection)) {
+            this.groupFilter.value = currentSelection;
+        } else {
+            this.groupFilter.value = 'all';
+            this.selectedGroup = 'all';
+        }
+        
+        // Restore saved filter settings now that both filters are populated
+        await this.restoreFilterSettings();
+    }
+
+    /**
+     * Apply current group filter to the displayed tickets and update counts
+     */
+    applyGroupFilter() {
+        if (!this.groupFilter) return;
+        const selectedGroup = this.groupFilter.value || 'all';
+        const selectedOrg = this.organizationFilter ? (this.organizationFilter.value || 'all') : 'all';
+
+        const lists = [this.openTickets, this.progressTickets, this.waitingTickets, this.closedTickets];
+        lists.forEach(list => {
+            if (!list) return;
+            const items = list.querySelectorAll('.ticket-item');
+            items.forEach(item => {
+                const itemGroupId = item.getAttribute('data-group-id') || 'none';
+                const itemOrgId = item.getAttribute('data-organization-id') || 'none';
+                const groupMatch = (selectedGroup === 'all') ? true : (itemGroupId === selectedGroup);
+                const orgMatch = (selectedOrg === 'all') ? true : (itemOrgId === selectedOrg);
+                item.style.display = (groupMatch && orgMatch) ? '' : 'none';
+            });
+        });
+
+        this.updateCountsFromDOM();
+    }
+
+    /**
+     * Apply current organization filter to the displayed tickets and update counts
+     */
+    applyOrganizationFilter() {
+        if (!this.organizationFilter) return;
+        const selectedOrg = this.organizationFilter.value || 'all';
+        const selectedGroup = this.groupFilter ? (this.groupFilter.value || 'all') : 'all';
+
+        const lists = [this.openTickets, this.progressTickets, this.waitingTickets, this.closedTickets];
+        lists.forEach(list => {
+            if (!list) return;
+            const items = list.querySelectorAll('.ticket-item');
+            items.forEach(item => {
+                const itemOrgId = item.getAttribute('data-organization-id') || 'none';
+                const itemGroupId = item.getAttribute('data-group-id') || 'none';
+                const orgMatch = (selectedOrg === 'all') ? true : (itemOrgId === selectedOrg);
+                const groupMatch = (selectedGroup === 'all') ? true : (itemGroupId === selectedGroup);
+                item.style.display = (groupMatch && orgMatch) ? '' : 'none';
+            });
+        });
+
+        this.updateCountsFromDOM();
+    }
+
+    /**
+     * Recalculate and set column counters based on currently visible tickets
+     */
+    updateCountsFromDOM() {
+        const countVisible = (list) => list ? Array.from(list.querySelectorAll('.ticket-item')).filter(it => it.style.display !== 'none').length : 0;
+        this.openCount.textContent = String(countVisible(this.openTickets));
+        this.progressCount.textContent = String(countVisible(this.progressTickets));
+        this.waitingCount.textContent = String(countVisible(this.waitingTickets));
+        this.closedCount.textContent = String(countVisible(this.closedTickets));
     }
 
 
@@ -627,6 +850,30 @@ class ZammadDashboard {
             }
         }
 
+        if (userName.trim() === '-' || userName === undefined || userName === null) {
+            // If no user information is available, use a fallback
+            // Fallback if no user information is available
+            userName = 'NOT ASSIGNED'
+        }
+
+        // Get group information
+        let groupName = '';
+        if (ticket.group_id && this.groups && this.groups.length > 0) {
+            const group = this.groups.find(g => g.id == ticket.group_id);
+            if (group) {
+                groupName = group.name || '';
+            }
+        }
+
+        // Get organization information
+        let organizationName = '';
+        if (ticket.organization_id && this.organizations && this.organizations.length > 0) {
+            const org = this.organizations.find(o => o.id == ticket.organization_id);
+            if (org) {
+                organizationName = org.name || '';
+            }
+        }
+
         // Create ticket item element
         const ticketItem = document.createElement('div');
         ticketItem.className = 'ticket-item';
@@ -634,6 +881,18 @@ class ZammadDashboard {
         if (userId) {
             ticketItem.setAttribute('data-user-id', userId);
         }
+        if (ticket.group_id) {
+            ticketItem.setAttribute('data-group-id', String(ticket.group_id));
+        } else {
+            ticketItem.setAttribute('data-group-id', 'none');
+        }
+        ticketItem.setAttribute('data-group-name', groupName || 'No Group');
+        if (ticket.organization_id) {
+            ticketItem.setAttribute('data-organization-id', String(ticket.organization_id));
+        } else {
+            ticketItem.setAttribute('data-organization-id', 'none');
+        }
+        ticketItem.setAttribute('data-organization-name', organizationName || 'No Organization');
         ticketItem.setAttribute('data-selectable', 'true');
         ticketItem.setAttribute('draggable', 'true');
 
@@ -652,18 +911,49 @@ class ZammadDashboard {
             logger.info(`Stopped dragging ticket #${ticketId}`);
         });
 
-        // Add ticket content
+        // Add ticket content - 3 row layout
         ticketItem.innerHTML = `
-        <div class="ticket-item-title">${ticketTitle}</div>
-        <div class="ticket-item-details">
-            <span class="ticket-item-id">${userName || `#${ticketId}`}</span>
-            <div class="ticket-item-meta">  
-                <span>${updated_at}</span>
-                <span class="ticket-item-priority ${this.getPriorityClass(ticketPriority)}">${ticketPriority}</span>
-                <span class="ticket-number">#${ticketId}</span>
-            </div>
+        <div class="ticket-row-1">
+            <div class="ticket-item-title">${ticketTitle}</div>
+        </div>
+        <div class="ticket-row-2">
+        <span class="ticket-number">#${ticketId}</span>
+            <span class="ticket-item-group">${groupName ? `${groupName}` : 'No Group'}</span>
+            <span class="ticket-item-organization">${organizationName ? `${organizationName}` : 'No Organization'}</span>
+        </div>
+        <div class="ticket-row-3">
+            <span class="ticket-item-user">${userName || `User #${ticketId}`}</span>
+            <span class="ticket-updated">${updated_at}</span>
+            <span class="ticket-item-priority ${this.getPriorityClass(ticketPriority)}">${ticketPriority}</span>
         </div>
     `;
+
+        // Add hover tooltip functionality
+        let tooltipElement = null;
+        let hoverTimeout = null;
+
+        ticketItem.addEventListener('mouseenter', (event) => {
+            // Clear any existing timeout
+            if (hoverTimeout) {
+                clearTimeout(hoverTimeout);
+            }
+
+            // Show tooltip after a brief delay
+            hoverTimeout = setTimeout(() => {
+                this.showTicketTooltip(event.target, ticket);
+            }, 500); // 500ms delay before showing tooltip
+        });
+
+        ticketItem.addEventListener('mouseleave', (event) => {
+            // Clear timeout if mouse leaves before delay
+            if (hoverTimeout) {
+                clearTimeout(hoverTimeout);
+                hoverTimeout = null;
+            }
+
+            // Hide tooltip
+            this.hideTicketTooltip();
+        });
 
         // Add click event with selection functionality
         ticketItem.addEventListener('click', (event) => {
@@ -680,6 +970,190 @@ class ZammadDashboard {
         });
 
         return ticketItem;
+    }
+
+    /**
+     * Show tooltip with ticket details on hover
+     * @param {HTMLElement} ticketElement - The ticket element being hovered
+     * @param {Object} ticket - The ticket data object
+     */
+    async showTicketTooltip(ticketElement, ticket) {
+        // Remove any existing tooltip
+        this.hideTicketTooltip();
+
+        // Create tooltip element
+        const tooltip = document.createElement('div');
+        tooltip.className = 'ticket-tooltip';
+        tooltip.id = 'ticket-tooltip';
+
+        // Get ticket details for tooltip
+        const ticketId = ticket.id || ticket.number || 'N/A';
+        const ticketTitle = ticket.title || 'No title available';
+        const ticketState = ticket.state || ticket.state_id || 'Unknown';
+        const ticketPriority = this.getTicketPriority(ticket);
+
+        // Get formatted updated date
+        let updatedDate = ticket.updated_at || ticket.updatedAt || 'Unknown';
+        if (updatedDate && updatedDate !== 'Unknown') {
+            try {
+                const dateObj = new Date(updatedDate);
+                if (!isNaN(dateObj)) {
+                    updatedDate = dateObj.toLocaleString('de-DE', {
+                        year: 'numeric', month: '2-digit', day: '2-digit',
+                        hour: '2-digit', minute: '2-digit'
+                    });
+                }
+            } catch (e) {
+                // Keep original value
+            }
+        }
+
+        // Get user and group info
+        let userName = 'Not assigned';
+        if (ticket.owner_data && ticket.owner_data.fullname) {
+            userName = ticket.owner_data.fullname;
+        } else if (ticket.owner_id) {
+            const user = this.users.find(u => u.id == ticket.owner_id);
+            if (user) {
+                userName = `${user.firstname || ''} ${user.lastname || ''}`.trim() || user.login || user.email || `User ${user.id}`;
+            }
+        }
+
+        let groupName = 'No Group';
+        if (ticket.group_id && this.groups && this.groups.length > 0) {
+            const group = this.groups.find(g => g.id == ticket.group_id);
+            if (group) {
+                groupName = group.name || 'No Group';
+            }
+        }
+
+        // Fetch first article content if not already cached
+        let firstArticleContent = '';
+        if (!ticket.first_article_content && ticket.id) {
+            try {
+                const articles = await zammadApi.getTicketArticles(ticket.id);
+                if (articles && articles.length > 0) {
+                    const firstArticle = articles[0];
+                    const content = firstArticle.body || firstArticle.content || '';
+
+                    // Process and truncate content
+                    let processedContent = content.replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, '');
+                    if (processedContent.length > 200) {
+                        processedContent = processedContent.substring(0, 200) + '...';
+                    }
+
+                    // Cache the content on the ticket object
+                    ticket.first_article_content = content;
+                    firstArticleContent = processedContent;
+                }
+            } catch (error) {
+                logger.warn(`Failed to fetch articles for ticket ${ticket.id}:`, error);
+                firstArticleContent = 'Failed to load content';
+            }
+        } else if (ticket.first_article_content) {
+            // Use cached content
+            let content = ticket.first_article_content;
+            content = content.replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, '');
+            if (content.length > 200) {
+                content = content.substring(0, 200) + '...';
+            }
+            firstArticleContent = content;
+        }
+
+        // Build tooltip content
+        tooltip.innerHTML = `
+            <div class="ticket-tooltip-title">${ticketTitle}</div>
+            <div class="ticket-tooltip-field">
+                <span class="ticket-tooltip-label">ID:</span>
+                <span class="ticket-tooltip-value">#${ticketId}</span>
+            </div>
+            <div class="ticket-tooltip-field">
+                <span class="ticket-tooltip-label">State:</span>
+                <span class="ticket-tooltip-value">${ticketState}</span>
+            </div>
+            <div class="ticket-tooltip-field">
+                <span class="ticket-tooltip-label">Priority:</span>
+                <span class="ticket-tooltip-value">${ticketPriority}</span>
+            </div>
+            <div class="ticket-tooltip-field">
+                <span class="ticket-tooltip-label">User:</span>
+                <span class="ticket-tooltip-value">${userName}</span>
+            </div>
+            <div class="ticket-tooltip-field">
+                <span class="ticket-tooltip-label">Group:</span>
+                <span class="ticket-tooltip-value">${groupName}</span>
+            </div>
+            <div class="ticket-tooltip-field">
+                <span class="ticket-tooltip-label">Updated:</span>
+                <span class="ticket-tooltip-value">${updatedDate}</span>
+            </div>
+            ${firstArticleContent ? `<div class="ticket-tooltip-field">
+                <span class="ticket-tooltip-label">Content:</span>
+                <span class="ticket-tooltip-value">${firstArticleContent}</span>
+            </div>` : ''}
+        `;
+
+        // Add to document
+        document.body.appendChild(tooltip);
+
+        // Position tooltip
+        this.positionTooltip(tooltip, ticketElement);
+
+        // Show with animation
+        requestAnimationFrame(() => {
+            tooltip.classList.add('visible');
+        });
+    }
+
+    /**
+     * Hide the ticket tooltip
+     */
+    hideTicketTooltip() {
+        const existingTooltip = document.getElementById('ticket-tooltip');
+        if (existingTooltip) {
+            existingTooltip.classList.remove('visible');
+            setTimeout(() => {
+                if (existingTooltip.parentNode) {
+                    existingTooltip.parentNode.removeChild(existingTooltip);
+                }
+            }, 200); // Match transition duration
+        }
+    }
+
+    /**
+     * Position tooltip relative to ticket element
+     * @param {HTMLElement} tooltip - The tooltip element
+     * @param {HTMLElement} ticketElement - The ticket element
+     */
+    positionTooltip(tooltip, ticketElement) {
+        const ticketRect = ticketElement.getBoundingClientRect();
+        const tooltipRect = tooltip.getBoundingClientRect();
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+
+        let left = ticketRect.left + (ticketRect.width / 2) - (tooltipRect.width / 2);
+        let top = ticketRect.bottom + 10; // 10px below the ticket
+
+        // Adjust horizontal position if tooltip would go off-screen
+        if (left < 10) {
+            left = 10;
+        } else if (left + tooltipRect.width > viewportWidth - 10) {
+            left = viewportWidth - tooltipRect.width - 10;
+        }
+
+        // If tooltip would go below viewport, show above the ticket instead
+        if (top + tooltipRect.height > viewportHeight - 10) {
+            top = ticketRect.top - tooltipRect.height - 10;
+
+            // Adjust arrow position for top placement
+            const arrow = tooltip.querySelector('::before');
+            if (arrow) {
+                tooltip.style.setProperty('--arrow-position', 'bottom');
+            }
+        }
+
+        tooltip.style.left = `${left}px`;
+        tooltip.style.top = `${top}px`;
     }
 
     /**
@@ -765,6 +1239,7 @@ class ZammadDashboard {
             }
         });
     }
+
     /**
      * Get ticket priority
      * @param {Object} ticket - Ticket object
@@ -897,6 +1372,54 @@ class ZammadDashboard {
 
         // Show empty dashboard
         this.showEmptyState();
+    }
+
+    /**
+     * Save current filter settings to local storage
+     */
+    async saveFilterSettings() {
+        try {
+            const filterSettings = {
+                selectedUserId: this.selectedUserId,
+                selectedGroup: this.selectedGroup
+            };
+            
+            await storage.save('dashboardFilterSettings', filterSettings);
+            logger.info('Filter settings saved:', filterSettings);
+        } catch (error) {
+            logger.error('Error saving filter settings:', error);
+        }
+    }
+
+    /**
+     * Restore filter settings from local storage
+     */
+    async restoreFilterSettings() {
+        try {
+            const filterSettings = await storage.load('dashboardFilterSettings', {
+                selectedUserId: 'all',
+                selectedGroup: 'all'
+            });
+            
+            logger.info('Filter settings restored:', filterSettings);
+            
+            // Apply restored settings
+            this.selectedUserId = filterSettings.selectedUserId || 'all';
+            this.selectedGroup = filterSettings.selectedGroup || 'all';
+            
+            // Update UI elements if they exist
+            if (this.userFilter) {
+                this.userFilter.value = this.selectedUserId;
+            }
+            if (this.groupFilter) {
+                this.groupFilter.value = this.selectedGroup;
+            }
+        } catch (error) {
+            logger.error('Error restoring filter settings:', error);
+            // Fall back to defaults if restoration fails
+            this.selectedUserId = 'all';
+            this.selectedGroup = 'all';
+        }
     }
 }
 
