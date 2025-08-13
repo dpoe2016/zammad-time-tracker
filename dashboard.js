@@ -33,6 +33,8 @@ class ZammadDashboard {
         this.userFilterLabel = document.getElementById('userFilterLabel');
         this.groupFilter = document.getElementById('groupFilter');
         this.groupFilterLabel = document.getElementById('groupFilterLabel');
+        this.organizationFilter = document.getElementById('organizationFilter');
+        this.organizationFilterLabel = document.getElementById('organizationFilterLabel');
 
         // Text elements
         this.dashboardTitle = document.getElementById('dashboardTitle');
@@ -48,9 +50,11 @@ class ZammadDashboard {
         this.tickets = [];
         this.users = [];
         this.groups = [];
+        this.organizations = [];
         this.isLoading = false;
         this.selectedUserId = 'all'; // Default to all users
         this.selectedGroup = 'all'; // Default to all groups
+        this.selectedOrganization = 'all'; // Default to all organizations
         this.draggedTicket = null; // Track the currently dragged ticket
         this.userCache = new Map(); // Cache user data to avoid repeated API calls
         this.baseUrl = '';
@@ -76,12 +80,13 @@ class ZammadDashboard {
 
         // Update static UI elements
         document.title = t('dashboard_title');
-        this.dashboardTitle.textContent = t('dashboard_title');
+        this.updateDashboardTitle();
         this.refreshBtnText.textContent = t('dashboard_refresh');
         this.backBtnText.textContent = t('dashboard_back');
         this.loadingText.textContent = t('dashboard_loading');
         this.userFilterLabel.textContent = t('dashboard_user_filter') || 'User:';
         this.groupFilterLabel.textContent = t('dashboard_group_filter') || 'Group:';
+        this.organizationFilterLabel.textContent = t('dashboard_org_filter') || 'Organization:';
 
         // Column titles
         this.openColumnTitle.textContent = t('dashboard_open');
@@ -90,6 +95,20 @@ class ZammadDashboard {
         this.closedColumnTitle.textContent = t('dashboard_closed');
 
         logger.info('UI language updated');
+    }
+
+    /**
+     * Update dashboard title with version from manifest
+     */
+    async updateDashboardTitle() {
+        try {
+            const manifest = chrome.runtime.getManifest();
+            const version = manifest.version;
+            this.dashboardTitle.textContent = `${t('dashboard_title')} v${version}`;
+        } catch (error) {
+            logger.error('Failed to get version from manifest:', error);
+            this.dashboardTitle.textContent = t('dashboard_title');
+        }
     }
 
     /**
@@ -203,6 +222,17 @@ class ZammadDashboard {
                 this.selectedGroup = selectedGroup;
                 this.saveFilterSettings();
                 this.applyGroupFilter();
+            });
+        }
+
+        // Organization filter change
+        if (this.organizationFilter) {
+            this.organizationFilter.addEventListener('change', () => {
+                const selectedOrg = this.organizationFilter.value;
+                logger.info(`Organization filter changed to: ${selectedOrg}`);
+                this.selectedOrganization = selectedOrg;
+                this.saveFilterSettings();
+                this.applyOrganizationFilter();
             });
         }
     }
@@ -364,6 +394,16 @@ class ZammadDashboard {
                 this.groups = [];
             }
 
+            // Fetch organizations from Zammad API
+            try {
+                const orgs = await zammadApi.getAllOrganizations();
+                this.organizations = Array.isArray(orgs) ? orgs : [];
+                logger.info(`Loaded ${this.organizations.length} organizations from API`);
+            } catch (error) {
+                logger.warn('Failed to load organizations, continuing without organization information:', error);
+                this.organizations = [];
+            }
+
             // Get tickets based on selected user filter
             let tickets;
             if (this.selectedUserId === 'all') {
@@ -372,6 +412,13 @@ class ZammadDashboard {
             } else if (this.selectedUserId === 'me') {
                 tickets = await zammadApi.getAssignedTickets();
                 logger.info(`Loaded ${tickets ? tickets.length : 0} tickets assigned to current user`);
+            } else if (this.selectedUserId === 'unassigned') {
+                // Get all tickets and filter for unassigned ones
+                tickets = await zammadApi.getAllTickets();
+                if (Array.isArray(tickets)) {
+                    tickets = tickets.filter(ticket => !ticket.owner_id);
+                }
+                logger.info(`Loaded ${tickets ? tickets.length : 0} unassigned tickets`);
             } else {
                 tickets = await zammadApi.getAllTickets(this.selectedUserId);
                 logger.info(`Loaded ${tickets ? tickets.length : 0} tickets for user ${this.selectedUserId}`);
@@ -389,6 +436,10 @@ class ZammadDashboard {
             // Populate group filter from the active result set and apply current selection
             await this.populateGroupFilterFromTickets();
             this.applyGroupFilter();
+
+            // Populate organization filter from the active result set and apply current selection
+            await this.populateOrganizationFilterFromTickets();
+            this.applyOrganizationFilter();
 
             this.hideLoading();
 
@@ -529,21 +580,49 @@ class ZammadDashboard {
         // Get unique owner IDs from tickets
         const ownerIds = [...new Set(this.tickets.map(t => t.owner_id).filter(id => id))];
 
-        if (ownerIds.length === 0) {
-            console.log('No ticket owners found');
-            return;
-        }
+        // Check if there are unassigned tickets
+        const hasUnassignedTickets = this.tickets.some(t => !t.owner_id);
 
         console.log(`Found ${ownerIds.length} unique ticket owners: ${ownerIds.join(', ')}`);
+        if (hasUnassignedTickets) {
+            console.log('Found unassigned tickets');
+        }
 
         // Preserve current selection
         const currentSelection = userFilter.value;
 
-        // Clear existing user options (keep "All" and "Me")
+        // Clear existing user options (keep "All", "Me", and "Unassigned")
         const optionsToRemove = Array.from(userFilter.options).filter(opt =>
-            opt.value !== 'all' && opt.value !== 'me'
+            opt.value !== 'all' && opt.value !== 'me' && opt.value !== 'unassigned'
         );
         optionsToRemove.forEach(option => option.remove());
+
+        // Add "Unassigned" option if there are unassigned tickets and it doesn't exist
+        if (hasUnassignedTickets && !Array.from(userFilter.options).some(opt => opt.value === 'unassigned')) {
+            const unassignedOption = document.createElement('option');
+            unassignedOption.value = 'unassigned';
+            unassignedOption.textContent = 'Unassigned';
+            // Insert after "Me" option
+            const meOption = Array.from(userFilter.options).find(opt => opt.value === 'me');
+            if (meOption && meOption.nextSibling) {
+                userFilter.insertBefore(unassignedOption, meOption.nextSibling);
+            } else {
+                userFilter.appendChild(unassignedOption);
+            }
+        }
+
+        // Remove "Unassigned" option if there are no unassigned tickets
+        if (!hasUnassignedTickets) {
+            const unassignedOption = Array.from(userFilter.options).find(opt => opt.value === 'unassigned');
+            if (unassignedOption) {
+                unassignedOption.remove();
+            }
+        }
+
+        if (ownerIds.length === 0 && !hasUnassignedTickets) {
+            console.log('No ticket owners found');
+            return;
+        }
 
         // Fetch user information for all owners
         const userPromises = ownerIds.map(async (ownerId) => {
@@ -660,7 +739,8 @@ class ZammadDashboard {
      */
     applyGroupFilter() {
         if (!this.groupFilter) return;
-        const selected = this.groupFilter.value || 'all';
+        const selectedGroup = this.groupFilter.value || 'all';
+        const selectedOrg = this.organizationFilter ? (this.organizationFilter.value || 'all') : 'all';
 
         const lists = [this.openTickets, this.progressTickets, this.waitingTickets, this.closedTickets];
         lists.forEach(list => {
@@ -668,8 +748,34 @@ class ZammadDashboard {
             const items = list.querySelectorAll('.ticket-item');
             items.forEach(item => {
                 const itemGroupId = item.getAttribute('data-group-id') || 'none';
-                const match = (selected === 'all') ? true : (itemGroupId === selected);
-                item.style.display = match ? '' : 'none';
+                const itemOrgId = item.getAttribute('data-organization-id') || 'none';
+                const groupMatch = (selectedGroup === 'all') ? true : (itemGroupId === selectedGroup);
+                const orgMatch = (selectedOrg === 'all') ? true : (itemOrgId === selectedOrg);
+                item.style.display = (groupMatch && orgMatch) ? '' : 'none';
+            });
+        });
+
+        this.updateCountsFromDOM();
+    }
+
+    /**
+     * Apply current organization filter to the displayed tickets and update counts
+     */
+    applyOrganizationFilter() {
+        if (!this.organizationFilter) return;
+        const selectedOrg = this.organizationFilter.value || 'all';
+        const selectedGroup = this.groupFilter ? (this.groupFilter.value || 'all') : 'all';
+
+        const lists = [this.openTickets, this.progressTickets, this.waitingTickets, this.closedTickets];
+        lists.forEach(list => {
+            if (!list) return;
+            const items = list.querySelectorAll('.ticket-item');
+            items.forEach(item => {
+                const itemOrgId = item.getAttribute('data-organization-id') || 'none';
+                const itemGroupId = item.getAttribute('data-group-id') || 'none';
+                const orgMatch = (selectedOrg === 'all') ? true : (itemOrgId === selectedOrg);
+                const groupMatch = (selectedGroup === 'all') ? true : (itemGroupId === selectedGroup);
+                item.style.display = (groupMatch && orgMatch) ? '' : 'none';
             });
         });
 
@@ -806,6 +912,15 @@ class ZammadDashboard {
             }
         }
 
+        // Get organization information
+        let organizationName = '';
+        if (ticket.organization_id && this.organizations && this.organizations.length > 0) {
+            const org = this.organizations.find(o => o.id == ticket.organization_id);
+            if (org) {
+                organizationName = org.name || '';
+            }
+        }
+
         // Create ticket item element
         const ticketItem = document.createElement('div');
         ticketItem.className = 'ticket-item';
@@ -819,6 +934,12 @@ class ZammadDashboard {
             ticketItem.setAttribute('data-group-id', 'none');
         }
         ticketItem.setAttribute('data-group-name', groupName || 'No Group');
+        if (ticket.organization_id) {
+            ticketItem.setAttribute('data-organization-id', String(ticket.organization_id));
+        } else {
+            ticketItem.setAttribute('data-organization-id', 'none');
+        }
+        ticketItem.setAttribute('data-organization-name', organizationName || 'No Organization');
         ticketItem.setAttribute('data-selectable', 'true');
         ticketItem.setAttribute('draggable', 'true');
 
@@ -845,6 +966,7 @@ class ZammadDashboard {
         <div class="ticket-row-2">
         <span class="ticket-number">#${ticketId}</span>
             <span class="ticket-item-group">${groupName ? `${groupName}` : 'No Group'}</span>
+<!--            <span class="ticket-item-organization">${organizationName ? `${organizationName}` : 'No Organization'}</span>-->
         </div>
         <div class="ticket-row-3">
             <span class="ticket-item-user">${userName || `User #${ticketId}`}</span>
@@ -1306,7 +1428,8 @@ class ZammadDashboard {
         try {
             const filterSettings = {
                 selectedUserId: this.selectedUserId,
-                selectedGroup: this.selectedGroup
+                selectedGroup: this.selectedGroup,
+                selectedOrganization: this.selectedOrganization
             };
             
             await storage.save('dashboardFilterSettings', filterSettings);
@@ -1323,7 +1446,8 @@ class ZammadDashboard {
         try {
             const filterSettings = await storage.load('dashboardFilterSettings', {
                 selectedUserId: 'all',
-                selectedGroup: 'all'
+                selectedGroup: 'all',
+                selectedOrganization: 'all'
             });
             
             logger.info('Filter settings restored:', filterSettings);
@@ -1331,6 +1455,7 @@ class ZammadDashboard {
             // Apply restored settings
             this.selectedUserId = filterSettings.selectedUserId || 'all';
             this.selectedGroup = filterSettings.selectedGroup || 'all';
+            this.selectedOrganization = filterSettings.selectedOrganization || 'all';
             
             // Update UI elements if they exist
             if (this.userFilter) {
@@ -1339,11 +1464,68 @@ class ZammadDashboard {
             if (this.groupFilter) {
                 this.groupFilter.value = this.selectedGroup;
             }
+            if (this.organizationFilter) {
+                this.organizationFilter.value = this.selectedOrganization;
+            }
         } catch (error) {
             logger.error('Error restoring filter settings:', error);
             // Fall back to defaults if restoration fails
             this.selectedUserId = 'all';
             this.selectedGroup = 'all';
+            this.selectedOrganization = 'all';
+        }
+    }
+
+    async populateOrganizationFilterFromTickets() {
+        if (!this.organizationFilter) return;
+
+        // Collect unique organization IDs from active tickets
+        const organizationIds = new Set();
+        const nonePresent = this.tickets.some(t => !t.organization_id);
+        this.tickets.forEach(t => {
+            if (t.organization_id) organizationIds.add(String(t.organization_id));
+        });
+
+        // Build list of organization options from this.organizations using IDs present in tickets
+        const organizationsById = new Map((this.organizations || []).map(o => [String(o.id), o]));
+        const options = [];
+
+        // Special: include No Organization if present in result set
+        if (nonePresent) {
+            options.push({value: 'none', name: 'No Organization'});
+        }
+
+        organizationIds.forEach(id => {
+            const org = organizationsById.get(id);
+            if (org && org.name) {
+                options.push({value: id, name: org.name});
+            }
+        });
+
+        // Sort by name
+        options.sort((a, b) => a.name.localeCompare(b.name));
+
+        // Preserve current selection
+        const currentSelection = this.organizationFilter.value || 'all';
+
+        // Clear existing dynamic options (keep 'all')
+        const toRemove = Array.from(this.organizationFilter.options).filter(opt => opt.value !== 'all');
+        toRemove.forEach(opt => opt.remove());
+
+        // Add new options
+        options.forEach(opt => {
+            const o = document.createElement('option');
+            o.value = opt.value;
+            o.textContent = opt.name;
+            this.organizationFilter.appendChild(o);
+        });
+
+        // Restore selection if still available; otherwise reset to 'all'
+        if (currentSelection && Array.from(this.organizationFilter.options).some(opt => opt.value === currentSelection)) {
+            this.organizationFilter.value = currentSelection;
+        } else {
+            this.organizationFilter.value = 'all';
+            this.selectedOrganization = 'all';
         }
     }
 }

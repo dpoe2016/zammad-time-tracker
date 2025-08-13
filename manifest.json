@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Zammad Time Tracking Extension",
-  "version": "1.0",
+  "version": "2.4.0",
   "description": "Track time for Zammad tickets",
 
   "permissions": [

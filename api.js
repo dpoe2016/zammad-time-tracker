@@ -1786,6 +1786,36 @@ class ZammadAPI {
       throw new Error(`Failed to get groups: ${error.message}`);
     }
   }
+
+  /**
+   * Get all organizations from Zammad
+   * 
+   * Uses the official Zammad API endpoint:
+   * GET /api/v1/organizations
+   * 
+   * Documentation: docs.zammad.org/en/latest/api/organization.html#list
+   * Required permission: ticket.agent or admin.organization
+   * 
+   * @returns {Promise<Array>} Array of organizations
+   */
+  async getAllOrganizations() {
+    console.log('Getting all organizations from Zammad API');
+    try {
+      const endpoint = '/api/v1/organizations';
+      console.log(`Fetching organizations from endpoint: ${endpoint}`);
+      const result = await this.request(endpoint);
+      if (Array.isArray(result)) {
+        console.log(`Successfully fetched ${result.length} organizations`);
+        return result;
+      } else {
+        console.warn('Organizations API returned unexpected format:', result);
+        return [];
+      }
+    } catch (error) {
+      console.error('Error fetching organizations:', error);
+      throw new Error(`Failed to get organizations: ${error.message}`);
+    }
+  }
 }
 
 // Create and export a singleton instance
