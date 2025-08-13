@@ -372,6 +372,13 @@ class ZammadDashboard {
             } else if (this.selectedUserId === 'me') {
                 tickets = await zammadApi.getAssignedTickets();
                 logger.info(`Loaded ${tickets ? tickets.length : 0} tickets assigned to current user`);
+            } else if (this.selectedUserId === 'unassigned') {
+                // Get all tickets and filter for unassigned ones
+                tickets = await zammadApi.getAllTickets();
+                if (Array.isArray(tickets)) {
+                    tickets = tickets.filter(ticket => !ticket.owner_id);
+                }
+                logger.info(`Loaded ${tickets ? tickets.length : 0} unassigned tickets`);
             } else {
                 tickets = await zammadApi.getAllTickets(this.selectedUserId);
                 logger.info(`Loaded ${tickets ? tickets.length : 0} tickets for user ${this.selectedUserId}`);
@@ -529,21 +536,49 @@ class ZammadDashboard {
         // Get unique owner IDs from tickets
         const ownerIds = [...new Set(this.tickets.map(t => t.owner_id).filter(id => id))];
 
-        if (ownerIds.length === 0) {
-            console.log('No ticket owners found');
-            return;
-        }
+        // Check if there are unassigned tickets
+        const hasUnassignedTickets = this.tickets.some(t => !t.owner_id);
 
         console.log(`Found ${ownerIds.length} unique ticket owners: ${ownerIds.join(', ')}`);
+        if (hasUnassignedTickets) {
+            console.log('Found unassigned tickets');
+        }
 
         // Preserve current selection
         const currentSelection = userFilter.value;
 
-        // Clear existing user options (keep "All" and "Me")
+        // Clear existing user options (keep "All", "Me", and "Unassigned")
         const optionsToRemove = Array.from(userFilter.options).filter(opt =>
-            opt.value !== 'all' && opt.value !== 'me'
+            opt.value !== 'all' && opt.value !== 'me' && opt.value !== 'unassigned'
         );
         optionsToRemove.forEach(option => option.remove());
+
+        // Add "Unassigned" option if there are unassigned tickets and it doesn't exist
+        if (hasUnassignedTickets && !Array.from(userFilter.options).some(opt => opt.value === 'unassigned')) {
+            const unassignedOption = document.createElement('option');
+            unassignedOption.value = 'unassigned';
+            unassignedOption.textContent = 'Unassigned';
+            // Insert after "Me" option
+            const meOption = Array.from(userFilter.options).find(opt => opt.value === 'me');
+            if (meOption && meOption.nextSibling) {
+                userFilter.insertBefore(unassignedOption, meOption.nextSibling);
+            } else {
+                userFilter.appendChild(unassignedOption);
+            }
+        }
+
+        // Remove "Unassigned" option if there are no unassigned tickets
+        if (!hasUnassignedTickets) {
+            const unassignedOption = Array.from(userFilter.options).find(opt => opt.value === 'unassigned');
+            if (unassignedOption) {
+                unassignedOption.remove();
+            }
+        }
+
+        if (ownerIds.length === 0 && !hasUnassignedTickets) {
+            console.log('No ticket owners found');
+            return;
+        }
 
         // Fetch user information for all owners
         const userPromises = ownerIds.map(async (ownerId) => {
