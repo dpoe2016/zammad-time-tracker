@@ -191,6 +191,7 @@ class ZammadDashboard {
             const selectedValue = this.userFilter.value;
             logger.info(`User filter changed to: ${selectedValue}`);
             this.selectedUserId = selectedValue;
+            this.saveFilterSettings();
             this.loadTickets();
         });
 
@@ -200,6 +201,7 @@ class ZammadDashboard {
                 const selectedGroup = this.groupFilter.value;
                 logger.info(`Group filter changed to: ${selectedGroup}`);
                 this.selectedGroup = selectedGroup;
+                this.saveFilterSettings();
                 this.applyGroupFilter();
             });
         }
@@ -648,6 +650,9 @@ class ZammadDashboard {
             this.groupFilter.value = 'all';
             this.selectedGroup = 'all';
         }
+        
+        // Restore saved filter settings now that both filters are populated
+        await this.restoreFilterSettings();
     }
 
     /**
@@ -1292,6 +1297,54 @@ class ZammadDashboard {
 
         // Show empty dashboard
         this.showEmptyState();
+    }
+
+    /**
+     * Save current filter settings to local storage
+     */
+    async saveFilterSettings() {
+        try {
+            const filterSettings = {
+                selectedUserId: this.selectedUserId,
+                selectedGroup: this.selectedGroup
+            };
+            
+            await storage.save('dashboardFilterSettings', filterSettings);
+            logger.info('Filter settings saved:', filterSettings);
+        } catch (error) {
+            logger.error('Error saving filter settings:', error);
+        }
+    }
+
+    /**
+     * Restore filter settings from local storage
+     */
+    async restoreFilterSettings() {
+        try {
+            const filterSettings = await storage.load('dashboardFilterSettings', {
+                selectedUserId: 'all',
+                selectedGroup: 'all'
+            });
+            
+            logger.info('Filter settings restored:', filterSettings);
+            
+            // Apply restored settings
+            this.selectedUserId = filterSettings.selectedUserId || 'all';
+            this.selectedGroup = filterSettings.selectedGroup || 'all';
+            
+            // Update UI elements if they exist
+            if (this.userFilter) {
+                this.userFilter.value = this.selectedUserId;
+            }
+            if (this.groupFilter) {
+                this.groupFilter.value = this.selectedGroup;
+            }
+        } catch (error) {
+            logger.error('Error restoring filter settings:', error);
+            // Fall back to defaults if restoration fails
+            this.selectedUserId = 'all';
+            this.selectedGroup = 'all';
+        }
     }
 }
 
