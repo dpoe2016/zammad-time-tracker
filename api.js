@@ -1246,7 +1246,33 @@ class ZammadAPI {
 
     console.log(`Total tickets fetched: ${allTickets.length}`);
     return allTickets;
-  }  /**
+  }
+
+  /**
+   * Get articles for a specific ticket
+   * @param {string|number} ticketId - Ticket ID to get articles for
+   * @returns {Array} Array of ticket articles
+   */
+  async getTicketArticles(ticketId) {
+    if (!ticketId) {
+      throw new Error('Ticket ID is required');
+    }
+
+    console.log(`Getting articles for ticket ID: ${ticketId}`);
+
+    const endpoint = `/api/v1/ticket_articles/by_ticket/${ticketId}`;
+    
+    try {
+      const result = await this.request(endpoint);
+      console.log(`Successfully got ${result ? result.length : 0} articles for ticket ${ticketId}`);
+      return result || [];
+    } catch (error) {
+      console.error(`Error getting articles for ticket ${ticketId}:`, error);
+      return [];
+    }
+  }
+
+  /**
    * Get all tickets without filtering
    * @returns {Array} Array of tickets
    */
