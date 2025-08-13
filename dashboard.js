@@ -86,9 +86,7 @@ class ZammadDashboard {
         this.loadingText.textContent = t('dashboard_loading');
         this.userFilterLabel.textContent = t('dashboard_user_filter') || 'User:';
         this.groupFilterLabel.textContent = t('dashboard_group_filter') || 'Group:';
-        if (this.organizationFilterLabel) {
-            this.organizationFilterLabel.textContent = t('dashboard_org_filter') || 'Organization:';
-        }
+        this.organizationFilterLabel.textContent = t('dashboard_org_filter') || 'Organization:';
 
         // Column titles
         this.openColumnTitle.textContent = t('dashboard_open');

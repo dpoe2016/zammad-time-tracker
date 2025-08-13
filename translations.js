@@ -480,7 +480,7 @@ const translations = {
         [LANGUAGES.DE]: 'Gruppe:',
         [LANGUAGES.EN]: 'Group:'
     },
-    'dashboard_organization_filter': {
+    'dashboard_org_filter': {
         [LANGUAGES.DE]: 'Organisation:',
         [LANGUAGES.EN]: 'Organization:'
     },
