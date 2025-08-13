@@ -85,3 +85,5 @@ zip -r "../$ZIP_NAME" .
 cd ..
 
 echo "Build abgeschlossen. Das Deployment-Paket befindet sich in $DIST_DIR und als $ZIP_NAME."
+rm -rf "$DIST_DIR"
+echo "Bereinigung abgeschlossen."
