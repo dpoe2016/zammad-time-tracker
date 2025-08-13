@@ -638,6 +638,12 @@ class ZammadDashboard {
             }
         }
 
+        if (userName.trim() === '' || userName === undefined || userName === null) {
+            // If no user information is available, use a fallback
+            // Fallback if no user information is available
+            userName = 'NOT ASSIGNED'
+        }
+
         // Get group information
         let groupName = '';
         if (ticket.group_id && this.groups && this.groups.length > 0) {

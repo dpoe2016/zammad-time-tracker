@@ -556,9 +556,16 @@ html { height: 100%; }
 }
 
 
-/* Layout for third row of ticket to align priority to the right */
+/* Layout for ticket rows; ensure consistent left alignment and spacing */
+.ticket-row-1,
+.ticket-row-2,
 .ticket-row-3 {
     display: flex;
     align-items: center;
     gap: 8px;
+}
+
+/* Ensure second row starts at the left border without extra indent */
+.ticket-row-2 .ticket-number {
+    margin-left: 0;
 }
