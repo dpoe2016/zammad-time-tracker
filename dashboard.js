@@ -679,7 +679,7 @@ class ZammadDashboard {
         </div>
         <div class="ticket-row-2">
         <span class="ticket-number">#${ticketId}</span>
-            <span class="ticket-item-group">${groupName ? `📁 ${groupName}` : '📁 No Group'}</span>
+            <span class="ticket-item-group">${groupName ? `${groupName}` : 'No Group'}</span>
         </div>
         <div class="ticket-row-3">
             <span class="ticket-item-user">${userName || `User #${ticketId}`}</span>
