@@ -1381,7 +1381,8 @@ class ZammadDashboard {
         try {
             const filterSettings = {
                 selectedUserId: this.selectedUserId,
-                selectedGroup: this.selectedGroup
+                selectedGroup: this.selectedGroup,
+                selectedOrganization: this.selectedOrganization
             };
             
             await storage.save('dashboardFilterSettings', filterSettings);
@@ -1398,7 +1399,8 @@ class ZammadDashboard {
         try {
             const filterSettings = await storage.load('dashboardFilterSettings', {
                 selectedUserId: 'all',
-                selectedGroup: 'all'
+                selectedGroup: 'all',
+                selectedOrganization: 'all'
             });
             
             logger.info('Filter settings restored:', filterSettings);
@@ -1406,6 +1408,7 @@ class ZammadDashboard {
             // Apply restored settings
             this.selectedUserId = filterSettings.selectedUserId || 'all';
             this.selectedGroup = filterSettings.selectedGroup || 'all';
+            this.selectedOrganization = filterSettings.selectedOrganization || 'all';
             
             // Update UI elements if they exist
             if (this.userFilter) {
@@ -1414,11 +1417,68 @@ class ZammadDashboard {
             if (this.groupFilter) {
                 this.groupFilter.value = this.selectedGroup;
             }
+            if (this.organizationFilter) {
+                this.organizationFilter.value = this.selectedOrganization;
+            }
         } catch (error) {
             logger.error('Error restoring filter settings:', error);
             // Fall back to defaults if restoration fails
             this.selectedUserId = 'all';
             this.selectedGroup = 'all';
+            this.selectedOrganization = 'all';
+        }
+    }
+
+    async populateOrganizationFilterFromTickets() {
+        if (!this.organizationFilter) return;
+
+        // Collect unique organization IDs from active tickets
+        const organizationIds = new Set();
+        const nonePresent = this.tickets.some(t => !t.organization_id);
+        this.tickets.forEach(t => {
+            if (t.organization_id) organizationIds.add(String(t.organization_id));
+        });
+
+        // Build list of organization options from this.organizations using IDs present in tickets
+        const organizationsById = new Map((this.organizations || []).map(o => [String(o.id), o]));
+        const options = [];
+
+        // Special: include No Organization if present in result set
+        if (nonePresent) {
+            options.push({value: 'none', name: 'No Organization'});
+        }
+
+        organizationIds.forEach(id => {
+            const org = organizationsById.get(id);
+            if (org && org.name) {
+                options.push({value: id, name: org.name});
+            }
+        });
+
+        // Sort by name
+        options.sort((a, b) => a.name.localeCompare(b.name));
+
+        // Preserve current selection
+        const currentSelection = this.organizationFilter.value || 'all';
+
+        // Clear existing dynamic options (keep 'all')
+        const toRemove = Array.from(this.organizationFilter.options).filter(opt => opt.value !== 'all');
+        toRemove.forEach(opt => opt.remove());
+
+        // Add new options
+        options.forEach(opt => {
+            const o = document.createElement('option');
+            o.value = opt.value;
+            o.textContent = opt.name;
+            this.organizationFilter.appendChild(o);
+        });
+
+        // Restore selection if still available; otherwise reset to 'all'
+        if (currentSelection && Array.from(this.organizationFilter.options).some(opt => opt.value === currentSelection)) {
+            this.organizationFilter.value = currentSelection;
+        } else {
+            this.organizationFilter.value = 'all';
+            this.selectedOrganization = 'all';
         }
     }
 }
