@@ -80,7 +80,7 @@ class ZammadDashboard {
 
         // Update static UI elements
         document.title = t('dashboard_title');
-        this.dashboardTitle.textContent = t('dashboard_title');
+        this.updateDashboardTitle();
         this.refreshBtnText.textContent = t('dashboard_refresh');
         this.backBtnText.textContent = t('dashboard_back');
         this.loadingText.textContent = t('dashboard_loading');
@@ -95,6 +95,20 @@ class ZammadDashboard {
         this.closedColumnTitle.textContent = t('dashboard_closed');
 
         logger.info('UI language updated');
+    }
+
+    /**
+     * Update dashboard title with version from manifest
+     */
+    async updateDashboardTitle() {
+        try {
+            const manifest = chrome.runtime.getManifest();
+            const version = manifest.version;
+            this.dashboardTitle.textContent = `${t('dashboard_title')} v${version}`;
+        } catch (error) {
+            logger.error('Failed to get version from manifest:', error);
+            this.dashboardTitle.textContent = t('dashboard_title');
+        }
     }
 
     /**
