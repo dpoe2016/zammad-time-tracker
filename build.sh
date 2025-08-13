@@ -87,3 +87,10 @@ cd ..
 echo "Build abgeschlossen. Das Deployment-Paket befindet sich in $DIST_DIR und als $ZIP_NAME."
 rm -rf "$DIST_DIR"
 echo "Bereinigung abgeschlossen."
+
+echo "Commit changes to git"
+git add "$MANIFEST_FILE" build.sh
+git commit -m "Update version to $(grep '"version"' "$MANIFEST_FILE" | sed 's/.*"version": "\(.*\)".*/\1/')"
+git tag -a "v$(grep '"version"' "$MANIFEST_FILE" | sed 's/.*"version": "\(.*\)".*/\1/')" -m "Release version $(grep '"version"' "$MANIFEST_FILE" | sed 's/.*"version": "\(.*\)".*/\1/')"
+git push origin main --tags
+echo "Changes committed and pushed to git."
