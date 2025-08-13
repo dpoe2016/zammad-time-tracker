@@ -81,9 +81,7 @@ class ZammadDashboard {
         this.backBtnText.textContent = t('dashboard_back');
         this.loadingText.textContent = t('dashboard_loading');
         this.userFilterLabel.textContent = t('dashboard_user_filter') || 'User:';
-        if (this.groupFilterLabel) {
-            this.groupFilterLabel.textContent = t('dashboard_group_filter') || 'Group:';
-        }
+        this.groupFilterLabel.textContent = t('dashboard_group_filter') || 'Group:';
 
         // Column titles
         this.openColumnTitle.textContent = t('dashboard_open');
