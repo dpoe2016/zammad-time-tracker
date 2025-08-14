@@ -416,7 +416,7 @@ class ZammadDashboard {
                 // Get all tickets and filter for unassigned ones
                 tickets = await zammadApi.getAllTickets();
                 if (Array.isArray(tickets)) {
-                    tickets = tickets.filter(ticket => !ticket.owner_id && !ticket.state_id === 9); // Exclude merged tickets
+                    tickets = tickets.filter(ticket => !ticket.owner_id && ticket.state_id !== 9); // Exclude merged tickets
                 }
                 logger.info(`Loaded ${tickets ? tickets.length : 0} unassigned tickets`);
             } else {
@@ -507,8 +507,12 @@ class ZammadDashboard {
             return;
         }
 
+        // Filter out merged tickets (state_id === 9) - they should not appear in dashboard
+        const filteredTickets = this.tickets.filter(ticket => ticket.state_id !== 9);
+        logger.info(`Filtered ${this.tickets.length - filteredTickets.length} merged tickets from dashboard`);
+
         // Sort tickets by priority descending, then by updated_at descending
-        const sortedTickets = this.tickets.slice().sort((a, b) => {
+        const sortedTickets = filteredTickets.slice().sort((a, b) => {
             // First, sort by priority descending (higher priority numbers first)
             const priorityA = a.priority_id || 0;
             const priorityB = b.priority_id || 0;
