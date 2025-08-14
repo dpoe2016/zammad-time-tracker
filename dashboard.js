@@ -239,7 +239,7 @@ class ZammadDashboard {
                 logger.info(`Group filter changed to: ${selectedGroup}`);
                 this.selectedGroup = selectedGroup;
                 this.saveFilterSettings();
-                this.applyGroupFilter();
+                this.applyFilters();
             });
         }
 
@@ -250,7 +250,7 @@ class ZammadDashboard {
                 logger.info(`Organization filter changed to: ${selectedOrg}`);
                 this.selectedOrganization = selectedOrg;
                 this.saveFilterSettings();
-                this.applyOrganizationFilter();
+                this.applyFilters();
             });
         }
 
@@ -907,6 +907,38 @@ class ZammadDashboard {
         let filtered = tickets.filter(ticket => {
             // Always filter out merged tickets (state_id === 9)
             if (ticket.state_id === 9) return false;
+
+            // User filter
+            if (this.selectedUserId !== 'all') {
+                if (this.selectedUserId === 'me') {
+                    // Filter for current user's tickets
+                    const currentUserId = this.getCurrentUserId();
+                    if (ticket.owner_id !== currentUserId) return false;
+                } else if (this.selectedUserId === 'unassigned') {
+                    // Filter for unassigned tickets
+                    if (ticket.owner_id) return false;
+                } else {
+                    // Filter for specific user
+                    if (ticket.owner_id.toString() !== this.selectedUserId) return false;
+                }
+            }
+
+            // Group filter
+            if (this.selectedGroup !== 'all') {
+                if (ticket.group_id.toString() !== this.selectedGroup) return false;
+            }
+
+            // Organization filter
+            if (this.selectedOrganization !== 'all') {
+                const orgId = ticket.organization_id || (ticket.customer && ticket.customer.organization_id);
+                if (this.selectedOrganization === 'none') {
+                    // Filter for tickets with no organization
+                    if (orgId) return false;
+                } else {
+                    // Filter for specific organization
+                    if (!orgId || orgId.toString() !== this.selectedOrganization) return false;
+                }
+            }
 
             // Priority filter
             if (this.selectedPriority !== 'all') {
@@ -1621,6 +1653,14 @@ class ZammadDashboard {
 
 
         return displayName;
+    }
+
+    /**
+     * Get current user ID from the API
+     * @returns {string|number|null} Current user ID
+     */
+    getCurrentUserId() {
+        return zammadApi && zammadApi.currentUserId ? zammadApi.currentUserId : null;
     }
 
 // Check if certain users are restricted
