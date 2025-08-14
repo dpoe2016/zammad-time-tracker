@@ -29,12 +29,18 @@ class ZammadDashboard {
         this.backToPopupBtn = document.getElementById('backToPopupBtn');
 
         // Filter elements
+        this.viewToggle = document.getElementById('viewToggle');
+        this.viewToggleLabel = document.getElementById('viewToggleLabel');
         this.userFilter = document.getElementById('userFilter');
         this.userFilterLabel = document.getElementById('userFilterLabel');
         this.groupFilter = document.getElementById('groupFilter');
         this.groupFilterLabel = document.getElementById('groupFilterLabel');
         this.organizationFilter = document.getElementById('organizationFilter');
         this.organizationFilterLabel = document.getElementById('organizationFilterLabel');
+        this.priorityFilter = document.getElementById('priorityFilter');
+        this.priorityFilterLabel = document.getElementById('priorityFilterLabel');
+        this.stateFilter = document.getElementById('stateFilter');
+        this.stateFilterLabel = document.getElementById('stateFilterLabel');
 
         // Text elements
         this.dashboardTitle = document.getElementById('dashboardTitle');
@@ -52,9 +58,12 @@ class ZammadDashboard {
         this.groups = [];
         this.organizations = [];
         this.isLoading = false;
+        this.currentView = 'state'; // Default to state view
         this.selectedUserId = 'all'; // Default to all users
         this.selectedGroup = 'all'; // Default to all groups
         this.selectedOrganization = 'all'; // Default to all organizations
+        this.selectedPriority = 'all'; // Default to all priorities
+        this.selectedState = 'all'; // Default to all states
         this.draggedTicket = null; // Track the currently dragged ticket
         this.userCache = new Map(); // Cache user data to avoid repeated API calls
         this.baseUrl = '';
@@ -104,7 +113,7 @@ class ZammadDashboard {
         try {
             const manifest = chrome.runtime.getManifest();
             const version = manifest.version;
-            this.dashboardTitle.textContent = `${t('dashboard_title')} v${version}`;
+            this.dashboardTitle.textContent = `v${version}`;
         } catch (error) {
             logger.error('Failed to get version from manifest:', error);
             this.dashboardTitle.textContent = t('dashboard_title');
@@ -205,6 +214,15 @@ class ZammadDashboard {
             window.close();
         });
 
+        // View toggle change
+        this.viewToggle.addEventListener('change', () => {
+            const selectedView = this.viewToggle.value;
+            logger.info(`View changed to: ${selectedView}`);
+            this.currentView = selectedView;
+            this.updateDashboardLayout();
+            this.processTickets();
+        });
+
         // User filter change
         this.userFilter.addEventListener('change', () => {
             const selectedValue = this.userFilter.value;
@@ -235,6 +253,26 @@ class ZammadDashboard {
                 this.applyOrganizationFilter();
             });
         }
+
+        // Priority filter change
+        if (this.priorityFilter) {
+            this.priorityFilter.addEventListener('change', () => {
+                const selectedPriority = this.priorityFilter.value;
+                logger.info(`Priority filter changed to: ${selectedPriority}`);
+                this.selectedPriority = selectedPriority;
+                this.applyFilters();
+            });
+        }
+
+        // State filter change
+        if (this.stateFilter) {
+            this.stateFilter.addEventListener('change', () => {
+                const selectedState = this.stateFilter.value;
+                logger.info(`State filter changed to: ${selectedState}`);
+                this.selectedState = selectedState;
+                this.applyFilters();
+            });
+        }
     }
 
     /**
@@ -248,6 +286,24 @@ class ZammadDashboard {
         this.setupDropZone(this.progressTickets, 'progress');
         this.setupDropZone(this.waitingTickets, 'waiting');
         this.setupDropZone(this.closedTickets, 'closed');
+    }
+
+    /**
+     * Initialize drag and drop functionality for agent view
+     */
+    initAgentDragAndDrop() {
+        logger.info('Setting up drag and drop functionality for agent view');
+
+        // Get unique agents and set up drop zones for each agent column
+        const agents = this.getUniqueAgents();
+        agents.forEach(agent => {
+            const agentId = agent.id || 'unassigned';
+            const columnId = `agent-${agentId}`;
+            const container = document.getElementById(columnId);
+            if (container) {
+                this.setupAgentDropZone(container, agentId, agent.name);
+            }
+        });
     }
 
     /**
@@ -286,6 +342,52 @@ class ZammadDashboard {
 
             // Update the ticket state
             this.updateTicketState(ticketId, category);
+        });
+    }
+
+    /**
+     * Set up a drop zone for an agent column
+     * @param {HTMLElement} container - The container element
+     * @param {string} agentId - The agent ID ('unassigned' for unassigned tickets)
+     * @param {string} agentName - The agent name for display
+     */
+    setupAgentDropZone(container, agentId, agentName) {
+        if (!container) return;
+        
+        container.setAttribute('data-agent-id', agentId);
+        container.addEventListener('dragover', (event) => {
+            event.preventDefault();
+            container.classList.add('drag-over');
+        });
+
+        container.addEventListener('dragleave', () => {
+            container.classList.remove('drag-over');
+        });
+
+        container.addEventListener('drop', (event) => {
+            event.preventDefault();
+            container.classList.remove('drag-over');
+
+            // Get the dragged ticket ID
+            if (!this.draggedTicket) return;
+
+            const ticketId = this.draggedTicket.getAttribute('data-ticket-id');
+            const currentOwnerId = this.draggedTicket.getAttribute('data-user-id');
+            
+            // Convert agentId for comparison (null/undefined becomes 'unassigned')
+            const targetAgentId = agentId === 'unassigned' ? null : agentId;
+            const currentAgentId = currentOwnerId === 'null' || !currentOwnerId ? null : currentOwnerId;
+
+            // If dropped on the same agent, do nothing
+            if (currentAgentId == targetAgentId) {
+                logger.info(`Ticket #${ticketId} dropped on the same agent (${agentName})`);
+                return;
+            }
+
+            logger.info(`Ticket #${ticketId} dropped on agent: ${agentName} (${agentId})`);
+
+            // Update the ticket owner
+            this.updateTicketOwner(ticketId, targetAgentId, agentName);
         });
     }
 
@@ -337,6 +439,39 @@ class ZammadDashboard {
         } catch (error) {
             logger.error(`Error updating ticket state:`, error);
             this.showError(`Failed to update ticket: ${error.message}`);
+        }
+    }
+
+    /**
+     * Update a ticket's owner via API
+     * @param {string|number} ticketId - The ticket ID
+     * @param {string|number|null} newOwnerId - The new owner ID (null for unassigned)
+     * @param {string} agentName - The agent name for display
+     */
+    async updateTicketOwner(ticketId, newOwnerId, agentName) {
+        try {
+            logger.info(`Updating ticket #${ticketId} owner to: ${agentName} (${newOwnerId || 'unassigned'})`);
+
+            // Show loading indicator
+            this.showLoading();
+
+            // Prepare update data
+            const updateData = {
+                owner_id: newOwnerId || ''
+            };
+
+            // Make API request to update ticket
+            const endpoint = `/api/v1/tickets/${ticketId}`;
+            await zammadApi.request(endpoint, 'PUT', updateData);
+
+            logger.info(`Successfully updated ticket #${ticketId} owner to ${agentName}`);
+
+            // Reload tickets to reflect changes
+            await this.loadTickets();
+
+        } catch (error) {
+            logger.error(`Error updating ticket owner:`, error);
+            this.showError(`Failed to update ticket owner: ${error.message}`);
         }
     }
 
@@ -430,7 +565,8 @@ class ZammadDashboard {
             // Populate user filter with actual ticket owners
             await this.populateUserFilterFromTickets();
 
-            // Process and display tickets
+            // Update dashboard layout and process tickets
+            this.updateDashboardLayout();
             this.processTickets();
 
             // Populate group filter from the active result set and apply current selection
@@ -493,7 +629,133 @@ class ZammadDashboard {
     }
 
     /**
-     * Process tickets and categorize by status
+     * Update dashboard layout based on current view
+     */
+    updateDashboardLayout() {
+        logger.info(`Updating dashboard layout for ${this.currentView} view`);
+
+        // Clear existing dashboard content
+        this.dashboardContainer.innerHTML = '';
+
+        if (this.currentView === 'state') {
+            this.setupStateView();
+        } else if (this.currentView === 'agent') {
+            this.setupAgentView();
+        }
+    }
+
+    /**
+     * Setup state-based view with status columns
+     */
+    setupStateView() {
+        // Create state columns
+        const stateColumns = [
+            { id: 'openTickets', titleId: 'openColumnTitle', countId: 'openCount', title: 'Open' },
+            { id: 'progressTickets', titleId: 'progressColumnTitle', countId: 'progressCount', title: 'In Progress' },
+            { id: 'waitingTickets', titleId: 'waitingColumnTitle', countId: 'waitingCount', title: 'Waiting' },
+            { id: 'closedTickets', titleId: 'closedColumnTitle', countId: 'closedCount', title: 'Closed' }
+        ];
+
+        stateColumns.forEach(column => {
+            const columnElement = this.createColumnElement(column.id, column.titleId, column.countId, column.title);
+            this.dashboardContainer.appendChild(columnElement);
+        });
+
+        // Re-reference DOM elements for state view
+        this.openTickets = document.getElementById('openTickets');
+        this.progressTickets = document.getElementById('progressTickets');
+        this.waitingTickets = document.getElementById('waitingTickets');
+        this.closedTickets = document.getElementById('closedTickets');
+        this.openCount = document.getElementById('openCount');
+        this.progressCount = document.getElementById('progressCount');
+        this.waitingCount = document.getElementById('waitingCount');
+        this.closedCount = document.getElementById('closedCount');
+
+        // Re-initialize drag and drop for state view
+        this.initDragAndDrop();
+    }
+
+    /**
+     * Setup agent-based view with agent columns
+     */
+    setupAgentView() {
+        // Get unique agents from tickets
+        const agents = this.getUniqueAgents();
+        
+        agents.forEach(agent => {
+            const columnId = `agent-${agent.id || 'unassigned'}`;
+            const titleId = `agent-title-${agent.id || 'unassigned'}`;
+            const countId = `agent-count-${agent.id || 'unassigned'}`;
+            const columnElement = this.createColumnElement(columnId, titleId, countId, agent.name);
+            this.dashboardContainer.appendChild(columnElement);
+        });
+
+        // Initialize drag and drop for agent view
+        this.initAgentDragAndDrop();
+    }
+
+    /**
+     * Create a column element for the dashboard
+     */
+    createColumnElement(columnId, titleId, countId, title) {
+        const columnElement = document.createElement('div');
+        columnElement.className = 'ticket-column';
+        columnElement.innerHTML = `
+            <div class="column-header">
+                <span id="${titleId}">${title}</span>
+                <span class="count" id="${countId}">0</span>
+            </div>
+            <div class="ticket-list" id="${columnId}"></div>
+        `;
+        return columnElement;
+    }
+
+    /**
+     * Get unique agents from current tickets
+     */
+    getUniqueAgents() {
+        const agentMap = new Map();
+        
+        // Add unassigned category
+        agentMap.set('unassigned', { id: null, name: 'Unassigned' });
+        
+        // Get unique agents from tickets
+        this.tickets.forEach(ticket => {
+            if (ticket.owner_id && !agentMap.has(ticket.owner_id)) {
+                const agentName = this.getAgentName(ticket);
+                // If agent name is '-' or 'NOT ASSIGNED', don't create a separate column for them
+                if (agentName !== '-' && agentName !== 'NOT ASSIGNED') {
+                    agentMap.set(ticket.owner_id, { id: ticket.owner_id, name: agentName });
+                }
+            }
+        });
+        
+        return Array.from(agentMap.values());
+    }
+
+    /**
+     * Get agent name from ticket
+     */
+    getAgentName(ticket) {
+        // Try to get name from various ticket properties
+        if (ticket.owner_data && ticket.owner_data.firstname && ticket.owner_data.lastname) {
+            return `${ticket.owner_data.firstname} ${ticket.owner_data.lastname}`;
+        }
+        if (ticket.owner_data && ticket.owner_data.login) {
+            return ticket.owner_data.login;
+        }
+        if (ticket.owner_name) {
+            return ticket.owner_name;
+        }
+        // Use getUserDisplayName for consistent user name resolution
+        if (ticket.owner_id) {
+            return this.getUserDisplayName(ticket.owner_id);
+        }
+        return 'NOT ASSIGNED';
+    }
+
+    /**
+     * Process tickets and categorize by status or agent based on current view
      */
     processTickets() {
         logger.info('Processing tickets');
@@ -507,9 +769,9 @@ class ZammadDashboard {
             return;
         }
 
-        // Filter out merged tickets (state_id === 9) - they should not appear in dashboard
-        const filteredTickets = this.tickets.filter(ticket => ticket.state_id !== 9);
-        logger.info(`Filtered ${this.tickets.length - filteredTickets.length} merged tickets from dashboard`);
+        // Filter tickets based on all active filters
+        const filteredTickets = this.applyTicketFilters(this.tickets);
+        logger.info(`Filtered to ${filteredTickets.length} tickets from ${this.tickets.length} total`);
 
         // Sort tickets by priority descending, then by updated_at descending
         const sortedTickets = filteredTickets.slice().sort((a, b) => {
@@ -527,6 +789,20 @@ class ZammadDashboard {
             return dateB - dateA;
         });
 
+        if (this.currentView === 'state') {
+            this.processTicketsByState(sortedTickets);
+        } else if (this.currentView === 'agent') {
+            this.processTicketsByAgent(sortedTickets);
+        }
+
+        // Show dashboard
+        this.dashboardContainer.style.display = 'grid';
+    }
+
+    /**
+     * Process tickets organized by state
+     */
+    processTicketsByState(sortedTickets) {
         // Counters for each category
         let openCount = 0;
         let progressCount = 0;
@@ -568,10 +844,94 @@ class ZammadDashboard {
         this.waitingCount.textContent = waitingCount;
         this.closedCount.textContent = closedCount;
 
-        // Show dashboard
-        this.dashboardContainer.style.display = 'grid';
-
         logger.info(`Displayed tickets: ${openCount} open, ${progressCount} in progress, ${waitingCount} waiting, ${closedCount} closed`);
+    }
+
+    /**
+     * Process tickets organized by agent
+     */
+    processTicketsByAgent(sortedTickets) {
+        const agents = this.getUniqueAgents();
+        const agentCounts = new Map();
+
+        // Initialize counters
+        agents.forEach(agent => {
+            agentCounts.set(agent.id || 'unassigned', 0);
+        });
+
+        // Process each ticket
+        sortedTickets.forEach(ticket => {
+            // Create ticket element
+            const ticketElement = this.createTicketElement(ticket);
+
+            // Determine which agent column to use
+            // Check if the agent name is '-' or if there's no owner_id
+            const agentName = this.getAgentName(ticket);
+            let agentId;
+            
+            if (!ticket.owner_id || agentName === '-' || agentName === 'NOT ASSIGNED') {
+                agentId = 'unassigned';
+            } else {
+                agentId = ticket.owner_id;
+            }
+            
+            const columnId = `agent-${agentId}`;
+            const container = document.getElementById(columnId);
+
+            if (container) {
+                container.appendChild(ticketElement);
+                const currentCount = agentCounts.get(agentId) || 0;
+                agentCounts.set(agentId, currentCount + 1);
+            }
+        });
+
+        // Update counters
+        agents.forEach(agent => {
+            const agentId = agent.id || 'unassigned';
+            const countElement = document.getElementById(`agent-count-${agentId}`);
+            if (countElement) {
+                countElement.textContent = agentCounts.get(agentId) || 0;
+            }
+        });
+
+        const totalTickets = sortedTickets.length;
+        logger.info(`Displayed ${totalTickets} tickets organized by agent`);
+    }
+
+    /**
+     * Apply all active ticket filters
+     */
+    applyTicketFilters(tickets) {
+        if (!tickets || tickets.length === 0) return [];
+
+        let filtered = tickets.filter(ticket => {
+            // Always filter out merged tickets (state_id === 9)
+            if (ticket.state_id === 9) return false;
+
+            // Priority filter
+            if (this.selectedPriority !== 'all') {
+                const ticketPriority = ticket.priority_id || 2; // Default to normal priority
+                if (ticketPriority.toString() !== this.selectedPriority) return false;
+            }
+
+            // State filter
+            if (this.selectedState !== 'all') {
+                const ticketCategory = this.getTicketCategory(ticket);
+                if (ticketCategory !== this.selectedState) return false;
+            }
+
+            return true;
+        });
+
+        return filtered;
+    }
+
+    /**
+     * Apply filters and refresh display
+     */
+    applyFilters() {
+        logger.info('Applying filters and refreshing display');
+        this.processTickets();
     }
 
     /**
@@ -1289,7 +1649,7 @@ class ZammadDashboard {
         const ticketElements = document.querySelectorAll(`[data-user-id="${userId}"]`);
 
         ticketElements.forEach(element => {
-            const userElement = element.querySelector('.ticket-item-id');
+            const userElement = element.querySelector('.ticket-item-user');
             if (userElement) {
                 userElement.textContent = userName;
             }
