@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning where possible.
 
+## [2.5.1] - 2025-08-14
+### Added
+- Comprehensive test coverage for dashboard features including drag-drop, filters, and agent view
+- View toggle functionality for switching between different dashboard views
+- Enhanced test files for validating group, organization, and user filter fixes
+
+### Changed
+- Refactored filter application logic for improved performance and reliability
+- Enhanced user filtering to better handle edge cases and invalid entries
+- Improved ticket filtering for merged tickets with better clarity in logging
+
 ## [2.5.0] - 2025-08-14
 ### Added
 - Drag and drop functionality for agent view on dashboard
