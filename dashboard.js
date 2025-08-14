@@ -943,6 +943,11 @@ class ZammadDashboard {
         ticketItem.setAttribute('data-selectable', 'true');
         ticketItem.setAttribute('draggable', 'true');
 
+        // Add special styling for unassigned tickets
+        if (userName === 'NOT ASSIGNED') {
+            ticketItem.classList.add('not-assigned');
+        }
+
         // Add drag events
         ticketItem.addEventListener('dragstart', (event) => {
             this.draggedTicket = ticketItem;

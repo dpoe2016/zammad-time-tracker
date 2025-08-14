@@ -359,6 +359,14 @@ html { height: 100%; }
     box-shadow: 0 3px 5px rgba(0,0,0,0.1);
 }
 
+.ticket-item.not-assigned {
+    background-color: #ffda00;
+}
+
+.ticket-item.not-assigned:hover {
+    background-color: #e9ecef;
+}
+
 /* Ticket hover tooltip */
 .ticket-tooltip {
     position: absolute;
