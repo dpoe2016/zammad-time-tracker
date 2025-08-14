@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning where possible.
 
+## [2.5.0] - 2025-08-14
+### Added
+- Drag and drop functionality for agent view on dashboard
+- Ability to reassign tickets to different agents by dragging and dropping
+- Agent drop zones for ticket assignment management
+- API integration for updating ticket owner via drag and drop
+
+### Changed
+- Enhanced agent column handling to properly categorize unassigned tickets
+- Improved agent name filtering to exclude invalid or placeholder names ('-', 'NOT ASSIGNED')
+
 ## [2.4.0] - 2025-08-14
 ### Added
 - Visual indicator for unassigned tickets on dashboard

@@ -289,6 +289,24 @@ class ZammadDashboard {
     }
 
     /**
+     * Initialize drag and drop functionality for agent view
+     */
+    initAgentDragAndDrop() {
+        logger.info('Setting up drag and drop functionality for agent view');
+
+        // Get unique agents and set up drop zones for each agent column
+        const agents = this.getUniqueAgents();
+        agents.forEach(agent => {
+            const agentId = agent.id || 'unassigned';
+            const columnId = `agent-${agentId}`;
+            const container = document.getElementById(columnId);
+            if (container) {
+                this.setupAgentDropZone(container, agentId, agent.name);
+            }
+        });
+    }
+
+    /**
      * Set up a drop zone for a ticket container
      * @param {HTMLElement} container - The container element
      * @param {string} category - The category of the container (open, progress, waiting, closed)
@@ -324,6 +342,52 @@ class ZammadDashboard {
 
             // Update the ticket state
             this.updateTicketState(ticketId, category);
+        });
+    }
+
+    /**
+     * Set up a drop zone for an agent column
+     * @param {HTMLElement} container - The container element
+     * @param {string} agentId - The agent ID ('unassigned' for unassigned tickets)
+     * @param {string} agentName - The agent name for display
+     */
+    setupAgentDropZone(container, agentId, agentName) {
+        if (!container) return;
+        
+        container.setAttribute('data-agent-id', agentId);
+        container.addEventListener('dragover', (event) => {
+            event.preventDefault();
+            container.classList.add('drag-over');
+        });
+
+        container.addEventListener('dragleave', () => {
+            container.classList.remove('drag-over');
+        });
+
+        container.addEventListener('drop', (event) => {
+            event.preventDefault();
+            container.classList.remove('drag-over');
+
+            // Get the dragged ticket ID
+            if (!this.draggedTicket) return;
+
+            const ticketId = this.draggedTicket.getAttribute('data-ticket-id');
+            const currentOwnerId = this.draggedTicket.getAttribute('data-user-id');
+            
+            // Convert agentId for comparison (null/undefined becomes 'unassigned')
+            const targetAgentId = agentId === 'unassigned' ? null : agentId;
+            const currentAgentId = currentOwnerId === 'null' || !currentOwnerId ? null : currentOwnerId;
+
+            // If dropped on the same agent, do nothing
+            if (currentAgentId == targetAgentId) {
+                logger.info(`Ticket #${ticketId} dropped on the same agent (${agentName})`);
+                return;
+            }
+
+            logger.info(`Ticket #${ticketId} dropped on agent: ${agentName} (${agentId})`);
+
+            // Update the ticket owner
+            this.updateTicketOwner(ticketId, targetAgentId, agentName);
         });
     }
 
@@ -375,6 +439,39 @@ class ZammadDashboard {
         } catch (error) {
             logger.error(`Error updating ticket state:`, error);
             this.showError(`Failed to update ticket: ${error.message}`);
+        }
+    }
+
+    /**
+     * Update a ticket's owner via API
+     * @param {string|number} ticketId - The ticket ID
+     * @param {string|number|null} newOwnerId - The new owner ID (null for unassigned)
+     * @param {string} agentName - The agent name for display
+     */
+    async updateTicketOwner(ticketId, newOwnerId, agentName) {
+        try {
+            logger.info(`Updating ticket #${ticketId} owner to: ${agentName} (${newOwnerId || 'unassigned'})`);
+
+            // Show loading indicator
+            this.showLoading();
+
+            // Prepare update data
+            const updateData = {
+                owner_id: newOwnerId || ''
+            };
+
+            // Make API request to update ticket
+            const endpoint = `/api/v1/tickets/${ticketId}`;
+            await zammadApi.request(endpoint, 'PUT', updateData);
+
+            logger.info(`Successfully updated ticket #${ticketId} owner to ${agentName}`);
+
+            // Reload tickets to reflect changes
+            await this.loadTickets();
+
+        } catch (error) {
+            logger.error(`Error updating ticket owner:`, error);
+            this.showError(`Failed to update ticket owner: ${error.message}`);
         }
     }
 
@@ -592,6 +689,9 @@ class ZammadDashboard {
             const columnElement = this.createColumnElement(columnId, titleId, countId, agent.name);
             this.dashboardContainer.appendChild(columnElement);
         });
+
+        // Initialize drag and drop for agent view
+        this.initAgentDragAndDrop();
     }
 
     /**
@@ -623,7 +723,10 @@ class ZammadDashboard {
         this.tickets.forEach(ticket => {
             if (ticket.owner_id && !agentMap.has(ticket.owner_id)) {
                 const agentName = this.getAgentName(ticket);
-                agentMap.set(ticket.owner_id, { id: ticket.owner_id, name: agentName });
+                // If agent name is '-' or 'NOT ASSIGNED', don't create a separate column for them
+                if (agentName !== '-' && agentName !== 'NOT ASSIGNED') {
+                    agentMap.set(ticket.owner_id, { id: ticket.owner_id, name: agentName });
+                }
             }
         });
         
@@ -762,7 +865,16 @@ class ZammadDashboard {
             const ticketElement = this.createTicketElement(ticket);
 
             // Determine which agent column to use
-            const agentId = ticket.owner_id || 'unassigned';
+            // Check if the agent name is '-' or if there's no owner_id
+            const agentName = this.getAgentName(ticket);
+            let agentId;
+            
+            if (!ticket.owner_id || agentName === '-' || agentName === 'NOT ASSIGNED') {
+                agentId = 'unassigned';
+            } else {
+                agentId = ticket.owner_id;
+            }
+            
             const columnId = `agent-${agentId}`;
             const container = document.getElementById(columnId);
 
