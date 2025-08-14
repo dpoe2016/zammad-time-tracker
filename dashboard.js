@@ -416,7 +416,7 @@ class ZammadDashboard {
                 // Get all tickets and filter for unassigned ones
                 tickets = await zammadApi.getAllTickets();
                 if (Array.isArray(tickets)) {
-                    tickets = tickets.filter(ticket => !ticket.owner_id);
+                    tickets = tickets.filter(ticket => !ticket.owner_id && !ticket.state_id === 9); // Exclude merged tickets
                 }
                 logger.info(`Loaded ${tickets ? tickets.length : 0} unassigned tickets`);
             } else {

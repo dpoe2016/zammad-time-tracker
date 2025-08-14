@@ -4,6 +4,41 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning where possible.
 
+## [2.4.0] - 2025-08-14
+### Added
+- Visual indicator for unassigned tickets on dashboard
+- Yellow background color highlighting for tickets not assigned to any user
+
+### Changed
+- Enhanced ticket display styling with hover effects for unassigned tickets
+
+## [2.3.0] - 2025-08-13
+### Changed
+- Version update with build improvements
+
+## [2.2.0] - 2025-08-13
+### Changed
+- Version update with manifest enhancements
+
+## [2.1.0] - 2025-08-13
+### Added
+- Enhanced build script with cleanup step
+- Improved versioning system
+
+## [2.0.0] - 2025-08-13
+### Added
+- Dynamic dashboard title updates
+- Enhanced build script with versioning options
+- Organization filter functionality for tickets
+- "Unassigned" tickets filter to dashboard
+- Filter settings persistence across sessions
+- Comprehensive translations for dashboard group filter
+
+### Changed
+- Major version upgrade with improved dashboard functionality
+- Enhanced user experience with persistent filter settings
+- Improved formatting and user name fallback handling
+
 ## [1.0.3] - 2025-08-13
 ### Added
 - Ticket hover tooltips on dashboard showing detailed information (ID, state, priority, user, group, updated date, and content preview)
