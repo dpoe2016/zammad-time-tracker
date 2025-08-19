@@ -219,6 +219,14 @@ class ZammadDashboard {
             const selectedView = this.viewToggle.value;
             logger.info(`View changed to: ${selectedView}`);
             this.currentView = selectedView;
+            
+            // Set default state filter to 'open' when agent view is selected
+            if (selectedView === 'agent' && this.stateFilter) {
+                this.stateFilter.value = 'open';
+                this.selectedState = 'open';
+                logger.info('Default state filter set to "open" for agent view');
+            }
+            
             this.updateDashboardLayout();
             this.processTickets();
         });
