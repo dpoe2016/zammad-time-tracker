@@ -639,6 +639,11 @@ html { height: 100%; }
     gap: 5px;
 }
 
+.ticket-updated-today {
+  border-left: 4px solid #ffc107;
+  background-color: #fff3cd;
+}
+
 
 /* Layout for ticket rows; ensure consistent left alignment and spacing */
 .ticket-row-1,
