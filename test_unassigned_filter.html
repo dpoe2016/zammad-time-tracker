@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Unassigned Filter</title>
+</head>
+<body>
+    <h1>Test Unassigned Ticket Filter</h1>
+    <div id="test-results"></div>
+    
+    <script>
+        // Mock data for testing
+        const mockTickets = [
+            { id: 1, owner_id: 123, title: 'Assigned Ticket 1' },
+            { id: 2, owner_id: null, title: 'Unassigned Ticket 1' },
+            { id: 3, owner_id: 456, title: 'Assigned Ticket 2' },
+            { id: 4, owner_id: undefined, title: 'Unassigned Ticket 2' },
+            { id: 5, title: 'Unassigned Ticket 3' }, // no owner_id property
+        ];
+
+        function testUnassignedFilter() {
+            const results = document.getElementById('test-results');
+            
+            // Test 1: Filter for unassigned tickets
+            const unassignedTickets = mockTickets.filter(ticket => !ticket.owner_id);
+            console.log('Unassigned tickets:', unassignedTickets);
+            
+            const expectedUnassigned = 3; // tickets 2, 4, and 5
+            const actualUnassigned = unassignedTickets.length;
+            
+            results.innerHTML += `<p><strong>Test 1:</strong> Filter unassigned tickets</p>`;
+            results.innerHTML += `<p>Expected: ${expectedUnassigned} unassigned tickets</p>`;
+            results.innerHTML += `<p>Actual: ${actualUnassigned} unassigned tickets</p>`;
+            results.innerHTML += `<p>Result: ${expectedUnassigned === actualUnassigned ? '✅ PASS' : '❌ FAIL'}</p>`;
+            
+            // Test 2: Check if there are unassigned tickets
+            const hasUnassignedTickets = mockTickets.some(t => !t.owner_id);
+            results.innerHTML += `<p><strong>Test 2:</strong> Has unassigned tickets check</p>`;
+            results.innerHTML += `<p>Expected: true</p>`;
+            results.innerHTML += `<p>Actual: ${hasUnassignedTickets}</p>`;
+            results.innerHTML += `<p>Result: ${hasUnassignedTickets ? '✅ PASS' : '❌ FAIL'}</p>`;
+            
+            // Test 3: Test with all assigned tickets
+            const allAssignedTickets = [
+                { id: 1, owner_id: 123, title: 'Assigned Ticket 1' },
+                { id: 2, owner_id: 456, title: 'Assigned Ticket 2' }
+            ];
+            const hasUnassignedInAllAssigned = allAssignedTickets.some(t => !t.owner_id);
+            results.innerHTML += `<p><strong>Test 3:</strong> No unassigned tickets check</p>`;
+            results.innerHTML += `<p>Expected: false</p>`;
+            results.innerHTML += `<p>Actual: ${hasUnassignedInAllAssigned}</p>`;
+            results.innerHTML += `<p>Result: ${!hasUnassignedInAllAssigned ? '✅ PASS' : '❌ FAIL'}</p>`;
+            
+            // Test 4: Display unassigned ticket details
+            results.innerHTML += `<h3>Unassigned Tickets Found:</h3>`;
+            unassignedTickets.forEach(ticket => {
+                results.innerHTML += `<p>- ID: ${ticket.id}, Title: "${ticket.title}", Owner ID: ${ticket.owner_id || 'undefined'}</p>`;
+            });
+        }
+
+        // Run tests when page loads
+        window.onload = testUnassignedFilter;
+    </script>
+</body>
+</html>

@@ -88,9 +88,17 @@ echo "Build abgeschlossen. Das Deployment-Paket befindet sich in $DIST_DIR und a
 rm -rf "$DIST_DIR"
 echo "Bereinigung abgeschlossen."
 
+# Update changelog
+VERSION=$(grep '"version"' "$MANIFEST_FILE" | sed 's/.*"version": "\(.*\)".*/\1/')
+echo "" >> CHANGELOG.md
+echo "## [$VERSION] - $(date +%Y-%m-%d)" >> CHANGELOG.md
+echo "" >> CHANGELOG.md
+echo "- Updated version to $VERSION" >> CHANGELOG.md
+echo "" >> CHANGELOG.md
+
 echo "Commit changes to git"
-git add "$MANIFEST_FILE" build.sh
-git commit -m "Update version to $(grep '"version"' "$MANIFEST_FILE" | sed 's/.*"version": "\(.*\)".*/\1/')"
-git tag -a "v$(grep '"version"' "$MANIFEST_FILE" | sed 's/.*"version": "\(.*\)".*/\1/')" -m "Release version $(grep '"version"' "$MANIFEST_FILE" | sed 's/.*"version": "\(.*\)".*/\1/')"
+git add "$MANIFEST_FILE" build.sh CHANGELOG.md
+git commit -m "Update version to $VERSION"
+git tag -a "v$VERSION" -m "Release version $VERSION"
 git push origin main --tags
 echo "Changes committed and pushed to git."
