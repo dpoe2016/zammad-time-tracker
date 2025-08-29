@@ -307,6 +307,37 @@ html { height: 100%; }
     overflow: hidden;
 }
 
+.dashboard.agent-horizontal {
+    display: flex !important;
+    grid-template-columns: none !important;
+    gap: 10px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 10px;
+    height: calc(100vh - 200px);
+    flex-wrap: nowrap;
+}
+
+.dashboard.agent-horizontal .ticket-column {
+    flex: 0 0 350px;
+    min-width: 350px;
+    max-width: 350px;
+    height: 100%;
+    transition: all 0.3s ease;
+}
+
+.dashboard.agent-horizontal .ticket-column.hidden {
+    flex: 0 0 0 !important;
+    min-width: 0 !important;
+    max-width: 0 !important;
+    width: 0 !important;
+    overflow: hidden;
+    opacity: 0;
+    margin: 0;
+    padding: 0;
+    border: none;
+}
+
 .ticket-column {
     background: white;
     border-radius: 8px;
@@ -325,6 +356,92 @@ html { height: 100%; }
     display: flex;
     justify-content: space-between;
     align-items: center;
+    position: relative;
+}
+
+.column-toggle {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    color: #6c757d;
+    padding: 2px 5px;
+    border-radius: 3px;
+    transition: all 0.2s ease;
+}
+
+.column-toggle:hover {
+    background: #dee2e6;
+    color: #495057;
+}
+
+/* Column visibility menu */
+.column-visibility-menu {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    padding: 8px;
+    min-width: 200px;
+    font-size: 14px;
+}
+
+.column-visibility-menu .menu-header {
+    font-weight: bold;
+    padding: 8px 12px;
+    border-bottom: 1px solid #eee;
+    margin-bottom: 8px;
+    color: #495057;
+}
+
+.column-visibility-menu .menu-item {
+    display: flex;
+    align-items: center;
+    padding: 6px 12px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.column-visibility-menu .menu-item:hover {
+    background-color: #f8f9fa;
+}
+
+.column-visibility-menu .menu-item input[type="checkbox"] {
+    margin-right: 8px;
+    cursor: pointer;
+}
+
+.column-visibility-menu .menu-item span {
+    flex: 1;
+    cursor: pointer;
+}
+
+.column-visibility-menu .menu-actions {
+    border-top: 1px solid #eee;
+    margin-top: 8px;
+    padding-top: 8px;
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.column-visibility-menu .menu-btn {
+    background: #6c757d;
+    color: white;
+    border: none;
+    padding: 4px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background-color 0.2s;
+}
+
+.column-visibility-menu .menu-btn:hover {
+    background: #5a6268;
 }
 
 .column-header .count {
