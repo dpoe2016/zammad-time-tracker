@@ -41,6 +41,11 @@ class ZammadDashboard {
         this.priorityFilterLabel = document.getElementById('priorityFilterLabel');
         this.stateFilter = document.getElementById('stateFilter');
         this.stateFilterLabel = document.getElementById('stateFilterLabel');
+        
+        // Column visibility elements
+        this.columnVisibilityContainer = document.getElementById('columnVisibilityContainer');
+        this.columnVisibilityBtn = document.getElementById('columnVisibilityBtn');
+        this.columnVisibilityText = document.getElementById('columnVisibilityText');
 
         // Text elements
         this.dashboardTitle = document.getElementById('dashboardTitle');
@@ -68,6 +73,7 @@ class ZammadDashboard {
         this.userCache = new Map(); // Cache user data to avoid repeated API calls
         this.baseUrl = '';
         this.token = '';
+        this.hiddenColumns = new Set(); // Track hidden columns in agent view
 
         // Initialize
         this.updateUILanguage();
@@ -279,6 +285,14 @@ class ZammadDashboard {
                 logger.info(`State filter changed to: ${selectedState}`);
                 this.selectedState = selectedState;
                 this.applyFilters();
+            });
+        }
+
+        // Column visibility button
+        if (this.columnVisibilityBtn) {
+            this.columnVisibilityBtn.addEventListener('click', () => {
+                logger.info('Column visibility button clicked');
+                this.showColumnVisibilityMenu();
             });
         }
     }
@@ -645,6 +659,21 @@ class ZammadDashboard {
         // Clear existing dashboard content
         this.dashboardContainer.innerHTML = '';
 
+        // Update dashboard container class for agent view
+        if (this.currentView === 'agent') {
+            this.dashboardContainer.classList.add('agent-horizontal');
+            // Show column visibility button
+            if (this.columnVisibilityContainer) {
+                this.columnVisibilityContainer.style.display = 'block';
+            }
+        } else {
+            this.dashboardContainer.classList.remove('agent-horizontal');
+            // Hide column visibility button
+            if (this.columnVisibilityContainer) {
+                this.columnVisibilityContainer.style.display = 'none';
+            }
+        }
+
         if (this.currentView === 'state') {
             this.setupStateView();
         } else if (this.currentView === 'agent') {
@@ -695,6 +724,12 @@ class ZammadDashboard {
             const titleId = `agent-title-${agent.id || 'unassigned'}`;
             const countId = `agent-count-${agent.id || 'unassigned'}`;
             const columnElement = this.createColumnElement(columnId, titleId, countId, agent.name);
+            
+            // Check if this column should be hidden
+            if (this.hiddenColumns.has(columnId)) {
+                columnElement.classList.add('hidden');
+            }
+            
             this.dashboardContainer.appendChild(columnElement);
         });
 
@@ -708,6 +743,7 @@ class ZammadDashboard {
     createColumnElement(columnId, titleId, countId, title) {
         const columnElement = document.createElement('div');
         columnElement.className = 'ticket-column';
+        
         columnElement.innerHTML = `
             <div class="column-header">
                 <span id="${titleId}">${title}</span>
@@ -715,6 +751,22 @@ class ZammadDashboard {
             </div>
             <div class="ticket-list" id="${columnId}"></div>
         `;
+        
+        // Add toggle button for agent view with proper event listener
+        if (this.currentView === 'agent') {
+            const header = columnElement.querySelector('.column-header');
+            const toggleButton = document.createElement('button');
+            toggleButton.className = 'column-toggle';
+            toggleButton.innerHTML = '×';
+            toggleButton.title = 'Spalte ausblenden';
+            toggleButton.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.toggleColumn(columnId);
+            });
+            header.insertBefore(toggleButton, header.firstChild);
+        }
+        
         return columnElement;
     }
 
@@ -1357,6 +1409,11 @@ class ZammadDashboard {
             ticketItem.classList.add('new-today');
         }
 
+        // Add special styling for tickets older than 180 days
+        if (this.isTicketOld(ticket)) {
+            ticketItem.classList.add('ticket-old');
+        }
+
         // Add drag events
         ticketItem.addEventListener('dragstart', (event) => {
             this.draggedTicket = ticketItem;
@@ -1736,6 +1793,38 @@ class ZammadDashboard {
     }
 
     /**
+     * Check if a ticket is older than 180 days (not updated in 180+ days)
+     * Excludes tickets with "closed" state
+     * @param {Object} ticket - Ticket object
+     * @returns {boolean} True if ticket hasn't been updated in 180+ days and is not closed
+     */
+    isTicketOld(ticket) {
+        const updated_at = ticket.updated_at || ticket.updatedAt;
+        if (!updated_at) {
+            return false;
+        }
+
+        // Don't highlight closed tickets (state_id 2, 3, or 9)
+        const stateId = ticket.state_id || ticket.state;
+        if (stateId === 2 || // closed successful
+            stateId === 3 || // closed unsuccessful
+            stateId === 9) { // merged
+            return false;
+        }
+
+        try {
+            const updatedDate = new Date(updated_at);
+            const now = new Date();
+            const daysDiff = Math.floor((now - updatedDate) / (1000 * 60 * 60 * 24));
+            
+            return daysDiff >= 180;
+        } catch (error) {
+            logger.warn(`Failed to parse updated_at date for ticket ${ticket.id}:`, error);
+            return false;
+        }
+    }
+
+    /**
      * Get ticket priority
      * @param {Object} ticket - Ticket object
      * @returns {string} Priority: translated version of 'Low', 'Medium', or 'High'
@@ -1975,6 +2064,169 @@ class ZammadDashboard {
             this.organizationFilter.value = 'all';
             this.selectedOrganization = 'all';
         }
+    }
+
+    /**
+     * Toggle column visibility in agent view
+     */
+    toggleColumn(columnId) {
+        const ticketList = document.getElementById(columnId);
+        if (!ticketList) {
+            logger.error(`Column with ID ${columnId} not found`);
+            return;
+        }
+        
+        const column = ticketList.parentElement; // This is the .ticket-column div
+        
+        if (this.hiddenColumns.has(columnId)) {
+            // Show column
+            column.classList.remove('hidden');
+            this.hiddenColumns.delete(columnId);
+            logger.info(`Showed column ${columnId}`);
+        } else {
+            // Hide column
+            column.classList.add('hidden');
+            this.hiddenColumns.add(columnId);
+            logger.info(`Hidden column ${columnId}`);
+        }
+        
+        logger.info(`Hidden columns: ${Array.from(this.hiddenColumns)}`);
+        
+        // Update column visibility button text
+        this.updateColumnVisibilityButton();
+    }
+
+    /**
+     * Update column visibility button text based on hidden columns
+     */
+    updateColumnVisibilityButton() {
+        if (!this.columnVisibilityText || this.currentView !== 'agent') return;
+        
+        const hiddenCount = this.hiddenColumns.size;
+        if (hiddenCount === 0) {
+            this.columnVisibilityText.textContent = 'Alle Spalten sichtbar';
+            if (this.columnVisibilityBtn) {
+                this.columnVisibilityBtn.disabled = true;
+            }
+        } else {
+            this.columnVisibilityText.textContent = `${hiddenCount} Spalte${hiddenCount > 1 ? 'n' : ''} versteckt`;
+            if (this.columnVisibilityBtn) {
+                this.columnVisibilityBtn.disabled = false;
+            }
+        }
+    }
+
+    /**
+     * Show column visibility menu as dropdown
+     */
+    showColumnVisibilityMenu() {
+        // Remove existing menu if any
+        const existingMenu = document.getElementById('columnVisibilityMenu');
+        if (existingMenu) {
+            existingMenu.remove();
+            return;
+        }
+
+        // Get all agent columns (both visible and hidden)
+        const agents = this.getUniqueAgents();
+        
+        if (agents.length === 0) {
+            logger.warn('No agents found for column visibility menu');
+            return;
+        }
+
+        // Create dropdown menu
+        const menu = document.createElement('div');
+        menu.id = 'columnVisibilityMenu';
+        menu.className = 'column-visibility-menu';
+        
+        let menuItems = '<div class="menu-header">Spalten ein-/ausblenden:</div>';
+        
+        agents.forEach(agent => {
+            const columnId = `agent-${agent.id || 'unassigned'}`;
+            const isHidden = this.hiddenColumns.has(columnId);
+            const checked = isHidden ? '' : 'checked';
+            
+            menuItems += `
+                <label class="menu-item">
+                    <input type="checkbox" ${checked} data-column-id="${columnId}">
+                    <span>${agent.name}</span>
+                </label>
+            `;
+        });
+        
+        menuItems += `
+            <div class="menu-actions">
+                <button class="menu-btn" onclick="dashboard.showAllColumns()">Alle anzeigen</button>
+                <button class="menu-btn" onclick="dashboard.closeColumnVisibilityMenu()">Schließen</button>
+            </div>
+        `;
+        
+        menu.innerHTML = menuItems;
+        
+        // Position menu relative to button
+        const btnRect = this.columnVisibilityBtn.getBoundingClientRect();
+        menu.style.position = 'fixed';
+        menu.style.top = `${btnRect.bottom + 5}px`;
+        menu.style.left = `${btnRect.left}px`;
+        menu.style.zIndex = '1000';
+        
+        // Add to document
+        document.body.appendChild(menu);
+        
+        // Add event listeners to checkboxes
+        const checkboxes = menu.querySelectorAll('input[type="checkbox"]');
+        checkboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', (e) => {
+                const columnId = e.target.getAttribute('data-column-id');
+                const shouldShow = e.target.checked;
+                
+                if (shouldShow && this.hiddenColumns.has(columnId)) {
+                    // Show column
+                    this.toggleColumn(columnId);
+                } else if (!shouldShow && !this.hiddenColumns.has(columnId)) {
+                    // Hide column
+                    this.toggleColumn(columnId);
+                }
+            });
+        });
+        
+        // Close menu when clicking outside
+        setTimeout(() => {
+            document.addEventListener('click', this.closeColumnMenuOnClickOutside.bind(this));
+        }, 100);
+    }
+
+    /**
+     * Close column visibility menu when clicking outside
+     */
+    closeColumnMenuOnClickOutside(event) {
+        const menu = document.getElementById('columnVisibilityMenu');
+        if (menu && !menu.contains(event.target) && !this.columnVisibilityBtn.contains(event.target)) {
+            this.closeColumnVisibilityMenu();
+        }
+    }
+
+    /**
+     * Close column visibility menu
+     */
+    closeColumnVisibilityMenu() {
+        const menu = document.getElementById('columnVisibilityMenu');
+        if (menu) {
+            menu.remove();
+            document.removeEventListener('click', this.closeColumnMenuOnClickOutside.bind(this));
+        }
+    }
+
+    /**
+     * Show all hidden columns
+     */
+    showAllColumns() {
+        const hiddenColumnsCopy = new Set(this.hiddenColumns);
+        hiddenColumnsCopy.forEach(columnId => {
+            this.toggleColumn(columnId);
+        });
+        this.closeColumnVisibilityMenu();
     }
 }
 

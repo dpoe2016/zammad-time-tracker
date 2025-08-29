@@ -95,3 +95,42 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Debug mode with comprehensive logging for troubleshooting.
 
 [1.0]: https://github.com/ (placeholder)
+## [2.5.5] - 2025-08-29
+
+- Updated version to 2.5.5
+
+
+## [2.5.5] - 2025-08-29
+
+- Updated version to 2.5.5
+
+
+## [2.5.5] - 2025-08-29
+
+- Updated version to 2.5.5
+
+
+## [2.5.6] - 2025-08-29
+
+- Updated version to 2.5.6
+
+
+## [2.5.6] - 2025-08-29
+
+- Updated version to 2.5.6
+
+
+## [2.5.6] - 2025-08-29
+
+- Updated version to 2.5.6
+
+
+## [2.5.6] - 2025-08-29
+
+- Updated version to 2.5.6
+
+
+## [2.5.6] - 2025-08-29
+
+- Updated version to 2.5.6
+
