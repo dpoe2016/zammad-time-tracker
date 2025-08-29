@@ -367,6 +367,14 @@ html { height: 100%; }
     background-color: #e9ecef;
 }
 
+.ticket-item.new-today {
+    background-color: lightgreen;
+}
+
+.ticket-item.new-today:hover {
+    background-color: #c8e6c9;
+}
+
 /* Ticket hover tooltip */
 .ticket-tooltip {
     position: absolute;
