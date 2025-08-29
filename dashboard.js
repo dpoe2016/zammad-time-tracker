@@ -1357,6 +1357,11 @@ class ZammadDashboard {
             ticketItem.classList.add('new-today');
         }
 
+        // Add special styling for tickets older than 180 days
+        if (this.isTicketOld(ticket)) {
+            ticketItem.classList.add('ticket-old');
+        }
+
         // Add drag events
         ticketItem.addEventListener('dragstart', (event) => {
             this.draggedTicket = ticketItem;
@@ -1731,6 +1736,38 @@ class ZammadDashboard {
             );
         } catch (error) {
             logger.warn(`Failed to parse created_at date for ticket ${ticket.id}:`, error);
+            return false;
+        }
+    }
+
+    /**
+     * Check if a ticket is older than 180 days (not updated in 180+ days)
+     * Excludes tickets with "closed" state
+     * @param {Object} ticket - Ticket object
+     * @returns {boolean} True if ticket hasn't been updated in 180+ days and is not closed
+     */
+    isTicketOld(ticket) {
+        const updated_at = ticket.updated_at || ticket.updatedAt;
+        if (!updated_at) {
+            return false;
+        }
+
+        // Don't highlight closed tickets (state_id 2, 3, or 9)
+        const stateId = ticket.state_id || ticket.state;
+        if (stateId === 2 || // closed successful
+            stateId === 3 || // closed unsuccessful
+            stateId === 9) { // merged
+            return false;
+        }
+
+        try {
+            const updatedDate = new Date(updated_at);
+            const now = new Date();
+            const daysDiff = Math.floor((now - updatedDate) / (1000 * 60 * 60 * 24));
+            
+            return daysDiff >= 180;
+        } catch (error) {
+            logger.warn(`Failed to parse updated_at date for ticket ${ticket.id}:`, error);
             return false;
         }
     }
