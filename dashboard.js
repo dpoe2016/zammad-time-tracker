@@ -1352,6 +1352,11 @@ class ZammadDashboard {
             ticketItem.classList.add('not-assigned');
         }
 
+        // Add special styling for tickets created today
+        if (this.isTicketCreatedToday(ticket)) {
+            ticketItem.classList.add('new-today');
+        }
+
         // Add drag events
         ticketItem.addEventListener('dragstart', (event) => {
             this.draggedTicket = ticketItem;
@@ -1702,6 +1707,32 @@ class ZammadDashboard {
                 userElement.textContent = userName;
             }
         });
+    }
+
+    /**
+     * Check if a ticket was created today
+     * @param {Object} ticket - Ticket object
+     * @returns {boolean} True if ticket was created today
+     */
+    isTicketCreatedToday(ticket) {
+        if (!ticket.created_at) {
+            return false;
+        }
+
+        try {
+            const createdDate = new Date(ticket.created_at);
+            const today = new Date();
+            
+            // Compare year, month, and day
+            return (
+                createdDate.getFullYear() === today.getFullYear() &&
+                createdDate.getMonth() === today.getMonth() &&
+                createdDate.getDate() === today.getDate()
+            );
+        } catch (error) {
+            logger.warn(`Failed to parse created_at date for ticket ${ticket.id}:`, error);
+            return false;
+        }
     }
 
     /**
