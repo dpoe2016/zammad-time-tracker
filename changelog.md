@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning where possible.
 
+## [2.5.7] - 2025-09-15
+### Added
+- Separated "new" and "open" ticket states in the dashboard view.
+- Added a "New" column to the dashboard.
+- Added a "New" option to the state filter.
+
+### Changed
+- Updated the dashboard to distinguish between "new" and "open" states.
+
+## [2.5.6] - 2025-08-29
+- Updated version to 2.5.6
+
+## [2.5.5] - 2025-08-29
+- Updated version to 2.5.5
+
 ## [2.5.1] - 2025-08-14
 ### Added
 - Comprehensive test coverage for dashboard features including drag-drop, filters, and agent view
@@ -95,42 +110,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Debug mode with comprehensive logging for troubleshooting.
 
 [1.0]: https://github.com/ (placeholder)
-## [2.5.5] - 2025-08-29
-
-- Updated version to 2.5.5
 
 
-## [2.5.5] - 2025-08-29
+## [2.5.7] - 2025-09-15
 
-- Updated version to 2.5.5
-
-
-## [2.5.5] - 2025-08-29
-
-- Updated version to 2.5.5
+- Updated version to 2.5.7
 
 
-## [2.5.6] - 2025-08-29
+## [2.5.7] - 2025-09-15
 
-- Updated version to 2.5.6
-
-
-## [2.5.6] - 2025-08-29
-
-- Updated version to 2.5.6
-
-
-## [2.5.6] - 2025-08-29
-
-- Updated version to 2.5.6
-
-
-## [2.5.6] - 2025-08-29
-
-- Updated version to 2.5.6
-
-
-## [2.5.6] - 2025-08-29
-
-- Updated version to 2.5.6
+- Updated version to 2.5.7
 

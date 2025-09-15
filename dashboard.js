@@ -13,12 +13,14 @@ class ZammadDashboard {
         this.errorContainer = document.getElementById('errorContainer');
 
         // Ticket containers
+        this.newTickets = document.getElementById('newTickets');
         this.openTickets = document.getElementById('openTickets');
         this.progressTickets = document.getElementById('progressTickets');
         this.waitingTickets = document.getElementById('waitingTickets');
         this.closedTickets = document.getElementById('closedTickets');
 
         // Counters
+        this.newCount = document.getElementById('newCount');
         this.openCount = document.getElementById('openCount');
         this.progressCount = document.getElementById('progressCount');
         this.waitingCount = document.getElementById('waitingCount');
@@ -52,6 +54,7 @@ class ZammadDashboard {
         this.refreshBtnText = document.getElementById('refreshBtnText');
         this.backBtnText = document.getElementById('backBtnText');
         this.loadingText = document.getElementById('loadingText');
+        this.newColumnTitle = document.getElementById('newColumnTitle');
         this.openColumnTitle = document.getElementById('openColumnTitle');
         this.progressColumnTitle = document.getElementById('progressColumnTitle');
         this.waitingColumnTitle = document.getElementById('waitingColumnTitle');
@@ -104,6 +107,7 @@ class ZammadDashboard {
         this.organizationFilterLabel.textContent = t('dashboard_org_filter') || 'Organization:';
 
         // Column titles
+        this.newColumnTitle.textContent = t('dashboard_new');
         this.openColumnTitle.textContent = t('dashboard_open');
         this.progressColumnTitle.textContent = t('dashboard_in_progress');
         this.waitingColumnTitle.textContent = t('dashboard_waiting');
@@ -304,6 +308,7 @@ class ZammadDashboard {
         logger.info('Setting up drag and drop functionality');
 
         // Set up drop zones
+        this.setupDropZone(this.newTickets, 'new');
         this.setupDropZone(this.openTickets, 'open');
         this.setupDropZone(this.progressTickets, 'progress');
         this.setupDropZone(this.waitingTickets, 'waiting');
@@ -428,8 +433,11 @@ class ZammadDashboard {
             // Map category to state name
             let stateName;
             switch (category) {
-                case 'open':
+                case 'new':
                     stateName = 'new';
+                    break;
+                case 'open':
+                    stateName = 'open';
                     break;
                 case 'progress':
                     stateName = 'in progress';
@@ -687,6 +695,7 @@ class ZammadDashboard {
     setupStateView() {
         // Create state columns
         const stateColumns = [
+            { id: 'newTickets', titleId: 'newColumnTitle', countId: 'newCount', title: 'New' },
             { id: 'openTickets', titleId: 'openColumnTitle', countId: 'openCount', title: 'Open' },
             { id: 'progressTickets', titleId: 'progressColumnTitle', countId: 'progressCount', title: 'In Progress' },
             { id: 'waitingTickets', titleId: 'waitingColumnTitle', countId: 'waitingCount', title: 'Waiting' },
@@ -699,10 +708,12 @@ class ZammadDashboard {
         });
 
         // Re-reference DOM elements for state view
+        this.newTickets = document.getElementById('newTickets');
         this.openTickets = document.getElementById('openTickets');
         this.progressTickets = document.getElementById('progressTickets');
         this.waitingTickets = document.getElementById('waitingTickets');
         this.closedTickets = document.getElementById('closedTickets');
+        this.newCount = document.getElementById('newCount');
         this.openCount = document.getElementById('openCount');
         this.progressCount = document.getElementById('progressCount');
         this.waitingCount = document.getElementById('waitingCount');
@@ -864,6 +875,7 @@ class ZammadDashboard {
      */
     processTicketsByState(sortedTickets) {
         // Counters for each category
+        let newCount = 0;
         let openCount = 0;
         let progressCount = 0;
         let waitingCount = 0;
@@ -879,6 +891,10 @@ class ZammadDashboard {
 
             // Add to appropriate container
             switch (category) {
+                case 'new':
+                    this.newTickets.appendChild(ticketElement);
+                    newCount++;
+                    break;
                 case 'open':
                     this.openTickets.appendChild(ticketElement);
                     openCount++;
@@ -899,12 +915,13 @@ class ZammadDashboard {
         });
 
         // Update counters
+        this.newCount.textContent = newCount;
         this.openCount.textContent = openCount;
         this.progressCount.textContent = progressCount;
         this.waitingCount.textContent = waitingCount;
         this.closedCount.textContent = closedCount;
 
-        logger.info(`Displayed tickets: ${openCount} open, ${progressCount} in progress, ${waitingCount} waiting, ${closedCount} closed`);
+        logger.info(`Displayed tickets: ${newCount} new, ${openCount} open, ${progressCount} in progress, ${waitingCount} waiting, ${closedCount} closed`);
     }
 
     /**
@@ -1198,7 +1215,7 @@ class ZammadDashboard {
         const selectedGroup = this.groupFilter.value || 'all';
         const selectedOrg = this.organizationFilter ? (this.organizationFilter.value || 'all') : 'all';
 
-        const lists = [this.openTickets, this.progressTickets, this.waitingTickets, this.closedTickets];
+        const lists = [this.newTickets, this.openTickets, this.progressTickets, this.waitingTickets, this.closedTickets];
         lists.forEach(list => {
             if (!list) return;
             const items = list.querySelectorAll('.ticket-item');
@@ -1222,7 +1239,7 @@ class ZammadDashboard {
         const selectedOrg = this.organizationFilter.value || 'all';
         const selectedGroup = this.groupFilter ? (this.groupFilter.value || 'all') : 'all';
 
-        const lists = [this.openTickets, this.progressTickets, this.waitingTickets, this.closedTickets];
+        const lists = [this.newTickets, this.openTickets, this.progressTickets, this.waitingTickets, this.closedTickets];
         lists.forEach(list => {
             if (!list) return;
             const items = list.querySelectorAll('.ticket-item');
@@ -1243,6 +1260,7 @@ class ZammadDashboard {
      */
     updateCountsFromDOM() {
         const countVisible = (list) => list ? Array.from(list.querySelectorAll('.ticket-item')).filter(it => it.style.display !== 'none').length : 0;
+        this.newCount.textContent = String(countVisible(this.newTickets));
         this.openCount.textContent = String(countVisible(this.openTickets));
         this.progressCount.textContent = String(countVisible(this.progressTickets));
         this.waitingCount.textContent = String(countVisible(this.waitingTickets));
@@ -1282,8 +1300,10 @@ class ZammadDashboard {
         }
 
         // Open tickets
-        if (stateId === 1 || // new
-            stateId === 4) { // open
+        if (stateId === 1) { // new
+            return 'new';
+        }
+        if (stateId === 4) { // open
             return 'open';
         }
 
@@ -1900,6 +1920,7 @@ class ZammadDashboard {
      * Clear all ticket containers
      */
     clearTickets() {
+        this.newTickets.innerHTML = '';
         this.openTickets.innerHTML = '';
         this.progressTickets.innerHTML = '';
         this.waitingTickets.innerHTML = '';
@@ -1912,12 +1933,14 @@ class ZammadDashboard {
     showEmptyState() {
         const emptyState = `<div class="empty-state">${t('dashboard_no_tickets')}</div>`;
 
+        this.newTickets.innerHTML = emptyState;
         this.openTickets.innerHTML = emptyState;
         this.progressTickets.innerHTML = emptyState;
         this.waitingTickets.innerHTML = emptyState;
         this.closedTickets.innerHTML = emptyState;
 
         // Update counters
+        this.newCount.textContent = '0';
         this.openCount.textContent = '0';
         this.progressCount.textContent = '0';
         this.waitingCount.textContent = '0';

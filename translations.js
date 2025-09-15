@@ -484,6 +484,10 @@ const translations = {
         [LANGUAGES.DE]: 'Organisation:',
         [LANGUAGES.EN]: 'Organization:'
     },
+    'dashboard_new': {
+        [LANGUAGES.DE]: 'Neu',
+        [LANGUAGES.EN]: 'New'
+    },
     'dashboard_open': {
         [LANGUAGES.DE]: 'Offen',
         [LANGUAGES.EN]: 'Open'

@@ -55,6 +55,7 @@
                     <label for="stateFilter" id="stateFilterLabel">State:</label>
                     <select id="stateFilter" class="filter-select">
                         <option value="all">All States</option>
+                        <option value="new">New</option>
                         <option value="open">Open</option>
                         <option value="progress">In Progress</option>
                         <option value="waiting">Waiting</option>
@@ -79,6 +80,15 @@
         <div id="loadingContainer" class="loading"><span id="loadingText">Loading tickets...</span></div>
 
         <div id="dashboardContainer" class="dashboard" style="display: none;">
+            <!-- New Tickets Column -->
+            <div class="ticket-column">
+                <div class="column-header">
+                    <span id="newColumnTitle">New</span>
+                    <span class="count" id="newCount">0</span>
+                </div>
+                <div class="ticket-list" id="newTickets"></div>
+            </div>
+
             <!-- Open Tickets Column -->
             <div class="ticket-column">
                 <div class="column-header">
