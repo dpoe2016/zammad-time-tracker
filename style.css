@@ -492,22 +492,44 @@ html { height: 100%; }
     background-color: #c8e6c9;
 }
 
+/* Highlight ticket when showing tooltip */
+.ticket-item.tooltip-highlighted {
+    background-color: #e3f2fd !important;
+    border: 2px solid #2196f3 !important;
+    box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3) !important;
+    transform: translateY(-1px) !important;
+    z-index: 100;
+    position: relative;
+}
+
 /* Ticket hover tooltip */
 .ticket-tooltip {
     position: absolute;
-    background: #333;
+    background: #2c3e50;
     color: white;
-    padding: 12px;
-    border-radius: 6px;
+    padding: 0;
+    border-radius: 8px;
     font-size: 12px;
-    max-width: 300px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    max-width: 400px;
+    min-width: 320px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
     z-index: 1000;
     pointer-events: none;
     opacity: 0;
     transform: translateY(10px);
-    transition: opacity 0.2s ease, transform 0.2s ease;
+    transition: opacity 0.3s ease, transform 0.3s ease;
     line-height: 1.4;
+    border: 1px solid #34495e;
+    /* Ensure tooltip doesn't cause horizontal scrolling */
+    max-width: calc(100vw - 30px);
+    /* Ensure tooltip content is readable */
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+.ticket-tooltip.enhanced-tooltip {
+    max-width: min(550px, calc(100vw - 30px));
+    min-width: min(400px, calc(100vw - 30px));
 }
 
 .ticket-tooltip.visible {
@@ -518,39 +540,217 @@ html { height: 100%; }
 .ticket-tooltip::before {
     content: '';
     position: absolute;
-    top: -6px;
-    left: 20px;
     width: 0;
     height: 0;
-    border-left: 6px solid transparent;
-    border-right: 6px solid transparent;
-    border-bottom: 6px solid #333;
+    border-left: 7px solid transparent;
+    border-right: 7px solid transparent;
+    z-index: 1001;
+}
+
+/* Default arrow pointing up (tooltip below element) */
+.ticket-tooltip.arrow-top::before,
+.ticket-tooltip::before {
+    top: -7px;
+    left: var(--arrow-left, 20px);
+    border-bottom: 7px solid #2c3e50;
+    border-top: none;
+}
+
+/* Arrow pointing down (tooltip above element) */
+.ticket-tooltip.arrow-bottom::before {
+    bottom: -7px;
+    left: var(--arrow-left, 20px);
+    border-top: 7px solid #2c3e50;
+    border-bottom: none;
+}
+
+/* Arrow pointing left (tooltip on right side) */
+.ticket-tooltip.arrow-left::before {
+    left: -7px;
+    top: var(--arrow-top, 50%);
+    transform: translateY(-50%);
+    border-right: 7px solid #2c3e50;
+    border-left: none;
+    border-top: 7px solid transparent;
+    border-bottom: 7px solid transparent;
+}
+
+/* Arrow pointing right (tooltip on left side) */
+.ticket-tooltip.arrow-right::before {
+    right: -7px;
+    top: var(--arrow-top, 50%);
+    transform: translateY(-50%);
+    border-left: 7px solid #2c3e50;
+    border-right: none;
+    border-top: 7px solid transparent;
+    border-bottom: 7px solid transparent;
+}
+
+.ticket-tooltip-header {
+    background: #34495e;
+    padding: 12px 16px;
+    border-radius: 8px 8px 0 0;
+    border-bottom: 1px solid #4a5f7a;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
 .ticket-tooltip-title {
-    font-weight: bold;
-    margin-bottom: 8px;
-    color: #fff;
+    font-weight: 600;
+    color: #ecf0f1;
+    font-size: 14px;
+    flex: 1;
+    margin-right: 10px;
+    word-break: break-word;
+}
+
+.ticket-tooltip-id {
+    font-weight: 500;
+    color: #3498db;
     font-size: 13px;
+    background: rgba(52, 152, 219, 0.1);
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(52, 152, 219, 0.3);
+}
+
+.ticket-tooltip-body {
+    padding: 16px;
+}
+
+.ticket-tooltip-section {
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.ticket-tooltip-section:last-child {
+    margin-bottom: 0;
+    border-bottom: none;
+}
+
+.ticket-tooltip-section.content-section {
+    border-bottom: none;
+    margin-bottom: 0;
 }
 
 .ticket-tooltip-field {
-    margin-bottom: 4px;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: flex-start;
 }
 
 .ticket-tooltip-field:last-child {
     margin-bottom: 0;
 }
 
+.ticket-tooltip-field.content-field {
+    flex-direction: column;
+    align-items: stretch;
+}
+
 .ticket-tooltip-label {
-    font-weight: 600;
-    color: #ccc;
+    font-weight: 500;
+    color: #bdc3c7;
     display: inline-block;
-    min-width: 60px;
+    min-width: 85px;
+    margin-right: 8px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .ticket-tooltip-value {
-    color: #fff;
+    color: #ecf0f1;
+    flex: 1;
+    font-weight: 400;
+}
+
+.ticket-tooltip-content {
+    background: rgba(0, 0, 0, 0.2);
+    padding: 12px;
+    border-radius: 6px;
+    margin-top: 8px;
+    color: #d5dbdb;
+    font-size: 12px;
+    line-height: 1.6;
+    border-left: 3px solid #3498db;
+    max-height: 120px;
+    overflow-y: auto;
+    word-break: break-word;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.ticket-tooltip-content.original-content {
+    border-left-color: #3498db;
+    background: rgba(52, 152, 219, 0.1);
+}
+
+.ticket-tooltip-content.latest-content {
+    border-left-color: #e74c3c;
+    background: rgba(231, 76, 60, 0.1);
+    margin-top: 12px;
+}
+
+.ticket-tooltip-content::-webkit-scrollbar {
+    width: 4px;
+}
+
+.ticket-tooltip-content::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+}
+
+.ticket-tooltip-content::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 2px;
+}
+
+.ticket-tooltip-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5);
+}
+
+/* State-specific colors */
+.ticket-tooltip-value.state-new {
+    color: #f39c12;
+    font-weight: 500;
+}
+
+.ticket-tooltip-value.state-open {
+    color: #3498db;
+    font-weight: 500;
+}
+
+.ticket-tooltip-value.state-progress {
+    color: #e74c3c;
+    font-weight: 500;
+}
+
+.ticket-tooltip-value.state-waiting {
+    color: #f1c40f;
+    font-weight: 500;
+}
+
+.ticket-tooltip-value.state-closed {
+    color: #27ae60;
+    font-weight: 500;
+}
+
+/* Priority-specific colors */
+.ticket-tooltip-value.priority-high {
+    color: #e74c3c;
+    font-weight: 600;
+}
+
+.ticket-tooltip-value.priority-medium {
+    color: #f39c12;
+    font-weight: 500;
+}
+
+.ticket-tooltip-value.priority-low {
+    color: #95a5a6;
+    font-weight: 400;
 }
 
 .ticket-item:last-child {
