@@ -34,6 +34,11 @@ class ZammadAPI {
       allUsers: null
     };
 
+    // In-memory cache for customer data (expires after 5 minutes)
+    this.customerCache = new Map();
+    this.cacheTimestamp = null;
+    this.cacheExpiryMs = 5 * 60 * 1000; // 5 minutes
+
     // Load cached data from storage
     this.loadCachedEndpoints();
     this.loadCachedUserProfile();
@@ -1865,7 +1870,7 @@ class ZammadAPI {
   }
 
   /**
-   * Enhance tickets with customer data by fetching missing customer information
+   * Enhance tickets with customer data using efficient batch fetching and caching
    * @param {Array} tickets - Array of tickets to enhance
    * @returns {Array} Enhanced tickets with customer data
    */
@@ -1874,42 +1879,174 @@ class ZammadAPI {
       return tickets;
     }
 
-    console.log(`Enhancing ${tickets.length} tickets with customer data`);
-    const enhancedTickets = [];
+    const startTime = Date.now();
+    console.log(`Enhancing ${tickets.length} tickets with customer data (optimized)`);
+
+    // Step 1: Identify tickets that need customer data and collect unique customer IDs
+    const ticketsNeedingCustomerData = [];
+    const customerIdsToFetch = new Set();
 
     for (const ticket of tickets) {
-      try {
-        const enhancedTicket = { ...ticket };
+      const hasCustomerData = ticket.customer_data &&
+        (ticket.customer_data.firstname || ticket.customer_data.lastname || ticket.customer_data.email);
 
-        // Check if customer data is missing or incomplete
-        const hasCustomerData = ticket.customer_data &&
-          (ticket.customer_data.firstname || ticket.customer_data.lastname || ticket.customer_data.email);
-
-        if (!hasCustomerData && ticket.customer_id) {
-          console.log(`Fetching customer data for ticket ${ticket.id}, customer ID: ${ticket.customer_id}`);
-
-          try {
-            const customerData = await this.getUser(ticket.customer_id);
-            if (customerData) {
-              enhancedTicket.customer_data = customerData;
-              console.log(`Enhanced ticket ${ticket.id} with customer: ${customerData.login || customerData.email}`);
-            }
-          } catch (customerError) {
-            console.warn(`Failed to fetch customer ${ticket.customer_id} for ticket ${ticket.id}:`, customerError.message);
-            // Continue with other tickets
-          }
-        }
-
-        enhancedTickets.push(enhancedTicket);
-      } catch (error) {
-        console.error(`Error enhancing ticket ${ticket.id}:`, error);
-        // Add original ticket if enhancement fails
-        enhancedTickets.push(ticket);
+      if (!hasCustomerData && ticket.customer_id) {
+        ticketsNeedingCustomerData.push(ticket);
+        customerIdsToFetch.add(ticket.customer_id);
       }
     }
 
-    console.log(`Enhanced ${enhancedTickets.length} tickets with customer data`);
+    if (customerIdsToFetch.size === 0) {
+      console.log('No customer data enhancement needed');
+      return tickets;
+    }
+
+    console.log(`Need to fetch ${customerIdsToFetch.size} unique customers for ${ticketsNeedingCustomerData.length} tickets`);
+
+    // Step 2: Batch fetch all needed customer data
+    const customerDataMap = await this.batchFetchCustomers(Array.from(customerIdsToFetch));
+
+    // Step 3: Apply customer data to tickets
+    const enhancedTickets = tickets.map(ticket => {
+      if (ticket.customer_id && customerDataMap.has(ticket.customer_id)) {
+        return {
+          ...ticket,
+          customer_data: customerDataMap.get(ticket.customer_id)
+        };
+      }
+      return ticket;
+    });
+
+    const endTime = Date.now();
+    console.log(`Enhanced ${enhancedTickets.length} tickets with customer data in ${endTime - startTime}ms`);
     return enhancedTickets;
+  }
+
+  /**
+   * Batch fetch customers using the most efficient available method with caching
+   * @param {Array} customerIds - Array of customer IDs to fetch
+   * @returns {Map} Map of customer ID to customer data
+   */
+  async batchFetchCustomers(customerIds) {
+    if (!Array.isArray(customerIds) || customerIds.length === 0) {
+      return new Map();
+    }
+
+    console.log(`Batch fetching ${customerIds.length} customers`);
+    const customerMap = new Map();
+
+    // Check if cache is still valid
+    const now = Date.now();
+    const cacheValid = this.cacheTimestamp && (now - this.cacheTimestamp) < this.cacheExpiryMs;
+
+    if (cacheValid) {
+      console.log('Using cached customer data');
+      // Use cached data for known customers
+      let cacheHits = 0;
+      for (const customerId of customerIds) {
+        if (this.customerCache.has(customerId)) {
+          customerMap.set(customerId, this.customerCache.get(customerId));
+          cacheHits++;
+        }
+      }
+      console.log(`Cache hits: ${cacheHits}/${customerIds.length}`);
+
+      // If we found all customers in cache, return immediately
+      if (cacheHits === customerIds.length) {
+        return customerMap;
+      }
+    } else {
+      console.log('Customer cache expired, clearing...');
+      this.customerCache.clear();
+    }
+
+    // Identify customers that need to be fetched
+    const customerIdsToFetch = customerIds.filter(id => !customerMap.has(id));
+
+    if (customerIdsToFetch.length > 0) {
+      console.log(`Need to fetch ${customerIdsToFetch.length} customers from API`);
+
+      try {
+        // Method 1: Try to fetch all users at once and filter for needed customers
+        const allUsers = await this.getAllUsers();
+        if (Array.isArray(allUsers) && allUsers.length > 0) {
+          console.log(`Got ${allUsers.length} users from getAllUsers, filtering for needed customers`);
+
+          for (const user of allUsers) {
+            if (customerIdsToFetch.includes(user.id)) {
+              customerMap.set(user.id, user);
+              // Cache the fetched customer data
+              this.customerCache.set(user.id, user);
+            }
+          }
+
+          const foundCount = customerMap.size - (customerIds.length - customerIdsToFetch.length); // Subtract cached hits
+          console.log(`Found ${foundCount}/${customerIdsToFetch.length} needed customers from getAllUsers`);
+
+          // If we found most customers this way, update cache timestamp and return
+          if (foundCount >= customerIdsToFetch.length * 0.8) {
+            this.cacheTimestamp = now;
+            console.log(`Batch fetch completed: ${customerMap.size}/${customerIds.length} customers found`);
+            return customerMap;
+          }
+        }
+      } catch (error) {
+        console.warn('getAllUsers failed, falling back to search method:', error.message);
+      }
+
+      // Method 2: Fallback - try user search if getAllUsers didn't work well
+      try {
+        const stillMissingIds = customerIdsToFetch.filter(id => !customerMap.has(id));
+        if (stillMissingIds.length > 0) {
+          console.log(`Searching for ${stillMissingIds.length} missing customers`);
+
+          // Try user search endpoint
+          const searchResult = await this.request('/api/v1/users/search?query=*&per_page=1000');
+          if (Array.isArray(searchResult)) {
+            console.log(`User search returned ${searchResult.length} users`);
+
+            for (const user of searchResult) {
+              if (stillMissingIds.includes(user.id)) {
+                customerMap.set(user.id, user);
+                // Cache the fetched customer data
+                this.customerCache.set(user.id, user);
+              }
+            }
+          }
+        }
+      } catch (searchError) {
+        console.warn('User search also failed:', searchError.message);
+      }
+
+      // Method 3: Last resort - individual fetches for remaining missing customers (limited)
+      const finalMissingIds = customerIdsToFetch.filter(id => !customerMap.has(id));
+      if (finalMissingIds.length > 0 && finalMissingIds.length <= 5) {
+        console.log(`Fetching ${finalMissingIds.length} customers individually as last resort`);
+
+        const individualPromises = finalMissingIds.map(async (customerId) => {
+          try {
+            const customerData = await this.getUser(customerId);
+            if (customerData) {
+              customerMap.set(customerId, customerData);
+              // Cache the fetched customer data
+              this.customerCache.set(customerId, customerData);
+            }
+          } catch (error) {
+            console.warn(`Failed to fetch customer ${customerId}:`, error.message);
+          }
+        });
+
+        await Promise.all(individualPromises);
+      } else if (finalMissingIds.length > 5) {
+        console.warn(`Too many missing customers (${finalMissingIds.length}), skipping individual fetches to maintain performance`);
+      }
+
+      // Update cache timestamp after successful fetch
+      this.cacheTimestamp = now;
+    }
+
+    console.log(`Batch fetch completed: ${customerMap.size}/${customerIds.length} customers found`);
+    return customerMap;
   }
 }
 
