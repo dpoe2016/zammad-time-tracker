@@ -1521,7 +1521,7 @@ class ZammadDashboard {
 
         // Create tooltip element
         const tooltip = document.createElement('div');
-        tooltip.className = 'ticket-tooltip';
+        tooltip.className = 'ticket-tooltip enhanced-tooltip';
         tooltip.id = 'ticket-tooltip';
 
         // Get ticket details for tooltip
@@ -1530,13 +1530,29 @@ class ZammadDashboard {
         const ticketState = ticket.state || ticket.state_id || 'Unknown';
         const ticketPriority = this.getTicketPriority(ticket);
 
-        // Get formatted updated date
+        // Get formatted dates
         let updatedDate = ticket.updated_at || ticket.updatedAt || 'Unknown';
+        let createdDate = ticket.created_at || ticket.createdAt || 'Unknown';
+
         if (updatedDate && updatedDate !== 'Unknown') {
             try {
                 const dateObj = new Date(updatedDate);
                 if (!isNaN(dateObj)) {
                     updatedDate = dateObj.toLocaleString('de-DE', {
+                        year: 'numeric', month: '2-digit', day: '2-digit',
+                        hour: '2-digit', minute: '2-digit'
+                    });
+                }
+            } catch (e) {
+                // Keep original value
+            }
+        }
+
+        if (createdDate && createdDate !== 'Unknown') {
+            try {
+                const dateObj = new Date(createdDate);
+                if (!isNaN(dateObj)) {
+                    createdDate = dateObj.toLocaleString('de-DE', {
                         year: 'numeric', month: '2-digit', day: '2-digit',
                         hour: '2-digit', minute: '2-digit'
                     });
@@ -1565,70 +1581,210 @@ class ZammadDashboard {
             }
         }
 
-        // Fetch first article content if not already cached
+        // Get organization info
+        let organizationName = 'No Organization';
+        if (ticket.organization_id && this.organizations && this.organizations.length > 0) {
+            const org = this.organizations.find(o => o.id == ticket.organization_id);
+            if (org) {
+                organizationName = org.name || 'No Organization';
+            }
+        }
+
+        // Get customer info
+        let customerName = 'Unknown Customer';
+        let customerEmail = '';
+        if (ticket.customer_id || ticket.customer) {
+            if (ticket.customer_data) {
+                const customer = ticket.customer_data;
+                customerName = `${customer.firstname || ''} ${customer.lastname || ''}`.trim() || customer.login || customer.email || 'Unknown Customer';
+                customerEmail = customer.email || '';
+            } else if (ticket.customer && typeof ticket.customer === 'object') {
+                const customer = ticket.customer;
+                customerName = `${customer.firstname || ''} ${customer.lastname || ''}`.trim() || customer.login || customer.email || 'Unknown Customer';
+                customerEmail = customer.email || '';
+            }
+        }
+
+        // Calculate ticket age
+        let ticketAge = '';
+        if (createdDate && createdDate !== 'Unknown') {
+            try {
+                const created = new Date(ticket.created_at || ticket.createdAt);
+                const now = new Date();
+                const diffMs = now - created;
+                const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+
+                if (diffDays > 0) {
+                    ticketAge = `${diffDays} day${diffDays > 1 ? 's' : ''} ${diffHours > 0 ? `${diffHours}h` : ''}`;
+                } else if (diffHours > 0) {
+                    const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                    ticketAge = `${diffHours}h ${diffMinutes > 0 ? `${diffMinutes}m` : ''}`;
+                } else {
+                    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+                    ticketAge = `${diffMinutes}m`;
+                }
+                ticketAge = ticketAge.trim() + ' ago';
+            } catch (e) {
+                ticketAge = 'Unknown age';
+            }
+        }
+
+        // Fetch article content and additional details if not already cached
         let firstArticleContent = '';
-        if (!ticket.first_article_content && ticket.id) {
+        let lastArticleContent = '';
+        let articleCount = 0;
+        let articleSummary = '';
+        let hasAttachments = false;
+
+        if (!ticket.enhanced_content_cache && ticket.id) {
             try {
                 const articles = await zammadApi.getTicketArticles(ticket.id);
                 if (articles && articles.length > 0) {
-                    const firstArticle = articles[0];
-                    const content = firstArticle.body || firstArticle.content || '';
+                    articleCount = articles.length;
 
-                    // Process and truncate content
-                    let processedContent = content.replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, '');
-                    if (processedContent.length > 200) {
-                        processedContent = processedContent.substring(0, 200) + '...';
+                    // Process first article (original request)
+                    const firstArticle = articles[0];
+                    const firstContent = firstArticle.body || firstArticle.content || '';
+                    let processedFirstContent = firstContent.replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, '').trim();
+                    if (processedFirstContent.length > 400) {
+                        processedFirstContent = processedFirstContent.substring(0, 400) + '...';
+                    }
+                    firstArticleContent = processedFirstContent;
+
+                    // Process last article if there are multiple articles
+                    if (articles.length > 1) {
+                        const lastArticle = articles[articles.length - 1];
+                        const lastContent = lastArticle.body || lastArticle.content || '';
+                        let processedLastContent = lastContent.replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, '').trim();
+                        if (processedLastContent.length > 300) {
+                            processedLastContent = processedLastContent.substring(0, 300) + '...';
+                        }
+                        lastArticleContent = processedLastContent;
                     }
 
-                    // Cache the content on the ticket object
-                    ticket.first_article_content = content;
-                    firstArticleContent = processedContent;
+                    // Check for attachments across all articles
+                    hasAttachments = articles.some(article =>
+                        article.attachments && article.attachments.length > 0
+                    );
+
+                    // Create article summary
+                    const publicArticles = articles.filter(article => !article.internal);
+                    const internalArticles = articles.filter(article => article.internal);
+                    const customerArticles = articles.filter(article =>
+                        article.type_id === 1 || article.from && article.from.includes('@')
+                    );
+
+                    let summaryParts = [];
+                    if (publicArticles.length > 0) {
+                        summaryParts.push(`${publicArticles.length} public`);
+                    }
+                    if (internalArticles.length > 0) {
+                        summaryParts.push(`${internalArticles.length} internal`);
+                    }
+                    if (customerArticles.length > 0) {
+                        summaryParts.push(`${customerArticles.length} from customer`);
+                    }
+
+                    articleSummary = summaryParts.length > 0 ? summaryParts.join(', ') : `${articleCount} total`;
+
+                    // Cache the enhanced content
+                    ticket.enhanced_content_cache = {
+                        firstArticleContent,
+                        lastArticleContent,
+                        articleCount,
+                        articleSummary,
+                        hasAttachments
+                    };
                 }
             } catch (error) {
                 logger.warn(`Failed to fetch articles for ticket ${ticket.id}:`, error);
                 firstArticleContent = 'Failed to load content';
             }
-        } else if (ticket.first_article_content) {
-            // Use cached content
-            let content = ticket.first_article_content;
-            content = content.replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, '');
-            if (content.length > 200) {
-                content = content.substring(0, 200) + '...';
-            }
-            firstArticleContent = content;
+        } else if (ticket.enhanced_content_cache) {
+            // Use cached enhanced content
+            const cache = ticket.enhanced_content_cache;
+            firstArticleContent = cache.firstArticleContent || '';
+            lastArticleContent = cache.lastArticleContent || '';
+            articleCount = cache.articleCount || 0;
+            articleSummary = cache.articleSummary || '';
+            hasAttachments = cache.hasAttachments || false;
         }
 
-        // Build tooltip content
+        // Build tooltip content with enhanced information
         tooltip.innerHTML = `
-            <div class="ticket-tooltip-title">${ticketTitle}</div>
-            <div class="ticket-tooltip-field">
-                <span class="ticket-tooltip-label">ID:</span>
-                <span class="ticket-tooltip-value">#${ticketId}</span>
+            <div class="ticket-tooltip-header">
+                <div class="ticket-tooltip-title">${ticketTitle}</div>
+                <div class="ticket-tooltip-id">#${ticketId}</div>
             </div>
-            <div class="ticket-tooltip-field">
-                <span class="ticket-tooltip-label">State:</span>
-                <span class="ticket-tooltip-value">${ticketState}</span>
+            <div class="ticket-tooltip-body">
+                <div class="ticket-tooltip-section">
+                    <div class="ticket-tooltip-field">
+                        <span class="ticket-tooltip-label">State:</span>
+                        <span class="ticket-tooltip-value state-${this.getTicketCategory(ticket)}">${ticketState}</span>
+                    </div>
+                    <div class="ticket-tooltip-field">
+                        <span class="ticket-tooltip-label">Priority:</span>
+                        <span class="ticket-tooltip-value ${this.getPriorityClass(ticketPriority)}">${ticketPriority}</span>
+                    </div>
+                    <div class="ticket-tooltip-field">
+                        <span class="ticket-tooltip-label">Age:</span>
+                        <span class="ticket-tooltip-value">${ticketAge}</span>
+                    </div>
+                </div>
+
+                <div class="ticket-tooltip-section">
+                    <div class="ticket-tooltip-field">
+                        <span class="ticket-tooltip-label">Assigned to:</span>
+                        <span class="ticket-tooltip-value">${userName}</span>
+                    </div>
+                    <div class="ticket-tooltip-field">
+                        <span class="ticket-tooltip-label">Group:</span>
+                        <span class="ticket-tooltip-value">${groupName}</span>
+                    </div>
+                    ${organizationName !== 'No Organization' ? `<div class="ticket-tooltip-field">
+                        <span class="ticket-tooltip-label">Organization:</span>
+                        <span class="ticket-tooltip-value">${organizationName}</span>
+                    </div>` : ''}
+                </div>
+
+                <div class="ticket-tooltip-section">
+                    <div class="ticket-tooltip-field">
+                        <span class="ticket-tooltip-label">Customer:</span>
+                        <span class="ticket-tooltip-value">${customerName}</span>
+                    </div>
+                    ${customerEmail ? `<div class="ticket-tooltip-field">
+                        <span class="ticket-tooltip-label">Email:</span>
+                        <span class="ticket-tooltip-value">${customerEmail}</span>
+                    </div>` : ''}
+                </div>
+
+                <div class="ticket-tooltip-section">
+                    <div class="ticket-tooltip-field">
+                        <span class="ticket-tooltip-label">Created:</span>
+                        <span class="ticket-tooltip-value">${createdDate}</span>
+                    </div>
+                    <div class="ticket-tooltip-field">
+                        <span class="ticket-tooltip-label">Updated:</span>
+                        <span class="ticket-tooltip-value">${updatedDate}</span>
+                    </div>
+                    ${articleCount > 0 ? `<div class="ticket-tooltip-field">
+                        <span class="ticket-tooltip-label">Articles:</span>
+                        <span class="ticket-tooltip-value">${articleCount} (${articleSummary}) ${hasAttachments ? '📎' : ''}</span>
+                    </div>` : ''}
+                </div>
+
+                ${firstArticleContent ? `<div class="ticket-tooltip-section content-section">
+                    <div class="ticket-tooltip-field content-field">
+                        <span class="ticket-tooltip-label">Original Request:</span>
+                        <div class="ticket-tooltip-content original-content">${firstArticleContent}</div>
+                    </div>
+                    ${lastArticleContent && lastArticleContent !== firstArticleContent ? `<div class="ticket-tooltip-field content-field">
+                        <span class="ticket-tooltip-label">Latest Update:</span>
+                        <div class="ticket-tooltip-content latest-content">${lastArticleContent}</div>
+                    </div>` : ''}
+                </div>` : ''}
             </div>
-            <div class="ticket-tooltip-field">
-                <span class="ticket-tooltip-label">Priority:</span>
-                <span class="ticket-tooltip-value">${ticketPriority}</span>
-            </div>
-            <div class="ticket-tooltip-field">
-                <span class="ticket-tooltip-label">User:</span>
-                <span class="ticket-tooltip-value">${userName}</span>
-            </div>
-            <div class="ticket-tooltip-field">
-                <span class="ticket-tooltip-label">Group:</span>
-                <span class="ticket-tooltip-value">${groupName}</span>
-            </div>
-            <div class="ticket-tooltip-field">
-                <span class="ticket-tooltip-label">Updated:</span>
-                <span class="ticket-tooltip-value">${updatedDate}</span>
-            </div>
-            ${firstArticleContent ? `<div class="ticket-tooltip-field">
-                <span class="ticket-tooltip-label">Content:</span>
-                <span class="ticket-tooltip-value">${firstArticleContent}</span>
-            </div>` : ''}
         `;
 
         // Add to document
@@ -1659,39 +1815,99 @@ class ZammadDashboard {
     }
 
     /**
-     * Position tooltip relative to ticket element
+     * Position tooltip relative to ticket element, ensuring it stays fully on screen
      * @param {HTMLElement} tooltip - The tooltip element
      * @param {HTMLElement} ticketElement - The ticket element
      */
     positionTooltip(tooltip, ticketElement) {
         const ticketRect = ticketElement.getBoundingClientRect();
-        const tooltipRect = tooltip.getBoundingClientRect();
         const viewportWidth = window.innerWidth;
         const viewportHeight = window.innerHeight;
+        const scrollX = window.pageXOffset || document.documentElement.scrollLeft;
+        const scrollY = window.pageYOffset || document.documentElement.scrollTop;
 
-        let left = ticketRect.left + (ticketRect.width / 2) - (tooltipRect.width / 2);
-        let top = ticketRect.bottom + 10; // 10px below the ticket
+        // Initial positioning - make tooltip visible to get its dimensions
+        tooltip.style.visibility = 'hidden';
+        tooltip.style.display = 'block';
 
-        // Adjust horizontal position if tooltip would go off-screen
-        if (left < 10) {
-            left = 10;
-        } else if (left + tooltipRect.width > viewportWidth - 10) {
-            left = viewportWidth - tooltipRect.width - 10;
+        const tooltipRect = tooltip.getBoundingClientRect();
+        const tooltipWidth = tooltipRect.width;
+        const tooltipHeight = tooltipRect.height;
+
+        const margin = 15; // Margin from viewport edges
+        const arrowOffset = 20; // Distance for arrow positioning
+
+        // Calculate preferred position (centered below ticket)
+        let left = ticketRect.left + (ticketRect.width / 2) - (tooltipWidth / 2);
+        let top = ticketRect.bottom + 10;
+        let arrowPosition = 'top'; // Default arrow pointing up
+        let arrowLeft = 50; // Percentage from left edge
+
+        // Adjust horizontal position to keep tooltip on screen
+        if (left < margin) {
+            // Tooltip would go off left edge
+            const adjustment = margin - left;
+            left = margin;
+            // Adjust arrow position to still point at the ticket
+            const ticketCenter = ticketRect.left + (ticketRect.width / 2);
+            arrowLeft = Math.max(10, Math.min(90, ((ticketCenter - left) / tooltipWidth) * 100));
+        } else if (left + tooltipWidth > viewportWidth - margin) {
+            // Tooltip would go off right edge
+            const adjustment = (left + tooltipWidth) - (viewportWidth - margin);
+            left = viewportWidth - tooltipWidth - margin;
+            // Adjust arrow position
+            const ticketCenter = ticketRect.left + (ticketRect.width / 2);
+            arrowLeft = Math.max(10, Math.min(90, ((ticketCenter - left) / tooltipWidth) * 100));
         }
 
-        // If tooltip would go below viewport, show above the ticket instead
-        if (top + tooltipRect.height > viewportHeight - 10) {
-            top = ticketRect.top - tooltipRect.height - 10;
+        // Check vertical positioning
+        if (top + tooltipHeight > viewportHeight - margin) {
+            // Not enough space below, try above
+            const topAlternative = ticketRect.top - tooltipHeight - 10;
 
-            // Adjust arrow position for top placement
-            const arrow = tooltip.querySelector('::before');
-            if (arrow) {
-                tooltip.style.setProperty('--arrow-position', 'bottom');
+            if (topAlternative >= margin) {
+                // Enough space above
+                top = topAlternative;
+                arrowPosition = 'bottom';
+            } else {
+                // Not enough space above or below, position in viewport
+                if (ticketRect.top > viewportHeight / 2) {
+                    // Ticket is in lower half, position tooltip at bottom of viewport
+                    top = viewportHeight - tooltipHeight - margin;
+                    arrowPosition = 'bottom';
+                } else {
+                    // Ticket is in upper half, position tooltip at top of viewport
+                    top = margin;
+                    arrowPosition = 'top';
+                }
             }
         }
 
-        tooltip.style.left = `${left}px`;
-        tooltip.style.top = `${top}px`;
+        // Ensure tooltip doesn't go above viewport
+        if (top < margin) {
+            top = margin;
+            arrowPosition = 'top';
+        }
+
+        // Convert to absolute positioning (account for scroll)
+        const absoluteLeft = left + scrollX;
+        const absoluteTop = top + scrollY;
+
+        // Apply positioning
+        tooltip.style.position = 'absolute';
+        tooltip.style.left = `${absoluteLeft}px`;
+        tooltip.style.top = `${absoluteTop}px`;
+        tooltip.style.visibility = 'visible';
+
+        // Update arrow position using CSS custom properties
+        tooltip.style.setProperty('--arrow-position', arrowPosition);
+        tooltip.style.setProperty('--arrow-left', `${arrowLeft}%`);
+
+        // Add class for arrow positioning
+        tooltip.className = tooltip.className.replace(/arrow-(top|bottom)/g, '');
+        tooltip.classList.add(`arrow-${arrowPosition}`);
+
+        logger.debug(`Positioned tooltip at (${absoluteLeft}, ${absoluteTop}) with arrow at ${arrowLeft}% ${arrowPosition}`);
     }
 
     /**
