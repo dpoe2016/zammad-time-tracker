@@ -156,3 +156,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 - Updated version to 2.5.9
 
+
+## [2.5.10] - 2025-09-19
+
+- Updated version to 2.5.10
+
