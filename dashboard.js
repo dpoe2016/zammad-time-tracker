@@ -592,20 +592,8 @@ class ZammadDashboard {
             // Store tickets
             this.tickets = Array.isArray(tickets) ? tickets : [];
 
-            // Enhance tickets with customer data for better tooltip information (optional for performance)
-            const enhanceCustomerData = true; // Set to false to disable customer data enhancement for better performance
-            if (enhanceCustomerData && this.tickets.length > 0) {
-                try {
-                    logger.info('Enhancing tickets with customer data...');
-                    const startTime = Date.now();
-                    this.tickets = await zammadApi.enhanceTicketsWithCustomerData(this.tickets);
-                    const endTime = Date.now();
-                    logger.info(`Enhanced ${this.tickets.length} tickets with customer data in ${endTime - startTime}ms`);
-                } catch (error) {
-                    logger.warn('Failed to enhance tickets with customer data:', error.message);
-                    // Continue with original tickets if enhancement fails
-                }
-            }
+            // Customer data enhancement is now handled automatically in the API layer
+            // The tickets returned by getAssignedTickets() and getAllTickets() are already enhanced with customer data
 
             // Populate user filter with actual ticket owners
             await this.populateUserFilterFromTickets();
@@ -1605,14 +1593,17 @@ class ZammadDashboard {
             }
         }
 
-        // Get customer info
+        // Get customer info with debugging
         let customerName = 'Unknown Customer';
         let customerEmail = '';
+        console.log(`Tooltip for ticket ${ticketId}: customer_id=${ticket.customer_id}, customer_data=`, ticket.customer_data, 'customer=', ticket.customer);
+
         if (ticket.customer_id || ticket.customer) {
             if (ticket.customer_data) {
                 const customer = ticket.customer_data;
                 customerName = `${customer.firstname || ''} ${customer.lastname || ''}`.trim() || customer.login || customer.email || 'Unknown Customer';
                 customerEmail = customer.email || '';
+                console.log(`Using customer_data: name=${customerName}, email=${customerEmail}`);
             } else if (ticket.customer && typeof ticket.customer === 'object') {
                 const customer = ticket.customer;
                 customerName = `${customer.firstname || ''} ${customer.lastname || ''}`.trim() || customer.login || customer.email || 'Unknown Customer';
@@ -1805,6 +1796,9 @@ class ZammadDashboard {
         // Add to document
         document.body.appendChild(tooltip);
 
+        // Highlight the ticket
+        ticketElement.classList.add('tooltip-highlighted');
+
         // Position tooltip
         this.positionTooltip(tooltip, ticketElement);
 
@@ -1827,10 +1821,16 @@ class ZammadDashboard {
                 }
             }, 200); // Match transition duration
         }
+
+        // Remove highlighting from all tickets
+        const highlightedTickets = document.querySelectorAll('.tooltip-highlighted');
+        highlightedTickets.forEach(ticket => {
+            ticket.classList.remove('tooltip-highlighted');
+        });
     }
 
     /**
-     * Position tooltip relative to ticket element, ensuring it stays fully on screen
+     * Position tooltip to the side of the ticket element to avoid covering it
      * @param {HTMLElement} tooltip - The tooltip element
      * @param {HTMLElement} ticketElement - The ticket element
      */
@@ -1849,59 +1849,66 @@ class ZammadDashboard {
         const tooltipWidth = tooltipRect.width;
         const tooltipHeight = tooltipRect.height;
 
-        const margin = 15; // Margin from viewport edges
-        const arrowOffset = 20; // Distance for arrow positioning
+        const margin = 20; // Margin from viewport edges
+        const gap = 15; // Gap between ticket and tooltip
 
-        // Calculate preferred position (centered below ticket)
-        let left = ticketRect.left + (ticketRect.width / 2) - (tooltipWidth / 2);
-        let top = ticketRect.bottom + 10;
-        let arrowPosition = 'top'; // Default arrow pointing up
-        let arrowLeft = 50; // Percentage from left edge
+        let left, top;
+        let arrowPosition = 'left'; // Default arrow pointing left (tooltip on right side)
 
-        // Adjust horizontal position to keep tooltip on screen
-        if (left < margin) {
-            // Tooltip would go off left edge
-            const adjustment = margin - left;
-            left = margin;
-            // Adjust arrow position to still point at the ticket
-            const ticketCenter = ticketRect.left + (ticketRect.width / 2);
-            arrowLeft = Math.max(10, Math.min(90, ((ticketCenter - left) / tooltipWidth) * 100));
-        } else if (left + tooltipWidth > viewportWidth - margin) {
-            // Tooltip would go off right edge
-            const adjustment = (left + tooltipWidth) - (viewportWidth - margin);
-            left = viewportWidth - tooltipWidth - margin;
-            // Adjust arrow position
-            const ticketCenter = ticketRect.left + (ticketRect.width / 2);
-            arrowLeft = Math.max(10, Math.min(90, ((ticketCenter - left) / tooltipWidth) * 100));
-        }
-
-        // Check vertical positioning
-        if (top + tooltipHeight > viewportHeight - margin) {
-            // Not enough space below, try above
-            const topAlternative = ticketRect.top - tooltipHeight - 10;
-
-            if (topAlternative >= margin) {
-                // Enough space above
-                top = topAlternative;
-                arrowPosition = 'bottom';
+        // Try positioning to the right of the ticket first
+        const rightPosition = ticketRect.right + gap;
+        if (rightPosition + tooltipWidth + margin <= viewportWidth) {
+            // Enough space on the right
+            left = rightPosition;
+            arrowPosition = 'left';
+        } else {
+            // Try positioning to the left of the ticket
+            const leftPosition = ticketRect.left - tooltipWidth - gap;
+            if (leftPosition >= margin) {
+                // Enough space on the left
+                left = leftPosition;
+                arrowPosition = 'right';
             } else {
-                // Not enough space above or below, position in viewport
-                if (ticketRect.top > viewportHeight / 2) {
-                    // Ticket is in lower half, position tooltip at bottom of viewport
-                    top = viewportHeight - tooltipHeight - margin;
-                    arrowPosition = 'bottom';
+                // Not enough space on either side, position below but offset to avoid covering
+                if (ticketRect.left + tooltipWidth + margin <= viewportWidth) {
+                    // Position to the right edge of the ticket
+                    left = ticketRect.right - tooltipWidth;
                 } else {
-                    // Ticket is in upper half, position tooltip at top of viewport
-                    top = margin;
-                    arrowPosition = 'top';
+                    // Position to the left edge of the ticket
+                    left = ticketRect.left;
                 }
+                // Ensure it doesn't go off screen
+                left = Math.max(margin, Math.min(left, viewportWidth - tooltipWidth - margin));
+                arrowPosition = 'top';
             }
         }
 
-        // Ensure tooltip doesn't go above viewport
-        if (top < margin) {
-            top = margin;
-            arrowPosition = 'top';
+        // Vertical positioning
+        if (arrowPosition === 'left' || arrowPosition === 'right') {
+            // Positioning to the side - center vertically relative to ticket
+            top = ticketRect.top + (ticketRect.height / 2) - (tooltipHeight / 2);
+
+            // Ensure tooltip doesn't go off screen vertically
+            if (top < margin) {
+                top = margin;
+            } else if (top + tooltipHeight > viewportHeight - margin) {
+                top = viewportHeight - tooltipHeight - margin;
+            }
+        } else {
+            // Positioning below - place below ticket
+            top = ticketRect.bottom + gap;
+
+            // If it goes off the bottom, try above
+            if (top + tooltipHeight > viewportHeight - margin) {
+                const topAlternative = ticketRect.top - tooltipHeight - gap;
+                if (topAlternative >= margin) {
+                    top = topAlternative;
+                    arrowPosition = 'bottom';
+                } else {
+                    // Keep below but adjust
+                    top = Math.max(margin, viewportHeight - tooltipHeight - margin);
+                }
+            }
         }
 
         // Convert to absolute positioning (account for scroll)
@@ -1914,15 +1921,24 @@ class ZammadDashboard {
         tooltip.style.top = `${absoluteTop}px`;
         tooltip.style.visibility = 'visible';
 
+        // Calculate arrow position for side positioning
+        let arrowTop = 50; // Default center
+        if (arrowPosition === 'left' || arrowPosition === 'right') {
+            // Calculate where the arrow should point relative to the tooltip
+            const ticketCenter = ticketRect.top + (ticketRect.height / 2);
+            const tooltipTopPosition = top;
+            arrowTop = Math.max(15, Math.min(85, ((ticketCenter - tooltipTopPosition) / tooltipHeight) * 100));
+        }
+
         // Update arrow position using CSS custom properties
         tooltip.style.setProperty('--arrow-position', arrowPosition);
-        tooltip.style.setProperty('--arrow-left', `${arrowLeft}%`);
+        tooltip.style.setProperty('--arrow-top', `${arrowTop}%`);
 
         // Add class for arrow positioning
-        tooltip.className = tooltip.className.replace(/arrow-(top|bottom)/g, '');
+        tooltip.className = tooltip.className.replace(/arrow-(top|bottom|left|right)/g, '');
         tooltip.classList.add(`arrow-${arrowPosition}`);
 
-        logger.debug(`Positioned tooltip at (${absoluteLeft}, ${absoluteTop}) with arrow at ${arrowLeft}% ${arrowPosition}`);
+        logger.debug(`Positioned tooltip at (${absoluteLeft}, ${absoluteTop}) with arrow ${arrowPosition} at ${arrowTop}%`);
     }
 
     /**

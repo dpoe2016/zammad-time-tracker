@@ -492,6 +492,16 @@ html { height: 100%; }
     background-color: #c8e6c9;
 }
 
+/* Highlight ticket when showing tooltip */
+.ticket-item.tooltip-highlighted {
+    background-color: #e3f2fd !important;
+    border: 2px solid #2196f3 !important;
+    box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3) !important;
+    transform: translateY(-1px) !important;
+    z-index: 100;
+    position: relative;
+}
+
 /* Ticket hover tooltip */
 .ticket-tooltip {
     position: absolute;
@@ -552,6 +562,28 @@ html { height: 100%; }
     left: var(--arrow-left, 20px);
     border-top: 7px solid #2c3e50;
     border-bottom: none;
+}
+
+/* Arrow pointing left (tooltip on right side) */
+.ticket-tooltip.arrow-left::before {
+    left: -7px;
+    top: var(--arrow-top, 50%);
+    transform: translateY(-50%);
+    border-right: 7px solid #2c3e50;
+    border-left: none;
+    border-top: 7px solid transparent;
+    border-bottom: 7px solid transparent;
+}
+
+/* Arrow pointing right (tooltip on left side) */
+.ticket-tooltip.arrow-right::before {
+    right: -7px;
+    top: var(--arrow-top, 50%);
+    transform: translateY(-50%);
+    border-left: 7px solid #2c3e50;
+    border-right: none;
+    border-top: 7px solid transparent;
+    border-bottom: 7px solid transparent;
 }
 
 .ticket-tooltip-header {

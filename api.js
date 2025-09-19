@@ -34,15 +34,23 @@ class ZammadAPI {
       allUsers: null
     };
 
-    // In-memory cache for customer data (expires after 5 minutes)
+    // Enhanced caching system for customer data
     this.customerCache = new Map();
     this.cacheTimestamp = null;
-    this.cacheExpiryMs = 5 * 60 * 1000; // 5 minutes
+    this.cacheExpiryMs = 30 * 60 * 1000; // 30 minutes - customer data changes infrequently
+
+    // Request deduplication for ongoing API calls
+    this.ongoingRequests = new Map();
+
+    // Persistent cache keys
+    this.CUSTOMER_CACHE_KEY = 'zammadCustomerCache';
+    this.CUSTOMER_CACHE_TIMESTAMP_KEY = 'zammadCustomerCacheTimestamp';
 
     // Load cached data from storage
     this.loadCachedEndpoints();
     this.loadCachedUserProfile();
     this.loadCachedApiFeatures();
+    this.loadCachedCustomerData();
   }
 
   /**
@@ -70,6 +78,62 @@ class ZammadAPI {
       console.log('Saved API features to cache:', this.apiFeatures);
     } catch (error) {
       console.error('Error saving cached API features:', error);
+    }
+  }
+
+  /**
+   * Load cached customer data from persistent storage
+   */
+  async loadCachedCustomerData() {
+    try {
+      const result = await chrome.storage.local.get([this.CUSTOMER_CACHE_KEY, this.CUSTOMER_CACHE_TIMESTAMP_KEY]);
+      if (result[this.CUSTOMER_CACHE_KEY] && result[this.CUSTOMER_CACHE_TIMESTAMP_KEY]) {
+        const cachedData = result[this.CUSTOMER_CACHE_KEY];
+        const timestamp = result[this.CUSTOMER_CACHE_TIMESTAMP_KEY];
+
+        // Check if cache is still valid
+        const now = Date.now();
+        if ((now - timestamp) < this.cacheExpiryMs) {
+          this.customerCache = new Map(Object.entries(cachedData));
+          this.cacheTimestamp = timestamp;
+          console.log(`Loaded ${this.customerCache.size} customers from persistent cache`);
+        } else {
+          console.log('Persistent customer cache expired, clearing...');
+          await this.clearPersistedCustomerCache();
+        }
+      }
+    } catch (error) {
+      console.error('Error loading cached customer data:', error);
+    }
+  }
+
+  /**
+   * Save customer cache to persistent storage
+   */
+  async saveCustomerCacheToStorage() {
+    try {
+      if (this.customerCache.size > 0 && this.cacheTimestamp) {
+        const cacheObject = Object.fromEntries(this.customerCache);
+        await chrome.storage.local.set({
+          [this.CUSTOMER_CACHE_KEY]: cacheObject,
+          [this.CUSTOMER_CACHE_TIMESTAMP_KEY]: this.cacheTimestamp
+        });
+        console.log(`Saved ${this.customerCache.size} customers to persistent cache`);
+      }
+    } catch (error) {
+      console.error('Error saving customer cache to storage:', error);
+    }
+  }
+
+  /**
+   * Clear persisted customer cache
+   */
+  async clearPersistedCustomerCache() {
+    try {
+      await chrome.storage.local.remove([this.CUSTOMER_CACHE_KEY, this.CUSTOMER_CACHE_TIMESTAMP_KEY]);
+      console.log('Cleared persistent customer cache');
+    } catch (error) {
+      console.error('Error clearing persistent customer cache:', error);
     }
   }
 
@@ -1056,7 +1120,9 @@ class ZammadAPI {
     if (this.successfulEndpoints.assignedTickets) {
       try {
         console.log('Trying cached assigned tickets endpoint:', this.successfulEndpoints.assignedTickets);
-        return await this.request(this.successfulEndpoints.assignedTickets);
+        const result = await this.request(this.successfulEndpoints.assignedTickets);
+        // Enhance tickets with customer data
+        return this.enhanceTicketsWithCustomerData(result);
       } catch (error) {
         console.error('Cached assigned tickets endpoint failed:', error);
         this.successfulEndpoints.assignedTickets = null;
@@ -1142,7 +1208,8 @@ class ZammadAPI {
         this.successfulEndpoints.assignedTickets = endpoint;
         this.saveCachedEndpoints();
 
-        return result;
+        // Enhance tickets with customer data
+        return this.enhanceTicketsWithCustomerData(result);
       } catch (error) {
         console.error(`Error with assigned tickets endpoint ${endpoint}:`, error);
 
@@ -1191,8 +1258,8 @@ class ZammadAPI {
               }
             }
 
-            // Return the combined tickets
-            return allTickets;
+            // Return the combined tickets with customer data enhancement
+            return this.enhanceTicketsWithCustomerData(allTickets);
           }
         }
       } catch (error) {
@@ -1203,11 +1270,14 @@ class ZammadAPI {
 
     // If a specific user ID is provided or no configured user IDs, get tickets for that user
     if (userId) {
-      return this.getTicketsForUser(userId);
+      const tickets = await this.getTicketsForUser(userId);
+      // Enhance with customer data if not already present
+      return this.enhanceTicketsWithCustomerData(tickets);
     }
 
     // If no user ID is provided and no configured user IDs, get all tickets
-    return this.getAllTicketsUnfiltered();
+    const tickets = await this.getAllTicketsUnfiltered();
+    return this.enhanceTicketsWithCustomerData(tickets);
   }
 
   /**
@@ -1298,6 +1368,7 @@ class ZammadAPI {
         console.log(`Trying endpoint for all tickets: ${endpoint}`);
         const result = await this.request(endpoint);
         console.log(`Successfully got ${result ? result.length : 0} tickets`);
+        // Note: Enhancement is handled by the calling getAllTickets() method
         return result;
       } catch (error) {
         console.error(`Error with endpoint ${endpoint}:`, error);
@@ -1890,6 +1961,8 @@ class ZammadAPI {
       const hasCustomerData = ticket.customer_data &&
         (ticket.customer_data.firstname || ticket.customer_data.lastname || ticket.customer_data.email);
 
+      console.log(`Ticket ${ticket.id}: customer_id=${ticket.customer_id}, hasCustomerData=${hasCustomerData}, customer_data=`, ticket.customer_data);
+
       if (!hasCustomerData && ticket.customer_id) {
         ticketsNeedingCustomerData.push(ticket);
         customerIdsToFetch.add(ticket.customer_id);
@@ -2041,8 +2114,9 @@ class ZammadAPI {
         console.warn(`Too many missing customers (${finalMissingIds.length}), skipping individual fetches to maintain performance`);
       }
 
-      // Update cache timestamp after successful fetch
+      // Update cache timestamp and persist to storage after successful fetch
       this.cacheTimestamp = now;
+      await this.saveCustomerCacheToStorage();
     }
 
     console.log(`Batch fetch completed: ${customerMap.size}/${customerIds.length} customers found`);
