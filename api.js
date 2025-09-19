@@ -1227,7 +1227,7 @@ class ZammadAPI {
     const allTickets = [];
 
     for (let page = 1; page <= totalPages; page++) {
-      const endpoint = `/api/v1/tickets/search?query=${encodeURIComponent(query)}&per_page=${perPage}&page=${page}`;
+      const endpoint = `/api/v1/tickets/search?query=${encodeURIComponent(query)}&per_page=${perPage}&page=${page}&expand=true&assets=true`;
       try {
         console.log(`Fetching page ${page} from endpoint: ${endpoint}`);
         const result = await this.request(endpoint);
@@ -1280,6 +1280,9 @@ class ZammadAPI {
     console.log('Getting all tickets (unfiltered)');
 
     const endpoints = [
+      '/api/v1/tickets?expand=true&assets=true',
+      '/api/v1/tickets/search?query=*&expand=true&assets=true',
+      '/api/v1/tickets/search?expand=true&assets=true',
       '/api/v1/tickets',
       '/api/v1/tickets/search?query=*',
       '/api/v1/tickets/search'
@@ -1789,13 +1792,13 @@ class ZammadAPI {
 
   /**
    * Get all organizations from Zammad
-   * 
+   *
    * Uses the official Zammad API endpoint:
    * GET /api/v1/organizations
-   * 
+   *
    * Documentation: docs.zammad.org/en/latest/api/organization.html#list
    * Required permission: ticket.agent or admin.organization
-   * 
+   *
    * @returns {Promise<Array>} Array of organizations
    */
   async getAllOrganizations() {
@@ -1815,6 +1818,98 @@ class ZammadAPI {
       console.error('Error fetching organizations:', error);
       throw new Error(`Failed to get organizations: ${error.message}`);
     }
+  }
+
+  /**
+   * Get customer/user information by ID
+   *
+   * Uses the official Zammad API endpoint:
+   * GET /api/v1/users/{user_id}
+   *
+   * Documentation: docs.zammad.org/en/latest/api/user.html#show
+   * Required permission: ticket.agent or admin.user
+   *
+   * @param {number|string} userId - The ID of the user to fetch
+   * @returns {Promise<object>} User/customer information
+   */
+  async getUser(userId) {
+    if (!userId) {
+      throw new Error('User ID is required');
+    }
+
+    console.log(`Getting user information for ID: ${userId}`);
+
+    try {
+      const endpoint = `/api/v1/users/${userId}`;
+      console.log(`Fetching user from endpoint: ${endpoint}`);
+      const result = await this.request(endpoint);
+
+      if (result && (result.id || result.login)) {
+        console.log(`Successfully fetched user: ${result.login || result.email || result.id}`);
+        return result;
+      } else {
+        console.warn('User API returned unexpected format:', result);
+        return null;
+      }
+    } catch (error) {
+      console.error(`Error fetching user ${userId}:`, error);
+
+      // Don't throw on 404 - user might not exist or no permission
+      if (error.message.includes('404')) {
+        console.warn(`User ${userId} not found or no access`);
+        return null;
+      }
+
+      throw new Error(`Failed to get user ${userId}: ${error.message}`);
+    }
+  }
+
+  /**
+   * Enhance tickets with customer data by fetching missing customer information
+   * @param {Array} tickets - Array of tickets to enhance
+   * @returns {Array} Enhanced tickets with customer data
+   */
+  async enhanceTicketsWithCustomerData(tickets) {
+    if (!Array.isArray(tickets) || tickets.length === 0) {
+      return tickets;
+    }
+
+    console.log(`Enhancing ${tickets.length} tickets with customer data`);
+    const enhancedTickets = [];
+
+    for (const ticket of tickets) {
+      try {
+        const enhancedTicket = { ...ticket };
+
+        // Check if customer data is missing or incomplete
+        const hasCustomerData = ticket.customer_data &&
+          (ticket.customer_data.firstname || ticket.customer_data.lastname || ticket.customer_data.email);
+
+        if (!hasCustomerData && ticket.customer_id) {
+          console.log(`Fetching customer data for ticket ${ticket.id}, customer ID: ${ticket.customer_id}`);
+
+          try {
+            const customerData = await this.getUser(ticket.customer_id);
+            if (customerData) {
+              enhancedTicket.customer_data = customerData;
+              console.log(`Enhanced ticket ${ticket.id} with customer: ${customerData.login || customerData.email}`);
+            }
+          } catch (customerError) {
+            console.warn(`Failed to fetch customer ${ticket.customer_id} for ticket ${ticket.id}:`, customerError.message);
+            // Continue with other tickets
+          }
+        }
+
+        enhancedTickets.push(enhancedTicket);
+      } catch (error) {
+        console.error(`Error enhancing ticket ${ticket.id}:`, error);
+        // Add original ticket if enhancement fails
+        enhancedTickets.push(ticket);
+      }
+    }
+
+    console.log(`Enhanced ${enhancedTickets.length} tickets with customer data`);
+    return enhancedTickets;
   }
 }
 

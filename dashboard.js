@@ -592,6 +592,16 @@ class ZammadDashboard {
             // Store tickets
             this.tickets = Array.isArray(tickets) ? tickets : [];
 
+            // Enhance tickets with customer data for better tooltip information
+            try {
+                logger.info('Enhancing tickets with customer data...');
+                this.tickets = await zammadApi.enhanceTicketsWithCustomerData(this.tickets);
+                logger.info(`Enhanced ${this.tickets.length} tickets with customer data`);
+            } catch (error) {
+                logger.warn('Failed to enhance tickets with customer data:', error.message);
+                // Continue with original tickets if enhancement fails
+            }
+
             // Populate user filter with actual ticket owners
             await this.populateUserFilterFromTickets();
 
