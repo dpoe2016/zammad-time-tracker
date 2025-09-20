@@ -181,3 +181,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 - Updated version to 2.5.11
 
+
+## [2.5.11] - 2025-09-20
+
+- Updated version to 2.5.11
+

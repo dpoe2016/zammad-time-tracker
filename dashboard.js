@@ -419,6 +419,103 @@ class ZammadDashboard {
     }
 
     /**
+     * Initialize drag and drop functionality for group view
+     */
+    initGroupDragAndDrop() {
+        logger.info('Setting up drag and drop functionality for group view');
+
+        // Get unique groups and set up drop zones for each group column
+        const groups = this.getUniqueGroups();
+        groups.forEach(group => {
+            const groupId = group.id || 'none';
+            const columnId = `group-${groupId}`;
+            const container = document.getElementById(columnId);
+            if (container) {
+                this.setupGroupDropZone(container, groupId, group.name);
+            }
+        });
+    }
+
+    /**
+     * Set up a drop zone for a group column
+     * @param {HTMLElement} container - The container element
+     * @param {string} groupId - The group ID ('none' for unassigned tickets)
+     * @param {string} groupName - The group name for display
+     */
+    setupGroupDropZone(container, groupId, groupName) {
+        if (!container) return;
+
+        container.setAttribute('data-group-id', groupId);
+        container.addEventListener('dragover', (event) => {
+            event.preventDefault();
+            container.classList.add('drag-over');
+        });
+
+        container.addEventListener('dragleave', () => {
+            container.classList.remove('drag-over');
+        });
+
+        container.addEventListener('drop', (event) => {
+            event.preventDefault();
+            container.classList.remove('drag-over');
+
+            // Get the dragged ticket ID
+            if (!this.draggedTicket) return;
+
+            const ticketId = this.draggedTicket.getAttribute('data-ticket-id');
+            const currentGroupId = this.draggedTicket.getAttribute('data-group-id');
+
+            // Convert groupId for comparison
+            const targetGroupId = groupId === 'none' ? null : groupId;
+            const currentTicketGroupId = currentGroupId === 'none' || !currentGroupId ? null : currentGroupId;
+
+            // If dropped on the same group, do nothing
+            if (currentTicketGroupId == targetGroupId) {
+                logger.info(`Ticket #${ticketId} dropped on the same group (${groupName})`);
+                return;
+            }
+
+            logger.info(`Ticket #${ticketId} dropped on group: ${groupName} (${groupId})`);
+
+            // Update the ticket group
+            this.updateTicketGroup(ticketId, targetGroupId, groupName);
+        });
+    }
+
+    /**
+     * Update a ticket's group via API
+     * @param {string|number} ticketId - The ticket ID
+     * @param {string|number|null} newGroupId - The new group ID (null for no group)
+     * @param {string} groupName - The group name for display
+     */
+    async updateTicketGroup(ticketId, newGroupId, groupName) {
+        try {
+            logger.info(`Updating ticket #${ticketId} group to: ${groupName} (${newGroupId || 'no group'})`);
+
+            // Show loading indicator
+            this.showLoading();
+
+            // Prepare update data
+            const updateData = {
+                group_id: newGroupId || ''
+            };
+
+            // Make API request to update ticket
+            const endpoint = `/api/v1/tickets/${ticketId}`;
+            await zammadApi.request(endpoint, 'PUT', updateData);
+
+            logger.info(`Successfully updated ticket #${ticketId} group to ${groupName}`);
+
+            // Reload tickets to reflect changes
+            await this.loadTickets();
+
+        } catch (error) {
+            logger.error(`Error updating ticket group:`, error);
+            this.showError(`Failed to update ticket group: ${error.message}`);
+        }
+    }
+
+    /**
      * Update a ticket's state via API
      * @param {string|number} ticketId - The ticket ID
      * @param {string} category - The new category (open, progress, waiting, closed)
@@ -670,8 +767,8 @@ class ZammadDashboard {
         // Clear existing dashboard content
         this.dashboardContainer.innerHTML = '';
 
-        // Update dashboard container class for agent view
-        if (this.currentView === 'agent') {
+        // Update dashboard container class for agent and group views
+        if (this.currentView === 'agent' || this.currentView === 'group') {
             this.dashboardContainer.classList.add('agent-horizontal');
             // Show column visibility button
             if (this.columnVisibilityContainer) {
@@ -689,6 +786,8 @@ class ZammadDashboard {
             this.setupStateView();
         } else if (this.currentView === 'agent') {
             this.setupAgentView();
+        } else if (this.currentView === 'group') {
+            this.setupGroupView();
         }
     }
 
@@ -752,6 +851,31 @@ class ZammadDashboard {
     }
 
     /**
+     * Setup group-based view with group columns
+     */
+    setupGroupView() {
+        // Get unique groups from tickets
+        const groups = this.getUniqueGroups();
+
+        groups.forEach(group => {
+            const columnId = `group-${group.id || 'none'}`;
+            const titleId = `group-title-${group.id || 'none'}`;
+            const countId = `group-count-${group.id || 'none'}`;
+            const columnElement = this.createColumnElement(columnId, titleId, countId, group.name);
+
+            // Check if this column should be hidden
+            if (this.hiddenColumns.has(columnId)) {
+                columnElement.classList.add('hidden');
+            }
+
+            this.dashboardContainer.appendChild(columnElement);
+        });
+
+        // Initialize drag and drop for group view
+        this.initGroupDragAndDrop();
+    }
+
+    /**
      * Create a column element for the dashboard
      */
     createColumnElement(columnId, titleId, countId, title) {
@@ -766,8 +890,8 @@ class ZammadDashboard {
             <div class="ticket-list" id="${columnId}"></div>
         `;
         
-        // Add toggle button for agent view with proper event listener
-        if (this.currentView === 'agent') {
+        // Add toggle button for agent and group views with proper event listener
+        if (this.currentView === 'agent' || this.currentView === 'group') {
             const header = columnElement.querySelector('.column-header');
             const toggleButton = document.createElement('button');
             toggleButton.className = 'column-toggle';
@@ -805,6 +929,39 @@ class ZammadDashboard {
         });
         
         return Array.from(agentMap.values());
+    }
+
+    /**
+     * Get unique groups from current tickets
+     */
+    getUniqueGroups() {
+        const groupMap = new Map();
+
+        // Add "No Group" category for tickets without groups
+        groupMap.set('none', { id: null, name: 'No Group' });
+
+        // Get unique groups from tickets
+        this.tickets.forEach(ticket => {
+            if (ticket.group_id && !groupMap.has(ticket.group_id)) {
+                const groupName = this.getGroupName(ticket);
+                groupMap.set(ticket.group_id, { id: ticket.group_id, name: groupName });
+            }
+        });
+
+        return Array.from(groupMap.values());
+    }
+
+    /**
+     * Get group name from ticket or groups data
+     */
+    getGroupName(ticket) {
+        if (ticket.group_id && this.groups && this.groups.length > 0) {
+            const group = this.groups.find(g => g.id == ticket.group_id);
+            if (group) {
+                return group.name || `Group ${ticket.group_id}`;
+            }
+        }
+        return ticket.group_id ? `Group ${ticket.group_id}` : 'No Group';
     }
 
     /**
@@ -867,6 +1024,8 @@ class ZammadDashboard {
             this.processTicketsByState(sortedTickets);
         } else if (this.currentView === 'agent') {
             this.processTicketsByAgent(sortedTickets);
+        } else if (this.currentView === 'group') {
+            this.processTicketsByGroup(sortedTickets);
         }
 
         // Show dashboard
@@ -976,6 +1135,54 @@ class ZammadDashboard {
 
         const totalTickets = sortedTickets.length;
         logger.info(`Displayed ${totalTickets} tickets organized by agent`);
+    }
+
+    /**
+     * Process tickets organized by group
+     */
+    processTicketsByGroup(sortedTickets) {
+        const groups = this.getUniqueGroups();
+        const groupCounts = new Map();
+
+        // Initialize counters
+        groups.forEach(group => {
+            groupCounts.set(group.id || 'none', 0);
+        });
+
+        // Process each ticket
+        sortedTickets.forEach(ticket => {
+            // Create ticket element
+            const ticketElement = this.createTicketElement(ticket);
+
+            // Determine which group column to use
+            let groupId;
+            if (!ticket.group_id) {
+                groupId = 'none';
+            } else {
+                groupId = ticket.group_id;
+            }
+
+            const columnId = `group-${groupId}`;
+            const container = document.getElementById(columnId);
+
+            if (container) {
+                container.appendChild(ticketElement);
+                const currentCount = groupCounts.get(groupId) || 0;
+                groupCounts.set(groupId, currentCount + 1);
+            }
+        });
+
+        // Update counters
+        groups.forEach(group => {
+            const groupId = group.id || 'none';
+            const countElement = document.getElementById(`group-count-${groupId}`);
+            if (countElement) {
+                countElement.textContent = groupCounts.get(groupId) || 0;
+            }
+        });
+
+        const totalTickets = sortedTickets.length;
+        logger.info(`Displayed ${totalTickets} tickets organized by group`);
     }
 
     /**
@@ -2397,11 +2604,22 @@ class ZammadDashboard {
             return;
         }
 
-        // Get all agent columns (both visible and hidden)
-        const agents = this.getUniqueAgents();
-        
-        if (agents.length === 0) {
-            logger.warn('No agents found for column visibility menu');
+        // Get all columns based on current view
+        let columns = [];
+        if (this.currentView === 'agent') {
+            columns = this.getUniqueAgents().map(agent => ({
+                id: `agent-${agent.id || 'unassigned'}`,
+                name: agent.name
+            }));
+        } else if (this.currentView === 'group') {
+            columns = this.getUniqueGroups().map(group => ({
+                id: `group-${group.id || 'none'}`,
+                name: group.name
+            }));
+        }
+
+        if (columns.length === 0) {
+            logger.warn('No columns found for column visibility menu');
             return;
         }
 
@@ -2411,16 +2629,15 @@ class ZammadDashboard {
         menu.className = 'column-visibility-menu';
         
         let menuItems = '<div class="menu-header">Spalten ein-/ausblenden:</div>';
-        
-        agents.forEach(agent => {
-            const columnId = `agent-${agent.id || 'unassigned'}`;
-            const isHidden = this.hiddenColumns.has(columnId);
+
+        columns.forEach(column => {
+            const isHidden = this.hiddenColumns.has(column.id);
             const checked = isHidden ? '' : 'checked';
-            
+
             menuItems += `
                 <label class="menu-item">
-                    <input type="checkbox" ${checked} data-column-id="${columnId}">
-                    <span>${agent.name}</span>
+                    <input type="checkbox" ${checked} data-column-id="${column.id}">
+                    <span>${column.name}</span>
                 </label>
             `;
         });
