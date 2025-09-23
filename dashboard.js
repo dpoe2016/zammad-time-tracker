@@ -278,6 +278,7 @@ class ZammadDashboard {
                 const selectedPriority = this.priorityFilter.value;
                 logger.info(`Priority filter changed to: ${selectedPriority}`);
                 this.selectedPriority = selectedPriority;
+                this.saveFilterSettings();
                 this.applyFilters();
             });
         }
@@ -288,6 +289,7 @@ class ZammadDashboard {
                 const selectedState = this.stateFilter.value;
                 logger.info(`State filter changed to: ${selectedState}`);
                 this.selectedState = selectedState;
+                this.saveFilterSettings();
                 this.applyFilters();
             });
         }
@@ -330,6 +332,78 @@ class ZammadDashboard {
             if (container) {
                 this.setupAgentDropZone(container, agentId, agent.name);
             }
+        });
+    }
+
+    /**
+     * Initialize drag and drop after tickets have been created and added to the DOM
+     */
+    initializeDragAndDropAfterTickets() {
+        logger.info('Re-initializing drag and drop after tickets are created');
+
+        if (this.currentView === 'state') {
+            // Re-initialize drop zones for state view
+            this.initDragAndDrop();
+        } else if (this.currentView === 'agent') {
+            // Re-initialize drop zones for agent view
+            this.initAgentDragAndDrop();
+        }
+
+        // Ensure all ticket elements have proper drag event listeners
+        this.ensureTicketDragListeners();
+    }
+
+    /**
+     * Ensure all ticket elements have proper drag event listeners
+     */
+    ensureTicketDragListeners() {
+        const allTicketItems = document.querySelectorAll('.ticket-item');
+        logger.info(`Ensuring drag listeners for ${allTicketItems.length} ticket items`);
+
+        allTicketItems.forEach(ticketItem => {
+            // Check if drag listeners are already attached
+            if (ticketItem.hasAttribute('data-drag-initialized')) {
+                return;
+            }
+
+            // Mark as initialized to avoid duplicate listeners
+            ticketItem.setAttribute('data-drag-initialized', 'true');
+
+            const ticketId = ticketItem.getAttribute('data-ticket-id');
+
+            // Remove any existing listeners first
+            const existingStartListener = ticketItem._dragStartListener;
+            const existingEndListener = ticketItem._dragEndListener;
+
+            if (existingStartListener) {
+                ticketItem.removeEventListener('dragstart', existingStartListener);
+            }
+            if (existingEndListener) {
+                ticketItem.removeEventListener('dragend', existingEndListener);
+            }
+
+            // Create new event listeners
+            const dragStartListener = (event) => {
+                this.draggedTicket = ticketItem;
+                ticketItem.classList.add('dragging');
+                event.dataTransfer.setData('text/plain', ticketId);
+                event.dataTransfer.effectAllowed = 'move';
+                logger.info(`Started dragging ticket #${ticketId}`);
+            };
+
+            const dragEndListener = () => {
+                ticketItem.classList.remove('dragging');
+                this.draggedTicket = null;
+                logger.info(`Stopped dragging ticket #${ticketId}`);
+            };
+
+            // Store references for potential cleanup
+            ticketItem._dragStartListener = dragStartListener;
+            ticketItem._dragEndListener = dragEndListener;
+
+            // Add the event listeners
+            ticketItem.addEventListener('dragstart', dragStartListener);
+            ticketItem.addEventListener('dragend', dragEndListener);
         });
     }
 
@@ -1028,6 +1102,9 @@ class ZammadDashboard {
             this.processTicketsByGroup(sortedTickets);
         }
 
+        // Re-initialize drag and drop after tickets are created
+        this.initializeDragAndDropAfterTickets();
+
         // Show dashboard
         this.dashboardContainer.style.display = 'grid';
     }
@@ -1644,20 +1721,7 @@ class ZammadDashboard {
             ticketItem.classList.add('ticket-old');
         }
 
-        // Add drag events
-        ticketItem.addEventListener('dragstart', (event) => {
-            this.draggedTicket = ticketItem;
-            ticketItem.classList.add('dragging');
-            event.dataTransfer.setData('text/plain', ticketId);
-            event.dataTransfer.effectAllowed = 'move';
-            logger.info(`Started dragging ticket #${ticketId}`);
-        });
-
-        ticketItem.addEventListener('dragend', () => {
-            ticketItem.classList.remove('dragging');
-            this.draggedTicket = null;
-            logger.info(`Stopped dragging ticket #${ticketId}`);
-        });
+        // Note: Drag event listeners are now added centrally in ensureTicketDragListeners()
 
         // Add ticket content - 3 row layout
         ticketItem.innerHTML = `
@@ -1777,9 +1841,33 @@ class ZammadDashboard {
         if (ticket.owner_data && ticket.owner_data.fullname) {
             userName = ticket.owner_data.fullname;
         } else if (ticket.owner_id) {
-            const user = this.users.find(u => u.id == ticket.owner_id);
-            if (user) {
-                userName = `${user.firstname || ''} ${user.lastname || ''}`.trim() || user.login || user.email || `User ${user.id}`;
+            // Check cache first for immediate response
+            if (this.userCache && this.userCache.has(ticket.owner_id)) {
+                userName = this.userCache.get(ticket.owner_id);
+            } else {
+                // Try to find in users array
+                const user = this.users.find(u => u.id == ticket.owner_id);
+                if (user) {
+                    userName = `${user.firstname || ''} ${user.lastname || ''}`.trim() || user.login || user.email || `User ${user.id}`;
+                } else {
+                    // Fetch user info from API
+                    try {
+                        const userInfo = await this.fetchUserInfo(ticket.owner_id);
+                        if (userInfo) {
+                            userName = `${userInfo.firstname || ''} ${userInfo.lastname || ''}`.trim() ||
+                                      userInfo.login || userInfo.email || `User ${userInfo.id}`;
+                            // Cache the result
+                            if (this.userCache) {
+                                this.userCache.set(ticket.owner_id, userName);
+                            }
+                        } else {
+                            userName = `User ${ticket.owner_id}`;
+                        }
+                    } catch (error) {
+                        logger.warn(`Failed to fetch user info for ${ticket.owner_id}:`, error);
+                        userName = `User ${ticket.owner_id}`;
+                    }
+                }
             }
         }
 
@@ -2443,9 +2531,11 @@ class ZammadDashboard {
             const filterSettings = {
                 selectedUserId: this.selectedUserId,
                 selectedGroup: this.selectedGroup,
-                selectedOrganization: this.selectedOrganization
+                selectedOrganization: this.selectedOrganization,
+                selectedPriority: this.selectedPriority,
+                selectedState: this.selectedState
             };
-            
+
             await storage.save('dashboardFilterSettings', filterSettings);
             logger.info('Filter settings saved:', filterSettings);
         } catch (error) {
@@ -2461,16 +2551,20 @@ class ZammadDashboard {
             const filterSettings = await storage.load('dashboardFilterSettings', {
                 selectedUserId: 'all',
                 selectedGroup: 'all',
-                selectedOrganization: 'all'
+                selectedOrganization: 'all',
+                selectedPriority: 'all',
+                selectedState: 'all'
             });
-            
+
             logger.info('Filter settings restored:', filterSettings);
-            
+
             // Apply restored settings
             this.selectedUserId = filterSettings.selectedUserId || 'all';
             this.selectedGroup = filterSettings.selectedGroup || 'all';
             this.selectedOrganization = filterSettings.selectedOrganization || 'all';
-            
+            this.selectedPriority = filterSettings.selectedPriority || 'all';
+            this.selectedState = filterSettings.selectedState || 'all';
+
             // Update UI elements if they exist
             if (this.userFilter) {
                 this.userFilter.value = this.selectedUserId;
@@ -2481,12 +2575,20 @@ class ZammadDashboard {
             if (this.organizationFilter) {
                 this.organizationFilter.value = this.selectedOrganization;
             }
+            if (this.priorityFilter) {
+                this.priorityFilter.value = this.selectedPriority;
+            }
+            if (this.stateFilter) {
+                this.stateFilter.value = this.selectedState;
+            }
         } catch (error) {
             logger.error('Error restoring filter settings:', error);
             // Fall back to defaults if restoration fails
             this.selectedUserId = 'all';
             this.selectedGroup = 'all';
             this.selectedOrganization = 'all';
+            this.selectedPriority = 'all';
+            this.selectedState = 'all';
         }
     }
 
