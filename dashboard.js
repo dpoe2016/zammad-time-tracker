@@ -371,39 +371,28 @@ class ZammadDashboard {
 
             const ticketId = ticketItem.getAttribute('data-ticket-id');
 
-            // Remove any existing listeners first
-            const existingStartListener = ticketItem._dragStartListener;
-            const existingEndListener = ticketItem._dragEndListener;
-
-            if (existingStartListener) {
-                ticketItem.removeEventListener('dragstart', existingStartListener);
-            }
-            if (existingEndListener) {
-                ticketItem.removeEventListener('dragend', existingEndListener);
-            }
-
-            // Create new event listeners
-            const dragStartListener = (event) => {
+            // Add the event listeners directly (simpler approach)
+            ticketItem.addEventListener('dragstart', (event) => {
                 this.draggedTicket = ticketItem;
                 ticketItem.classList.add('dragging');
                 event.dataTransfer.setData('text/plain', ticketId);
                 event.dataTransfer.effectAllowed = 'move';
-                logger.info(`Started dragging ticket #${ticketId}`);
-            };
 
-            const dragEndListener = () => {
+                // Store current category for performance optimization
+                const ticket = this.tickets.find(t => t.id == ticketId);
+                if (ticket) {
+                    const currentCategory = this.getTicketCategory(ticket);
+                    ticketItem.setAttribute('data-current-category', currentCategory);
+                }
+
+                logger.info(`Started dragging ticket #${ticketId}`);
+            });
+
+            ticketItem.addEventListener('dragend', () => {
                 ticketItem.classList.remove('dragging');
                 this.draggedTicket = null;
                 logger.info(`Stopped dragging ticket #${ticketId}`);
-            };
-
-            // Store references for potential cleanup
-            ticketItem._dragStartListener = dragStartListener;
-            ticketItem._dragEndListener = dragEndListener;
-
-            // Add the event listeners
-            ticketItem.addEventListener('dragstart', dragStartListener);
-            ticketItem.addEventListener('dragend', dragEndListener);
+            });
         });
     }
 
@@ -415,23 +404,37 @@ class ZammadDashboard {
     setupDropZone(container, category) {
         if (!container) return;
         container.setAttribute('data-category', category);
+
+        // Track drag over state to prevent redundant class additions
+        let isDragOver = false;
+
         container.addEventListener('dragover', (event) => {
             event.preventDefault();
-            container.classList.add('drag-over');
+            if (!isDragOver) {
+                container.classList.add('drag-over');
+                isDragOver = true;
+            }
         });
 
-        container.addEventListener('dragleave', () => {
-            container.classList.remove('drag-over');
+        container.addEventListener('dragleave', (event) => {
+            // Only remove class if we're actually leaving the container
+            if (!container.contains(event.relatedTarget)) {
+                container.classList.remove('drag-over');
+                isDragOver = false;
+            }
         });
+
         container.addEventListener('drop', (event) => {
             event.preventDefault();
             container.classList.remove('drag-over');
+            isDragOver = false;
 
             // Get the dragged ticket ID
             if (!this.draggedTicket) return;
 
             const ticketId = this.draggedTicket.getAttribute('data-ticket-id');
-            const currentCategory = this.getTicketCategory(this.tickets.find(t => t.id == ticketId));
+            // Use pre-stored category instead of searching through tickets array
+            const currentCategory = this.draggedTicket.getAttribute('data-current-category');
 
             // If dropped in the same category, do nothing
             if (currentCategory === category) {
@@ -456,18 +459,30 @@ class ZammadDashboard {
         if (!container) return;
         
         container.setAttribute('data-agent-id', agentId);
+
+        // Track drag over state to prevent redundant class additions
+        let isDragOver = false;
+
         container.addEventListener('dragover', (event) => {
             event.preventDefault();
-            container.classList.add('drag-over');
+            if (!isDragOver) {
+                container.classList.add('drag-over');
+                isDragOver = true;
+            }
         });
 
-        container.addEventListener('dragleave', () => {
-            container.classList.remove('drag-over');
+        container.addEventListener('dragleave', (event) => {
+            // Only remove class if we're actually leaving the container
+            if (!container.contains(event.relatedTarget)) {
+                container.classList.remove('drag-over');
+                isDragOver = false;
+            }
         });
 
         container.addEventListener('drop', (event) => {
             event.preventDefault();
             container.classList.remove('drag-over');
+            isDragOver = false;
 
             // Get the dragged ticket ID
             if (!this.draggedTicket) return;
@@ -520,18 +535,30 @@ class ZammadDashboard {
         if (!container) return;
 
         container.setAttribute('data-group-id', groupId);
+
+        // Track drag over state to prevent redundant class additions
+        let isDragOver = false;
+
         container.addEventListener('dragover', (event) => {
             event.preventDefault();
-            container.classList.add('drag-over');
+            if (!isDragOver) {
+                container.classList.add('drag-over');
+                isDragOver = true;
+            }
         });
 
-        container.addEventListener('dragleave', () => {
-            container.classList.remove('drag-over');
+        container.addEventListener('dragleave', (event) => {
+            // Only remove class if we're actually leaving the container
+            if (!container.contains(event.relatedTarget)) {
+                container.classList.remove('drag-over');
+                isDragOver = false;
+            }
         });
 
         container.addEventListener('drop', (event) => {
             event.preventDefault();
             container.classList.remove('drag-over');
+            isDragOver = false;
 
             // Get the dragged ticket ID
             if (!this.draggedTicket) return;
