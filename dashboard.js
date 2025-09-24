@@ -1893,6 +1893,9 @@ class ZammadDashboard {
             event.preventDefault();
             event.stopPropagation();
 
+            const ticketId = event.currentTarget.getAttribute('data-ticket-id');
+            const ticket = this.tickets.find(t => t.id == ticketId);
+
             // Show context menu at mouse position
             this.showContextMenu(event.pageX, event.pageY, ticketItem, ticket);
         });
@@ -3243,16 +3246,15 @@ class ZammadDashboard {
         if (this.startTrackingItem) {
             this.startTrackingItem.addEventListener('click', (e) => {
                 e.preventDefault();
+                e.stopPropagation(); // Prevent click from closing menu
                 logger.info('Start tracking context menu item clicked');
 
                 // Don't handle click if disabled
                 if (this.startTrackingItem.classList.contains('disabled')) {
                     logger.info('Start tracking item is disabled, ignoring click');
-                    this.hideContextMenu();
                     return;
                 }
 
-                this.hideContextMenu();
                 this.startTimeTrackingForTicket();
             });
         }
@@ -3260,16 +3262,15 @@ class ZammadDashboard {
         if (this.stopTrackingItem) {
             this.stopTrackingItem.addEventListener('click', (e) => {
                 e.preventDefault();
+                e.stopPropagation(); // Prevent click from closing menu
                 logger.info('Stop tracking context menu item clicked');
 
                 // Don't handle click if disabled
                 if (this.stopTrackingItem.classList.contains('disabled')) {
                     logger.info('Stop tracking item is disabled, ignoring click');
-                    this.hideContextMenu();
                     return;
                 }
 
-                this.hideContextMenu();
                 this.stopTimeTracking();
             });
         }
@@ -3277,8 +3278,8 @@ class ZammadDashboard {
         if (this.openPopupItem) {
             this.openPopupItem.addEventListener('click', (e) => {
                 e.preventDefault();
+                e.stopPropagation(); // Prevent click from closing menu
                 logger.info('Open popup context menu item clicked');
-                this.hideContextMenu();
                 this.openTimeTrackerPopup();
             });
         }
@@ -3293,7 +3294,7 @@ class ZammadDashboard {
         // Prevent default context menu on dashboard
         document.addEventListener('contextmenu', (e) => {
             // Only prevent default if clicking on a ticket
-            if (e.target.closest('.ticket-card')) {
+            if (e.target.closest('.ticket-item')) {
                 e.preventDefault();
             }
         });
@@ -3435,11 +3436,11 @@ class ZammadDashboard {
             // Open the popup.html in a new window
             const width = 400;
             const height = 600;
-            const left = (screen.width - width) / 2;
-            const top = (screen.height - height) / 2;
+            const left = window.screen.availLeft + (window.screen.availWidth - width) / 2;
+            const top = window.screen.availTop + (window.screen.availHeight - height) / 2;
 
             chrome.windows.create({
-                url: chrome.runtime.getURL('popup.html'),
+                url: chrome.runtime.getURL(`popup.html?ticketId=${this.currentTicketData.id}`),
                 type: 'popup',
                 width: width,
                 height: height,
