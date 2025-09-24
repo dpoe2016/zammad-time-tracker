@@ -32,6 +32,7 @@
   ],
 
   "action": {
+    "default_popup": "tab-opener.html",
     "default_title": "Zammad Time Tracking"
   },
 
