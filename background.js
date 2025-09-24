@@ -269,4 +269,49 @@ chrome.runtime.onStartup.addListener(function() {
   loadTrackingState();
 });
 
-logger.info('Background script fully loaded');
+// Extension Icon Click Handler - Open dashboard in new tab
+chrome.action.onClicked.addListener(function(tab) {
+  logger.info('Extension icon clicked - opening dashboard in new tab');
+  console.log('Extension icon clicked - opening dashboard in new tab');
+
+  try {
+    // Force open in new tab (not popup)
+    chrome.tabs.create({
+      url: chrome.runtime.getURL('dashboard.html'),
+      active: true
+    }, function(newTab) {
+      if (chrome.runtime.lastError) {
+        logger.error('Error creating tab:', chrome.runtime.lastError);
+        console.error('Error creating tab:', chrome.runtime.lastError);
+      } else {
+        logger.info('Dashboard opened in tab:', newTab.id);
+        console.log('Dashboard opened in tab:', newTab.id);
+      }
+    });
+  } catch (error) {
+    logger.error('Exception in onClicked handler:', error);
+    console.error('Exception in onClicked handler:', error);
+  }
+});
+
+// Test if chrome.tabs API is available
+if (chrome.tabs && chrome.tabs.create) {
+  logger.info('chrome.tabs.create API is available');
+  console.log('chrome.tabs.create API is available');
+} else {
+  logger.error('chrome.tabs.create API is NOT available');
+  console.error('chrome.tabs.create API is NOT available');
+}
+
+// Test if chrome.action API is available
+if (chrome.action && chrome.action.onClicked) {
+  logger.info('chrome.action.onClicked API is available');
+  console.log('chrome.action.onClicked API is available');
+} else {
+  logger.error('chrome.action.onClicked API is NOT available');
+  console.error('chrome.action.onClicked API is NOT available');
+}
+
+// Ensure the click handler is registered
+logger.info('Background script fully loaded with onClicked handler registered');
+console.log('Background script fully loaded with onClicked handler registered');

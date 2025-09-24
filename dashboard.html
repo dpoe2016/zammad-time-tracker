@@ -69,10 +69,39 @@
                         <span id="columnVisibilityText">Spalten einblenden</span>
                     </button>
                 </div>
+                <!-- Time Tracking Section -->
+                <div class="time-tracking-section">
+                    <div class="time-tracking-controls">
+                        <div class="status-indicator">
+                            <div class="status-dot inactive" id="statusDot"></div>
+                            <span id="statusText">Inactive</span>
+                        </div>
+                        <div class="timer-display" id="timerDisplay">00:00:00</div>
+                        <div class="tracking-buttons">
+                            <button class="btn btn-primary" id="startBtn">Start</button>
+                            <button class="btn btn-danger" id="stopBtn" disabled>Stop</button>
+                        </div>
+                    </div>
+                    <div class="current-ticket-info" id="ticketInfo" style="display: none;">
+                        <div class="ticket-title" id="ticketTitle">Loading ticket...</div>
+                        <div class="ticket-details">
+                            <span>
+                                <span id="ticketLabel">Ticket:</span>
+                                <span id="ticketId">#Loading</span>
+                            </span>
+                            <span>
+                                <span id="timeSpentLabel">Time spent:</span>
+                                <span class="time-spent" id="timeSpent">0</span>
+                                <span id="minLabel">min</span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
                 <button id="refreshBtn" class="btn btn-secondary">
                     <span class="refresh-icon">↻</span> <span id="refreshBtnText">Refresh</span>
                 </button>
-                <button id="backToPopupBtn" class="btn btn-primary"><span id="backBtnText">Back to Popup</span></button>
+                <button id="popupViewBtn" class="btn btn-secondary"><span id="popupViewBtnText">Popup View</span></button>
+                <button id="optionsBtn" class="btn btn-secondary"><span id="optionsBtnText">Options</span></button>
             </div>
         </div>
 
