@@ -32,7 +32,6 @@
   ],
 
   "action": {
-    "default_popup": "redirect.html",
     "default_title": "Zammad Time Tracking"
   },
 
