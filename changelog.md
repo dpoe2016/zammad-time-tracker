@@ -257,7 +257,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Updated version to 2.5.13
 
 
-## [2.5.13] - 2025-09-24
+## [2.6.0] - 2025-09-24
 
-- Updated version to 2.5.13
+- Updated version to 2.6.0
 
