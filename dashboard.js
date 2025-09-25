@@ -1861,10 +1861,13 @@ class ZammadDashboard {
 
         // Note: Drag event listeners are now added centrally in ensureTicketDragListeners()
 
-        // Add ticket content - 3 row layout
+        // Add ticket content - 3 row layout with time tracking info
         ticketItem.innerHTML = `
         <div class="ticket-row-1">
             <div class="ticket-item-title">${ticketTitle}</div>
+            <div class="ticket-time-info">
+                <span class="ticket-time-display" id="time-${ticketId}">⏱️ --</span>
+            </div>
         </div>
         <div class="ticket-row-2">
         <span class="ticket-number">#${ticketId}</span>
@@ -1877,6 +1880,12 @@ class ZammadDashboard {
             <span class="ticket-item-priority ${this.getPriorityClass(ticketPriority)}">${ticketPriority}</span>
         </div>
     `;
+
+        // Load time entries asynchronously to avoid blocking ticket display
+        // Add a small delay to throttle API requests when loading many tickets
+        setTimeout(() => {
+            this.loadTicketTimeInfo(ticketId);
+        }, Math.random() * 500); // Random delay up to 500ms to spread out API calls
 
         // Add hover tooltip functionality
         let tooltipElement = null;
@@ -3171,6 +3180,53 @@ class ZammadDashboard {
         this.currentTicketId = null;
         this.currentTicketTitle = null;
         this.updateTimeTrackingUI();
+    }
+
+    /**
+     * Load time information for a specific ticket
+     */
+    async loadTicketTimeInfo(ticketId) {
+        try {
+            // Only load if API is initialized
+            if (!zammadApi || !zammadApi.isInitialized()) {
+                return;
+            }
+
+            const timeEntries = await zammadApi.getTimeEntries(ticketId);
+
+            if (timeEntries && Array.isArray(timeEntries)) {
+                // Calculate total time spent
+                const totalTime = timeEntries.reduce((total, entry) => {
+                    return total + (parseFloat(entry.time_unit) || 0);
+                }, 0);
+
+                // Update the display
+                const timeDisplay = document.getElementById(`time-${ticketId}`);
+                if (timeDisplay) {
+                    if (totalTime > 0) {
+                        const hours = Math.floor(totalTime / 60);
+                        const minutes = Math.round(totalTime % 60);
+
+                        if (hours > 0) {
+                            timeDisplay.textContent = `⏱️ ${hours}h ${minutes}m`;
+                        } else {
+                            timeDisplay.textContent = `⏱️ ${minutes}m`;
+                        }
+                        timeDisplay.classList.add('has-time');
+                        timeDisplay.title = `Total recorded time: ${Math.round(totalTime)} minutes`;
+                    } else {
+                        timeDisplay.textContent = '⏱️ --';
+                        timeDisplay.classList.remove('has-time');
+                        timeDisplay.title = 'No time recorded';
+                    }
+                }
+            }
+        } catch (error) {
+            // Silently fail - don't log errors for missing permissions
+            if (!error.message.includes('403') && !error.message.includes('404')) {
+                logger.debug(`Failed to load time info for ticket ${ticketId}:`, error);
+            }
+        }
     }
 
     /**
