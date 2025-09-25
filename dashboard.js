@@ -212,6 +212,35 @@ class ZammadDashboard {
 
         // Clear timer on page unload
         window.addEventListener('beforeunload', () => this.stopAutoRefresh());
+
+        // Handle page visibility changes - persist time tracking across tab switches
+        document.addEventListener('visibilitychange', async () => {
+            if (document.hidden) {
+                // Page is hidden (tab switched away or browser minimized)
+                logger.info('Page hidden - ensuring time tracking state is saved');
+                if (this.isTracking) {
+                    this.saveTrackingState();
+                }
+            } else {
+                // Page is visible again
+                logger.info('Page visible - continuing time tracking if active');
+                if (this.isTracking) {
+                    // Resume timer display updates
+                    this.startTimer();
+                }
+                // Check for updated tracking states when returning to the page
+                await this.highlightAllActiveTrackingTickets();
+            }
+        });
+
+        // Ensure time tracking persists on page navigation attempts
+        window.addEventListener('beforeunload', (event) => {
+            if (this.isTracking) {
+                // Save state before page unloads
+                this.saveTrackingState();
+                logger.info('Page unloading - time tracking state saved');
+            }
+        });
     }
 
     /**
@@ -888,6 +917,9 @@ class ZammadDashboard {
             this.applyOrganizationFilter();
 
             this.hideLoading();
+
+            // Highlight tickets with active time tracking
+            await this.highlightAllActiveTrackingTickets();
 
         } catch (error) {
             logger.error('Error loading tickets:', error);
@@ -3211,6 +3243,10 @@ class ZammadDashboard {
         this.stopTimer();
         this.timerInterval = setInterval(() => {
             this.updateTimerDisplay();
+            // Periodically save state to ensure persistence across unexpected page closures
+            if (this.isTracking && Date.now() % 30000 < 1000) { // Save every 30 seconds
+                this.saveTrackingState();
+            }
         }, 1000);
         this.updateTimerDisplay();
     }
@@ -3490,56 +3526,18 @@ class ZammadDashboard {
     /**
      * Highlight the ticket that's currently being tracked
      */
-    highlightTrackingTicket(ticketId) {
+    async highlightTrackingTicket(ticketId) {
         if (!ticketId) {
             logger.warn('No ticket ID provided for highlighting');
             return;
         }
 
         try {
-            logger.info('Attempting to highlight ticket:', ticketId, typeof ticketId);
+            logger.info('Attempting to highlight ticket and check for other active tracking:', ticketId, typeof ticketId);
 
-            // Remove highlight from any previously highlighted tickets
-            this.clearTicketHighlights();
+            // Use the comprehensive highlighting that checks for all active tracking
+            await this.highlightAllActiveTrackingTickets();
 
-            // Find all ticket elements to debug
-            const allTicketElements = document.querySelectorAll('[data-ticket-id]');
-            logger.info('Found ticket elements:', allTicketElements.length);
-
-            // Log first few ticket IDs for debugging
-            for (let i = 0; i < Math.min(5, allTicketElements.length); i++) {
-                const elem = allTicketElements[i];
-                logger.info(`Ticket ${i}: ID="${elem.getAttribute('data-ticket-id')}" (${typeof elem.getAttribute('data-ticket-id')})`);
-            }
-
-            // Find and highlight the current ticket
-            const ticketElement = document.querySelector(`[data-ticket-id="${String(ticketId)}"]`);
-            if (ticketElement) {
-                ticketElement.classList.add('time-tracking-active');
-                // Force a style recalculation to ensure CSS is applied
-                ticketElement.offsetHeight;
-                logger.info('Successfully highlighted tracking ticket:', ticketId);
-                logger.info('Ticket element classes after highlighting:', ticketElement.className);
-            } else {
-                logger.warn('Could not find ticket element to highlight. Looking for:', ticketId);
-
-                // Try alternative search methods
-                const elementById = document.querySelector(`[data-ticket-id="${String(ticketId)}"]`);
-                const elementByNumber = document.querySelector(`[data-ticket-id="${Number(ticketId)}"]`);
-
-                logger.info('Alternative searches:', {
-                    byString: !!elementById,
-                    byNumber: !!elementByNumber
-                });
-
-                if (elementById) {
-                    elementById.classList.add('time-tracking-active');
-                    logger.info('Found and highlighted with string conversion');
-                } else if (elementByNumber) {
-                    elementByNumber.classList.add('time-tracking-active');
-                    logger.info('Found and highlighted with number conversion');
-                }
-            }
         } catch (error) {
             logger.error('Failed to highlight tracking ticket:', error);
         }
@@ -3550,13 +3548,69 @@ class ZammadDashboard {
      */
     clearTicketHighlights() {
         try {
-            const highlightedTickets = document.querySelectorAll('.time-tracking-active');
+            const highlightedTickets = document.querySelectorAll('.time-tracking-active, .time-tracking-other');
             highlightedTickets.forEach(ticket => {
-                ticket.classList.remove('time-tracking-active');
+                ticket.classList.remove('time-tracking-active', 'time-tracking-other');
             });
             logger.info('Cleared all ticket highlights, count:', highlightedTickets.length);
         } catch (error) {
             logger.error('Failed to clear ticket highlights:', error);
+        }
+    }
+
+    /**
+     * Get global tracking state to check if other tickets have active tracking
+     */
+    async getGlobalTrackingState() {
+        try {
+            const result = await chrome.storage.local.get(['zammadTrackingState']);
+            return result.zammadTrackingState || null;
+        } catch (error) {
+            logger.error('Failed to get global tracking state:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Highlight tickets with active time tracking (orange for other tickets, blue for current)
+     */
+    async highlightAllActiveTrackingTickets() {
+        try {
+            // Clear existing highlights first
+            this.clearTicketHighlights();
+
+            // Get global tracking state
+            const globalState = await this.getGlobalTrackingState();
+
+            // First, highlight the current dashboard's tracking ticket (if any)
+            if (this.isTracking && this.currentTicketId) {
+                const currentTicketElement = document.querySelector(`[data-ticket-id="${String(this.currentTicketId)}"]`);
+                if (currentTicketElement) {
+                    currentTicketElement.classList.add('time-tracking-active');
+                    logger.info('Highlighted current dashboard tracking ticket (blue):', this.currentTicketId);
+                }
+            }
+
+            // Then, check for global tracking state that might be from other instances
+            if (globalState && globalState.isTracking && globalState.ticketId) {
+                const globalTicketId = String(globalState.ticketId);
+                const currentTicketId = String(this.currentTicketId);
+
+                // Only add orange highlighting if it's a different ticket than the current one
+                if (globalTicketId !== currentTicketId || !this.isTracking) {
+                    const ticketElement = document.querySelector(`[data-ticket-id="${globalTicketId}"]`);
+                    if (ticketElement) {
+                        // Remove blue highlight if it was added and this is from another instance
+                        if (globalTicketId !== currentTicketId) {
+                            ticketElement.classList.remove('time-tracking-active');
+                            ticketElement.classList.add('time-tracking-other');
+                            logger.info('Highlighted other instance tracking ticket (orange):', globalTicketId);
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            logger.error('Failed to highlight active tracking tickets:', error);
         }
     }
 
