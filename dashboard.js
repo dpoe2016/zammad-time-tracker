@@ -3850,14 +3850,25 @@ class ZammadDashboard {
             }
 
             // Calculate total time
-            const totalMinutes = timeEntries.reduce((sum, entry) => sum + (entry.time_unit || 0), 0);
+            const totalMinutes = timeEntries.reduce((sum, entry) => sum + (parseFloat(entry.time_unit) || 0), 0);
             totalTimeDisplay.textContent = `${totalMinutes} minutes (${Math.round(totalMinutes / 60 * 100) / 100} hours)`;
 
             // Render time entries
             entriesList.innerHTML = timeEntries.map((entry, index) => {
                 const date = entry.created_at ? new Date(entry.created_at).toLocaleString() : 'Unknown date';
-                const minutes = entry.time_unit || 0;
+                const minutes = parseFloat(entry.time_unit) || 0;
                 const activity = entry.activity_type || 'No description';
+
+                // Get creator name - try different fields that might contain user info
+                let creatorName = 'Unknown user';
+                if (entry.created_by_id) {
+                    // Try to get user name from cache or fetch it
+                    creatorName = this.getUserDisplayName(entry.created_by_id);
+                } else if (entry.user_id) {
+                    creatorName = this.getUserDisplayName(entry.user_id);
+                } else if (entry.created_by) {
+                    creatorName = entry.created_by;
+                }
 
                 return `
                     <div class="time-entry-item" data-entry-id="${entry.id}" data-index="${index}" style="
@@ -3873,7 +3884,8 @@ class ZammadDashboard {
                                 ${minutes} minutes
                                 <span style="color: #666; font-weight: normal; margin-left: 10px;">${date}</span>
                             </div>
-                            <div style="color: #666; font-size: 14px;">${activity}</div>
+                            <div style="color: #666; font-size: 14px; margin-bottom: 2px;">${activity}</div>
+                            <div style="color: #888; font-size: 12px; font-style: italic;">Created by: ${creatorName}</div>
                         </div>
                         <div style="display: flex; gap: 8px;">
                             <button class="edit-entry-btn" data-entry-id="${entry.id}" data-index="${index}" style="
