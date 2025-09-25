@@ -46,7 +46,6 @@ class ZammadDashboard {
         this.contextMenu = document.getElementById('contextMenu');
         this.startTrackingItem = document.getElementById('startTrackingItem');
         this.stopTrackingItem = document.getElementById('stopTrackingItem');
-        this.openPopupItem = document.getElementById('openPopupItem');
         this.currentTicketElement = null;
 
         // Filter elements
@@ -3107,28 +3106,102 @@ class ZammadDashboard {
     async handleTimeSubmission() {
         if (this.currentTimeSpent === 0) return;
 
-        try {
-            // Check if auto-submit is enabled
-            const settings = await chrome.storage.local.get(['notificationsEnabled', 'autoSubmitEnabled']);
-            const autoSubmit = settings.autoSubmitEnabled;
+        let timeSubmissionSuccess = false;
 
-            if (autoSubmit && zammadApi && zammadApi.isInitialized()) {
-                await zammadApi.addTimeEntry(this.currentTicketId, this.currentTimeSpent);
-                logger.info('Auto-submitted time entry', {
+        try {
+            // Always attempt to submit time entry (like popup approach)
+            if (zammadApi && zammadApi.isInitialized()) {
+                const comment = 'Time tracked via Zammad Dashboard';
+                await zammadApi.submitTimeEntry(this.currentTicketId, this.currentTimeSpent, comment);
+                logger.info('Successfully submitted time entry', {
                     ticketId: this.currentTicketId,
                     time: this.currentTimeSpent
                 });
+                timeSubmissionSuccess = true;
+            } else {
+                logger.warn('API not initialized - time entry not submitted');
+                timeSubmissionSuccess = false;
             }
-
-            // Reset time spent
-            this.currentTimeSpent = 0;
-            this.currentTicketId = null;
-            this.currentTicketTitle = null;
-            this.updateTimeTrackingUI();
-
         } catch (error) {
-            logger.error('Failed to submit time:', error);
+            logger.error('Failed to submit time entry:', error);
+            timeSubmissionSuccess = false;
         }
+
+        // Show user feedback about time submission
+        if (timeSubmissionSuccess) {
+            this.showTimeSubmissionFeedback(true, this.currentTimeSpent);
+        } else {
+            this.showTimeSubmissionFeedback(false, this.currentTimeSpent);
+        }
+
+        // Reset time spent
+        this.currentTimeSpent = 0;
+        this.currentTicketId = null;
+        this.currentTicketTitle = null;
+        this.updateTimeTrackingUI();
+    }
+
+    /**
+     * Show feedback to user about time submission success/failure
+     */
+    showTimeSubmissionFeedback(success, timeSpent) {
+        const message = success
+            ? `Time entry created: ${timeSpent} minutes`
+            : `Time recorded: ${timeSpent} minutes (manual entry required)`;
+
+        const messageType = success ? 'success' : 'warning';
+
+        logger.info(`Time submission feedback: ${message}`);
+
+        // Show temporary toast notification in the UI
+        this.showToastNotification(message, messageType);
+    }
+
+    /**
+     * Show a temporary toast notification
+     */
+    showToastNotification(message, type = 'info') {
+        // Create toast element
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.textContent = message;
+
+        // Add styles
+        Object.assign(toast.style, {
+            position: 'fixed',
+            top: '20px',
+            right: '20px',
+            padding: '12px 20px',
+            borderRadius: '4px',
+            color: 'white',
+            fontSize: '14px',
+            fontWeight: '500',
+            zIndex: '9999',
+            minWidth: '200px',
+            maxWidth: '400px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
+            transform: 'translateX(100%)',
+            transition: 'transform 0.3s ease-in-out',
+            backgroundColor: type === 'success' ? '#10b981' : type === 'warning' ? '#f59e0b' : '#3b82f6'
+        });
+
+        // Add to page
+        document.body.appendChild(toast);
+
+        // Animate in
+        setTimeout(() => {
+            toast.style.transform = 'translateX(0)';
+        }, 100);
+
+        // Remove after delay
+        setTimeout(() => {
+            toast.style.transform = 'translateX(100%)';
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.parentNode.removeChild(toast);
+                }
+            }, 300);
+        }, 4000);
     }
 
     /**
@@ -3275,14 +3348,6 @@ class ZammadDashboard {
             });
         }
 
-        if (this.openPopupItem) {
-            this.openPopupItem.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation(); // Prevent click from closing menu
-                logger.info('Open popup context menu item clicked');
-                this.openTimeTrackerPopup();
-            });
-        }
 
         // Hide context menu when clicking elsewhere
         document.addEventListener('click', (e) => {
@@ -3421,42 +3486,6 @@ class ZammadDashboard {
     /**
      * Open time tracker popup for the selected ticket
      */
-    openTimeTrackerPopup() {
-        logger.info('openTimeTrackerPopup called', {
-            hasCurrentTicketData: !!this.currentTicketData,
-            currentTicketData: this.currentTicketData
-        });
-
-        if (!this.currentTicketData) {
-            logger.error('No current ticket data available for popup');
-            return;
-        }
-
-        try {
-            // Open the popup.html in a new window
-            const width = 400;
-            const height = 600;
-            const left = window.screen.availLeft + (window.screen.availWidth - width) / 2;
-            const top = window.screen.availTop + (window.screen.availHeight - height) / 2;
-
-            chrome.windows.create({
-                url: chrome.runtime.getURL(`popup.html?ticketId=${this.currentTicketData.id}`),
-                type: 'popup',
-                width: width,
-                height: height,
-                left: Math.round(left),
-                top: Math.round(top)
-            }, (window) => {
-                if (chrome.runtime.lastError) {
-                    logger.error('Error opening popup window:', chrome.runtime.lastError);
-                } else {
-                    logger.info('Successfully opened popup window:', window.id);
-                }
-            });
-        } catch (error) {
-            logger.error('Exception opening popup window:', error);
-        }
-    }
 
     /**
      * Highlight the ticket that's currently being tracked
