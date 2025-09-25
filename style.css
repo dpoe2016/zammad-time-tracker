@@ -265,9 +265,231 @@ html { height: 100%; }
     color: #007bff;
 }
 
+/* Header styles */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+    padding: 20px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.header h1 {
+    margin: 0;
+    font-size: 24px;
+    color: #007bff;
+    flex-shrink: 0;
+}
+
 .header-actions {
     display: flex;
     gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+/* Time Tracking Section Styles */
+.time-tracking-section {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #dee2e6;
+  margin-right: 16px;
+}
+
+.time-tracking-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.status-dot.active {
+  background: #28a745;
+  animation: pulse 2s infinite;
+}
+
+.status-dot.inactive {
+  background: #6c757d;
+}
+
+.timer-display {
+  font-size: 18px;
+  font-weight: bold;
+  font-family: 'Courier New', monospace;
+  color: #333;
+  background: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid #ced4da;
+  min-width: 80px;
+  text-align: center;
+}
+
+.tracking-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.current-ticket-info {
+  font-size: 12px;
+  color: #666;
+  background: white;
+  padding: 8px;
+  border-radius: 4px;
+  border-left: 3px solid #007bff;
+  max-width: 250px;
+}
+
+.current-ticket-info .ticket-title {
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 4px;
+  font-size: 13px;
+  line-height: 1.2;
+  word-wrap: break-word;
+}
+
+.current-ticket-info .ticket-details {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #666;
+}
+
+.current-ticket-info .time-spent {
+  color: #28a745;
+  font-weight: 500;
+}
+
+/* Context Menu Styles */
+.context-menu {
+  position: fixed;
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 10000;
+  min-width: 180px;
+  display: none;
+}
+
+.context-menu-item {
+  padding: 12px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.context-menu-item:last-child {
+  border-bottom: none;
+}
+
+.context-menu-item:hover {
+  background-color: #f5f5f5;
+}
+
+.context-menu-item.disabled {
+  color: #ccc;
+  cursor: not-allowed;
+}
+
+.context-menu-item.disabled:hover {
+  background-color: white;
+}
+
+.context-menu-icon {
+  font-size: 16px;
+}
+
+/* Active time tracking ticket highlight */
+.ticket-item.time-tracking-active {
+  border: 3px solid #dc3545 !important;
+  box-shadow: 0 0 10px rgba(220, 53, 69, 0.5) !important;
+  background: linear-gradient(135deg, rgba(220, 53, 69, 0.1), rgba(220, 53, 69, 0.02)) !important;
+  position: relative !important;
+  transform: scale(1.02) !important;
+  transition: all 0.3s ease !important;
+}
+
+.ticket-item.time-tracking-active::before {
+  content: "⏱️ TRACKING";
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  font-size: 10px;
+  background: #dc3545;
+  color: white;
+  padding: 2px 4px;
+  border-radius: 3px;
+  z-index: 1000;
+  font-weight: bold;
+}
+
+.ticket-item.time-tracking-active .ticket-item-title {
+  font-weight: 700 !important;
+  color: #dc3545 !important;
+}
+
+.ticket-item.time-tracking-active .ticket-row-1,
+.ticket-item.time-tracking-active .ticket-row-2,
+.ticket-item.time-tracking-active .ticket-row-3 {
+  background: rgba(220, 53, 69, 0.05) !important;
+}
+
+/* Orange highlighting for tickets with time tracking in other instances */
+.ticket-item.time-tracking-other {
+  border: 3px solid #ff9800 !important;
+  box-shadow: 0 0 10px rgba(255, 152, 0, 0.5) !important;
+  background: linear-gradient(135deg, rgba(255, 152, 0, 0.1), rgba(255, 152, 0, 0.02)) !important;
+  position: relative !important;
+  transform: scale(1.01) !important;
+  transition: all 0.3s ease !important;
+}
+
+.ticket-item.time-tracking-other::before {
+  content: "⏱️ OTHER";
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  font-size: 10px;
+  background: #ff9800;
+  color: white;
+  padding: 2px 4px;
+  border-radius: 3px;
+  z-index: 1000;
+  font-weight: 600;
+}
+
+.ticket-item.time-tracking-other .ticket-item-title {
+  font-weight: 600 !important;
+  color: #ff9800 !important;
+}
+
+.ticket-item.time-tracking-other .ticket-row-1,
+.ticket-item.time-tracking-other .ticket-row-2,
+.ticket-item.time-tracking-other .ticket-row-3 {
+  background: rgba(255, 152, 0, 0.05) !important;
 }
 
 .btn {
@@ -296,6 +518,36 @@ html { height: 100%; }
 
 .btn-secondary:hover {
     background: #5a6268;
+}
+
+/* Container styles for dashboard layout */
+.container {
+    max-width: 100%;
+    margin: 0;
+    padding: 20px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: #f8f9fa;
+}
+
+/* Loading and error styles */
+.loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    color: #6c757d;
+    font-size: 16px;
+}
+
+.error-message {
+    padding: 15px;
+    margin: 20px 0;
+    border-radius: 4px;
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
 }
 
 .dashboard {

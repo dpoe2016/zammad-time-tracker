@@ -7,10 +7,11 @@ class ZammadDashboard {
     constructor() {
         logger.info('Initializing Zammad Dashboard');
 
-        // UI Elements
-        this.dashboardContainer = document.getElementById('dashboardContainer');
-        this.loadingContainer = document.getElementById('loadingContainer');
-        this.errorContainer = document.getElementById('errorContainer');
+        try {
+            // UI Elements
+            this.dashboardContainer = document.getElementById('dashboardContainer');
+            this.loadingContainer = document.getElementById('loadingContainer');
+            this.errorContainer = document.getElementById('errorContainer');
 
         // Ticket containers
         this.newTickets = document.getElementById('newTickets');
@@ -28,7 +29,24 @@ class ZammadDashboard {
 
         // Buttons
         this.refreshBtn = document.getElementById('refreshBtn');
-        this.backToPopupBtn = document.getElementById('backToPopupBtn');
+        this.optionsBtn = document.getElementById('optionsBtn');
+
+        // Time tracking elements
+        this.statusDot = document.getElementById('statusDot');
+        this.statusText = document.getElementById('statusText');
+        this.ticketInfo = document.getElementById('ticketInfo');
+        this.ticketTitle = document.getElementById('ticketTitle');
+        this.ticketId = document.getElementById('ticketId');
+        this.timeSpent = document.getElementById('timeSpent');
+        this.timerDisplay = document.getElementById('timerDisplay');
+        this.startBtn = document.getElementById('startBtn');
+        this.stopBtn = document.getElementById('stopBtn');
+
+        // Context menu elements
+        this.contextMenu = document.getElementById('contextMenu');
+        this.startTrackingItem = document.getElementById('startTrackingItem');
+        this.stopTrackingItem = document.getElementById('stopTrackingItem');
+        this.currentTicketElement = null;
 
         // Filter elements
         this.viewToggle = document.getElementById('viewToggle');
@@ -52,7 +70,7 @@ class ZammadDashboard {
         // Text elements
         this.dashboardTitle = document.getElementById('dashboardTitle');
         this.refreshBtnText = document.getElementById('refreshBtnText');
-        this.backBtnText = document.getElementById('backBtnText');
+        this.optionsBtnText = document.getElementById('optionsBtnText');
         this.loadingText = document.getElementById('loadingText');
         this.newColumnTitle = document.getElementById('newColumnTitle');
         this.openColumnTitle = document.getElementById('openColumnTitle');
@@ -78,16 +96,59 @@ class ZammadDashboard {
         this.token = '';
         this.hiddenColumns = new Set(); // Track hidden columns in agent view
 
+        // Time tracking state
+        this.isTracking = false;
+        this.startTime = null;
+        this.timerInterval = null;
+        this.currentTicketId = null;
+        this.currentTicketTitle = null;
+        this.currentTimeSpent = 0;
+
         // Initialize
         this.updateUILanguage();
         this.initEventListeners();
         this.initializeApi();
         this.initDragAndDrop();
+        this.initTimeTracking();
 
         // Auto-refresh setup
         this.autoRefreshTimer = null;
         this.autoRefreshSec = 0;
         this.initAutoRefresh();
+
+        // Always show the dashboard UI, even if there are initialization errors
+        this.showDashboard();
+
+        } catch (error) {
+            logger.error('Failed to initialize dashboard:', error);
+            console.error('Dashboard initialization failed:', error);
+
+            // Always show the dashboard UI, even on error
+            this.showDashboard();
+
+            // Show error message to user
+            if (this.errorContainer) {
+                this.errorContainer.textContent = 'Failed to load dashboard: ' + error.message;
+                this.errorContainer.style.display = 'block';
+            }
+        }
+    }
+
+    /**
+     * Show dashboard UI (hide loading, show dashboard container)
+     */
+    showDashboard() {
+        try {
+            if (this.loadingContainer) {
+                this.loadingContainer.style.display = 'none';
+            }
+            if (this.dashboardContainer) {
+                this.dashboardContainer.style.display = 'flex';
+            }
+            logger.info('Dashboard UI displayed');
+        } catch (error) {
+            logger.error('Failed to show dashboard UI:', error);
+        }
     }
 
     /**
@@ -100,7 +161,7 @@ class ZammadDashboard {
         document.title = t('dashboard_title');
         this.updateDashboardTitle();
         this.refreshBtnText.textContent = t('dashboard_refresh');
-        this.backBtnText.textContent = t('dashboard_back');
+        this.optionsBtnText.textContent = t('api_options') || 'Options';
         this.loadingText.textContent = t('dashboard_loading');
         this.userFilterLabel.textContent = t('dashboard_user_filter') || 'User:';
         this.groupFilterLabel.textContent = t('dashboard_group_filter') || 'Group:';
@@ -151,6 +212,35 @@ class ZammadDashboard {
 
         // Clear timer on page unload
         window.addEventListener('beforeunload', () => this.stopAutoRefresh());
+
+        // Handle page visibility changes - persist time tracking across tab switches
+        document.addEventListener('visibilitychange', async () => {
+            if (document.hidden) {
+                // Page is hidden (tab switched away or browser minimized)
+                logger.info('Page hidden - ensuring time tracking state is saved');
+                if (this.isTracking) {
+                    this.saveTrackingState();
+                }
+            } else {
+                // Page is visible again
+                logger.info('Page visible - continuing time tracking if active');
+                if (this.isTracking) {
+                    // Resume timer display updates
+                    this.startTimer();
+                }
+                // Check for updated tracking states when returning to the page
+                await this.highlightAllActiveTrackingTickets();
+            }
+        });
+
+        // Ensure time tracking persists on page navigation attempts
+        window.addEventListener('beforeunload', (event) => {
+            if (this.isTracking) {
+                // Save state before page unloads
+                this.saveTrackingState();
+                logger.info('Page unloading - time tracking state saved');
+            }
+        });
     }
 
     /**
@@ -218,10 +308,10 @@ class ZammadDashboard {
             this.loadTickets();
         });
 
-        // Back to popup button
-        this.backToPopupBtn.addEventListener('click', () => {
-            logger.info('Back to popup button clicked');
-            window.close();
+        // Options button
+        this.optionsBtn.addEventListener('click', () => {
+            logger.info('Options button clicked');
+            this.openOptions();
         });
 
         // View toggle change
@@ -301,6 +391,24 @@ class ZammadDashboard {
                 this.showColumnVisibilityMenu();
             });
         }
+
+        // Time tracking event listeners
+        if (this.startBtn) {
+            this.startBtn.addEventListener('click', () => {
+                logger.info('Start button clicked');
+                this.startTimeTracking();
+            });
+        }
+
+        if (this.stopBtn) {
+            this.stopBtn.addEventListener('click', () => {
+                logger.info('Stop button clicked');
+                this.stopTimeTracking();
+            });
+        }
+
+        // Context menu event listeners
+        this.initContextMenu();
     }
 
     /**
@@ -809,6 +917,9 @@ class ZammadDashboard {
             this.applyOrganizationFilter();
 
             this.hideLoading();
+
+            // Highlight tickets with active time tracking
+            await this.highlightAllActiveTrackingTickets();
 
         } catch (error) {
             logger.error('Error loading tickets:', error);
@@ -1714,7 +1825,7 @@ class ZammadDashboard {
         // Create ticket item element
         const ticketItem = document.createElement('div');
         ticketItem.className = 'ticket-item';
-        ticketItem.setAttribute('data-ticket-id', ticketId);
+        ticketItem.setAttribute('data-ticket-id', String(ticketId));
         if (userId) {
             ticketItem.setAttribute('data-user-id', userId);
         }
@@ -1806,6 +1917,18 @@ class ZammadDashboard {
                 // Regular click opens the ticket in Zammad
                 this.openTicketInZammad(ticketId);
             }
+        });
+
+        // Add right-click context menu for time tracking
+        ticketItem.addEventListener('contextmenu', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+
+            const ticketId = event.currentTarget.getAttribute('data-ticket-id');
+            const ticket = this.tickets.find(t => t.id == ticketId);
+
+            // Show context menu at mouse position
+            this.showContextMenu(event.pageX, event.pageY, ticketItem, ticket);
         });
 
         return ticketItem;
@@ -2843,6 +2966,699 @@ class ZammadDashboard {
             this.toggleColumn(columnId);
         });
         this.closeColumnVisibilityMenu();
+    }
+
+    /**
+     * Initialize time tracking functionality
+     */
+    initTimeTracking() {
+        try {
+            logger.info('Initializing time tracking functionality');
+            this.loadTrackingState();
+            this.updateTimeTrackingUI();
+        } catch (error) {
+            logger.error('Failed to initialize time tracking:', error);
+            console.error('Time tracking initialization failed:', error);
+        }
+    }
+
+    /**
+     * Load time tracking state from storage
+     */
+    async loadTrackingState() {
+        try {
+            const result = await chrome.storage.local.get(['timetrackingState']);
+            const state = result.timetrackingState;
+
+            if (state && state.isTracking) {
+                this.isTracking = true;
+                this.startTime = new Date(state.startTime);
+                this.currentTicketId = state.ticketId;
+                this.currentTicketTitle = state.ticketTitle;
+                this.currentTimeSpent = state.timeSpent || 0;
+
+                // Start the timer
+                this.startTimer();
+                this.updateTimeTrackingUI();
+
+                // Highlight the tracking ticket after a short delay to ensure tickets are loaded
+                setTimeout(() => {
+                    this.highlightTrackingTicket(this.currentTicketId);
+                }, 1000);
+
+                logger.info('Restored time tracking session', { ticketId: this.currentTicketId });
+            }
+        } catch (error) {
+            logger.error('Failed to load tracking state:', error);
+        }
+    }
+
+    /**
+     * Save time tracking state to storage
+     */
+    async saveTrackingState() {
+        try {
+            const state = {
+                isTracking: this.isTracking,
+                startTime: this.startTime,
+                ticketId: this.currentTicketId,
+                ticketTitle: this.currentTicketTitle,
+                timeSpent: this.currentTimeSpent
+            };
+            await chrome.storage.local.set({ timetrackingState: state });
+        } catch (error) {
+            logger.error('Failed to save tracking state:', error);
+        }
+    }
+
+    /**
+     * Start time tracking for current ticket
+     */
+    async startTimeTracking() {
+        try {
+            // Get current tab info
+            const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+            const activeTab = tabs[0];
+
+            if (!activeTab?.url) {
+                logger.warn('No active tab found');
+                return;
+            }
+
+            // Check if we're on a Zammad ticket page
+            const ticketMatch = activeTab.url.match(/\/tickets\/(\d+)/);
+            if (!ticketMatch) {
+                logger.warn('Not on a Zammad ticket page');
+                this.showMessage('Please navigate to a Zammad ticket page to start tracking', 'warning');
+                return;
+            }
+
+            this.currentTicketId = ticketMatch[1];
+            this.isTracking = true;
+            this.startTime = new Date();
+
+            // Get ticket info
+            await this.loadTicketInfo();
+
+            // Start the timer
+            this.startTimer();
+            this.updateTimeTrackingUI();
+            this.saveTrackingState();
+
+            // Highlight the tracking ticket
+            this.highlightTrackingTicket(this.currentTicketId);
+
+            logger.info('Started time tracking', { ticketId: this.currentTicketId });
+        } catch (error) {
+            logger.error('Failed to start time tracking:', error);
+        }
+    }
+
+    /**
+     * Stop time tracking
+     */
+    async stopTimeTracking() {
+        if (!this.isTracking) return;
+
+        try {
+            // Calculate elapsed time
+            const elapsed = Math.floor((Date.now() - this.startTime.getTime()) / 60000); // minutes
+
+            // Update time spent
+            this.currentTimeSpent += elapsed;
+
+            // Stop timer
+            this.stopTimer();
+            this.isTracking = false;
+
+            // Clear state
+            await chrome.storage.local.remove(['timetrackingState']);
+
+            // Update UI
+            this.updateTimeTrackingUI();
+
+            // Clear ticket highlight
+            this.clearTicketHighlights();
+
+            logger.info('Stopped time tracking', {
+                ticketId: this.currentTicketId,
+                elapsed: elapsed,
+                totalTime: this.currentTimeSpent
+            });
+
+            // Submit time if auto-submit is enabled
+            await this.handleTimeSubmission();
+
+        } catch (error) {
+            logger.error('Failed to stop time tracking:', error);
+        }
+    }
+
+    /**
+     * Load ticket information
+     */
+    async loadTicketInfo() {
+        try {
+            if (zammadApi && zammadApi.isInitialized()) {
+                const ticket = await zammadApi.getTicket(this.currentTicketId);
+                if (ticket) {
+                    this.currentTicketTitle = ticket.title;
+                    this.updateTimeTrackingUI();
+                }
+            }
+        } catch (error) {
+            logger.error('Failed to load ticket info:', error);
+            this.currentTicketTitle = `Ticket #${this.currentTicketId}`;
+        }
+    }
+
+    /**
+     * Handle time submission
+     */
+    async handleTimeSubmission() {
+        if (this.currentTimeSpent === 0) return;
+
+        let timeSubmissionSuccess = false;
+
+        try {
+            // Always attempt to submit time entry (like popup approach)
+            if (zammadApi && zammadApi.isInitialized()) {
+                const comment = 'Time tracked via Zammad Dashboard';
+                await zammadApi.submitTimeEntry(this.currentTicketId, this.currentTimeSpent, comment);
+                logger.info('Successfully submitted time entry', {
+                    ticketId: this.currentTicketId,
+                    time: this.currentTimeSpent
+                });
+                timeSubmissionSuccess = true;
+            } else {
+                logger.warn('API not initialized - time entry not submitted');
+                timeSubmissionSuccess = false;
+            }
+        } catch (error) {
+            logger.error('Failed to submit time entry:', error);
+            timeSubmissionSuccess = false;
+        }
+
+        // Show user feedback about time submission
+        if (timeSubmissionSuccess) {
+            this.showTimeSubmissionFeedback(true, this.currentTimeSpent);
+        } else {
+            this.showTimeSubmissionFeedback(false, this.currentTimeSpent);
+        }
+
+        // Reset time spent
+        this.currentTimeSpent = 0;
+        this.currentTicketId = null;
+        this.currentTicketTitle = null;
+        this.updateTimeTrackingUI();
+    }
+
+    /**
+     * Show feedback to user about time submission success/failure
+     */
+    showTimeSubmissionFeedback(success, timeSpent) {
+        const message = success
+            ? `Time entry created: ${timeSpent} minutes`
+            : `Time recorded: ${timeSpent} minutes (manual entry required)`;
+
+        const messageType = success ? 'success' : 'warning';
+
+        logger.info(`Time submission feedback: ${message}`);
+
+        // Show temporary toast notification in the UI
+        this.showToastNotification(message, messageType);
+    }
+
+    /**
+     * Show a temporary toast notification
+     */
+    showToastNotification(message, type = 'info') {
+        // Create toast element
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.textContent = message;
+
+        // Add styles
+        Object.assign(toast.style, {
+            position: 'fixed',
+            top: '20px',
+            right: '20px',
+            padding: '12px 20px',
+            borderRadius: '4px',
+            color: 'white',
+            fontSize: '14px',
+            fontWeight: '500',
+            zIndex: '9999',
+            minWidth: '200px',
+            maxWidth: '400px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
+            transform: 'translateX(100%)',
+            transition: 'transform 0.3s ease-in-out',
+            backgroundColor: type === 'success' ? '#10b981' : type === 'warning' ? '#f59e0b' : '#3b82f6'
+        });
+
+        // Add to page
+        document.body.appendChild(toast);
+
+        // Animate in
+        setTimeout(() => {
+            toast.style.transform = 'translateX(0)';
+        }, 100);
+
+        // Remove after delay
+        setTimeout(() => {
+            toast.style.transform = 'translateX(100%)';
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.parentNode.removeChild(toast);
+                }
+            }, 300);
+        }, 4000);
+    }
+
+    /**
+     * Start the timer interval
+     */
+    startTimer() {
+        this.stopTimer();
+        this.timerInterval = setInterval(() => {
+            this.updateTimerDisplay();
+            // Periodically save state to ensure persistence across unexpected page closures
+            if (this.isTracking && Date.now() % 30000 < 1000) { // Save every 30 seconds
+                this.saveTrackingState();
+            }
+        }, 1000);
+        this.updateTimerDisplay();
+    }
+
+    /**
+     * Stop the timer interval
+     */
+    stopTimer() {
+        if (this.timerInterval) {
+            clearInterval(this.timerInterval);
+            this.timerInterval = null;
+        }
+    }
+
+    /**
+     * Update timer display
+     */
+    updateTimerDisplay() {
+        if (!this.isTracking || !this.startTime) {
+            this.timerDisplay.textContent = '00:00:00';
+            return;
+        }
+
+        const elapsed = Date.now() - this.startTime.getTime();
+        const seconds = Math.floor(elapsed / 1000) % 60;
+        const minutes = Math.floor(elapsed / 60000) % 60;
+        const hours = Math.floor(elapsed / 3600000);
+
+        this.timerDisplay.textContent =
+            `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    /**
+     * Update time tracking UI
+     */
+    updateTimeTrackingUI() {
+        try {
+            if (this.isTracking) {
+                if (this.statusDot) {
+                    this.statusDot.classList.remove('inactive');
+                    this.statusDot.classList.add('active');
+                }
+                if (this.statusText) {
+                    this.statusText.textContent = 'Active';
+                }
+                if (this.startBtn) {
+                    this.startBtn.disabled = true;
+                }
+                if (this.stopBtn) {
+                    this.stopBtn.disabled = false;
+                }
+
+                if (this.currentTicketId && this.currentTicketTitle) {
+                    if (this.ticketInfo) {
+                        this.ticketInfo.style.display = 'block';
+                    }
+                    if (this.ticketTitle) {
+                        this.ticketTitle.textContent = this.currentTicketTitle;
+                    }
+                    if (this.ticketId) {
+                        this.ticketId.textContent = `#${this.currentTicketId}`;
+                    }
+                    if (this.timeSpent) {
+                        this.timeSpent.textContent = this.currentTimeSpent.toString();
+                    }
+                }
+            } else {
+                if (this.statusDot) {
+                    this.statusDot.classList.remove('active');
+                    this.statusDot.classList.add('inactive');
+                }
+                if (this.statusText) {
+                    this.statusText.textContent = 'Inactive';
+                }
+                if (this.startBtn) {
+                    this.startBtn.disabled = false;
+                }
+                if (this.stopBtn) {
+                    this.stopBtn.disabled = true;
+                }
+                if (this.ticketInfo) {
+                    this.ticketInfo.style.display = 'none';
+                }
+                if (this.timerDisplay) {
+                    this.timerDisplay.textContent = '00:00:00';
+                }
+            }
+        } catch (error) {
+            logger.error('Failed to update time tracking UI:', error);
+        }
+    }
+
+
+    /**
+     * Open options page
+     */
+    openOptions() {
+        chrome.runtime.openOptionsPage();
+    }
+
+    /**
+     * Initialize context menu functionality
+     */
+    initContextMenu() {
+        // Context menu item event listeners
+        if (this.startTrackingItem) {
+            this.startTrackingItem.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation(); // Prevent click from closing menu
+                logger.info('Start tracking context menu item clicked');
+
+                // Don't handle click if disabled
+                if (this.startTrackingItem.classList.contains('disabled')) {
+                    logger.info('Start tracking item is disabled, ignoring click');
+                    return;
+                }
+
+                this.startTimeTrackingForTicket();
+            });
+        }
+
+        if (this.stopTrackingItem) {
+            this.stopTrackingItem.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation(); // Prevent click from closing menu
+                logger.info('Stop tracking context menu item clicked');
+
+                // Don't handle click if disabled
+                if (this.stopTrackingItem.classList.contains('disabled')) {
+                    logger.info('Stop tracking item is disabled, ignoring click');
+                    return;
+                }
+
+                this.stopTimeTracking();
+            });
+        }
+
+
+        // Hide context menu when clicking elsewhere
+        document.addEventListener('click', (e) => {
+            if (!this.contextMenu.contains(e.target)) {
+                this.hideContextMenu();
+            }
+        });
+
+        // Prevent default context menu on dashboard
+        document.addEventListener('contextmenu', (e) => {
+            // Only prevent default if clicking on a ticket
+            if (e.target.closest('.ticket-item')) {
+                e.preventDefault();
+            }
+        });
+    }
+
+    /**
+     * Show context menu at specified position
+     */
+    showContextMenu(x, y, ticketElement, ticketData) {
+        logger.info('showContextMenu called', {
+            x, y,
+            hasTicketElement: !!ticketElement,
+            ticketData: ticketData
+        });
+
+        this.currentTicketElement = ticketElement;
+        this.currentTicketData = ticketData;
+
+        // Update context menu state based on current tracking status
+        this.updateContextMenuState();
+
+        // Position the menu
+        this.contextMenu.style.left = x + 'px';
+        this.contextMenu.style.top = y + 'px';
+        this.contextMenu.style.display = 'block';
+
+        // Adjust position if menu would go off screen
+        const rect = this.contextMenu.getBoundingClientRect();
+        const windowWidth = window.innerWidth;
+        const windowHeight = window.innerHeight;
+
+        if (rect.right > windowWidth) {
+            this.contextMenu.style.left = (windowWidth - rect.width - 10) + 'px';
+        }
+        if (rect.bottom > windowHeight) {
+            this.contextMenu.style.top = (windowHeight - rect.height - 10) + 'px';
+        }
+    }
+
+    /**
+     * Hide context menu
+     */
+    hideContextMenu() {
+        this.contextMenu.style.display = 'none';
+        this.currentTicketElement = null;
+        this.currentTicketData = null;
+    }
+
+    /**
+     * Update context menu items based on tracking state
+     */
+    updateContextMenuState() {
+        const isCurrentlyTracking = this.isTracking;
+        const isTrackingThisTicket = isCurrentlyTracking &&
+            this.currentTicketData &&
+            this.currentTicketId === this.currentTicketData.id;
+
+        // Enable/disable menu items based on state
+        if (isCurrentlyTracking && !isTrackingThisTicket) {
+            // Already tracking different ticket - only allow stop
+            this.startTrackingItem.classList.add('disabled');
+            this.stopTrackingItem.classList.remove('disabled');
+        } else if (isTrackingThisTicket) {
+            // Already tracking this ticket - only allow stop
+            this.startTrackingItem.classList.add('disabled');
+            this.stopTrackingItem.classList.remove('disabled');
+        } else {
+            // Not tracking or not tracking any ticket - allow start
+            this.startTrackingItem.classList.remove('disabled');
+            this.stopTrackingItem.classList.add('disabled');
+        }
+    }
+
+    /**
+     * Start time tracking for the ticket from context menu
+     */
+    async startTimeTrackingForTicket() {
+        logger.info('startTimeTrackingForTicket called', {
+            hasCurrentTicketData: !!this.currentTicketData,
+            currentTicketData: this.currentTicketData
+        });
+
+        if (!this.currentTicketData) {
+            logger.error('No current ticket data available');
+            return;
+        }
+
+        try {
+            // Extract ticket ID and title with fallbacks
+            const ticketId = this.currentTicketData.id || this.currentTicketData.number;
+            const ticketTitle = this.currentTicketData.title || `Ticket #${ticketId}`;
+
+            if (!ticketId) {
+                logger.error('No ticket ID found in current ticket data', this.currentTicketData);
+                return;
+            }
+
+            logger.info('Setting up tracking for ticket', { ticketId, ticketTitle });
+
+            // Set up tracking for the selected ticket
+            this.currentTicketId = String(ticketId);
+            this.currentTicketTitle = ticketTitle;
+            this.isTracking = true;
+            this.startTime = new Date();
+            this.currentTimeSpent = 0;
+
+            // Start the timer
+            this.startTimer();
+            this.updateTimeTrackingUI();
+            this.saveTrackingState();
+
+            // Highlight the tracking ticket
+            this.highlightTrackingTicket(this.currentTicketId);
+
+            logger.info('Successfully started time tracking for ticket', {
+                ticketId: this.currentTicketId,
+                ticketTitle: this.currentTicketTitle
+            });
+        } catch (error) {
+            logger.error('Failed to start time tracking for ticket:', error);
+        }
+    }
+
+    /**
+     * Open time tracker popup for the selected ticket
+     */
+
+    /**
+     * Highlight the ticket that's currently being tracked
+     */
+    async highlightTrackingTicket(ticketId) {
+        if (!ticketId) {
+            logger.warn('No ticket ID provided for highlighting');
+            return;
+        }
+
+        try {
+            logger.info('Attempting to highlight ticket and check for other active tracking:', ticketId, typeof ticketId);
+
+            // Use the comprehensive highlighting that checks for all active tracking
+            await this.highlightAllActiveTrackingTickets();
+
+        } catch (error) {
+            logger.error('Failed to highlight tracking ticket:', error);
+        }
+    }
+
+    /**
+     * Remove highlight from all tickets
+     */
+    clearTicketHighlights() {
+        try {
+            const highlightedTickets = document.querySelectorAll('.time-tracking-active, .time-tracking-other');
+            highlightedTickets.forEach(ticket => {
+                ticket.classList.remove('time-tracking-active', 'time-tracking-other');
+            });
+            logger.info('Cleared all ticket highlights, count:', highlightedTickets.length);
+        } catch (error) {
+            logger.error('Failed to clear ticket highlights:', error);
+        }
+    }
+
+    /**
+     * Get global tracking state to check if other tickets have active tracking
+     */
+    async getGlobalTrackingState() {
+        try {
+            const result = await chrome.storage.local.get(['zammadTrackingState']);
+            return result.zammadTrackingState || null;
+        } catch (error) {
+            logger.error('Failed to get global tracking state:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Highlight tickets with active time tracking (orange for other tickets, blue for current)
+     */
+    async highlightAllActiveTrackingTickets() {
+        try {
+            // Clear existing highlights first
+            this.clearTicketHighlights();
+
+            // Get global tracking state
+            const globalState = await this.getGlobalTrackingState();
+
+            // First, highlight the current dashboard's tracking ticket (if any)
+            if (this.isTracking && this.currentTicketId) {
+                const currentTicketElement = document.querySelector(`[data-ticket-id="${String(this.currentTicketId)}"]`);
+                if (currentTicketElement) {
+                    currentTicketElement.classList.add('time-tracking-active');
+                    logger.info('Highlighted current dashboard tracking ticket (blue):', this.currentTicketId);
+                }
+            }
+
+            // Then, check for global tracking state that might be from other instances
+            if (globalState && globalState.isTracking && globalState.ticketId) {
+                const globalTicketId = String(globalState.ticketId);
+                const currentTicketId = String(this.currentTicketId);
+
+                // Only add orange highlighting if it's a different ticket than the current one
+                if (globalTicketId !== currentTicketId || !this.isTracking) {
+                    const ticketElement = document.querySelector(`[data-ticket-id="${globalTicketId}"]`);
+                    if (ticketElement) {
+                        // Remove blue highlight if it was added and this is from another instance
+                        if (globalTicketId !== currentTicketId) {
+                            ticketElement.classList.remove('time-tracking-active');
+                            ticketElement.classList.add('time-tracking-other');
+                            logger.info('Highlighted other instance tracking ticket (orange):', globalTicketId);
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            logger.error('Failed to highlight active tracking tickets:', error);
+        }
+    }
+
+    /**
+     * Test method - highlight first available ticket for debugging
+     */
+    testHighlightFirstTicket() {
+        try {
+            const allTickets = document.querySelectorAll('.ticket-item');
+            if (allTickets.length > 0) {
+                const firstTicket = allTickets[0];
+                const ticketId = firstTicket.getAttribute('data-ticket-id');
+                logger.info('Test highlighting first ticket:', ticketId);
+
+                firstTicket.classList.add('time-tracking-active');
+
+                // Also log all classes for debugging
+                logger.info('Ticket classes after adding highlight:', firstTicket.className);
+
+                return ticketId;
+            } else {
+                logger.warn('No ticket elements found for test highlighting');
+                return null;
+            }
+        } catch (error) {
+            logger.error('Test highlighting failed:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Show message to user
+     */
+    showMessage(message, type = 'info') {
+        // Simple message display - could be enhanced with a toast notification
+        logger.info(`Message (${type}): ${message}`);
+
+        // Update error container if available
+        if (this.errorContainer) {
+            this.errorContainer.textContent = message;
+            this.errorContainer.className = `error-message ${type}`;
+            this.errorContainer.style.display = 'block';
+
+            // Hide after 5 seconds
+            setTimeout(() => {
+                this.errorContainer.style.display = 'none';
+            }, 5000);
+        }
     }
 }
 

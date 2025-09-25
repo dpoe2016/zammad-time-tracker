@@ -105,6 +105,14 @@ class TimetrackingPopup {
 
         // Initialize tabs
         this.initTabs();
+
+        // Check for ticketId in URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const ticketIdFromUrl = urlParams.get('ticketId');
+        if (ticketIdFromUrl) {
+            this.currentTicketId = ticketIdFromUrl;
+            this.loadTicketInfoFromApi(ticketIdFromUrl);
+        }
     }
 
     initElements() {
