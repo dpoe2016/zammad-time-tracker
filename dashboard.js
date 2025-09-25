@@ -46,6 +46,7 @@ class ZammadDashboard {
         this.contextMenu = document.getElementById('contextMenu');
         this.startTrackingItem = document.getElementById('startTrackingItem');
         this.stopTrackingItem = document.getElementById('stopTrackingItem');
+        this.editTimeTrackingItem = document.getElementById('editTimeTrackingItem');
         this.currentTicketElement = null;
 
         // Filter elements
@@ -69,6 +70,7 @@ class ZammadDashboard {
 
         // Text elements
         this.dashboardTitle = document.getElementById('dashboardTitle');
+        this.versionDisplay = document.getElementById('versionDisplay');
         this.refreshBtnText = document.getElementById('refreshBtnText');
         this.optionsBtnText = document.getElementById('optionsBtnText');
         this.loadingText = document.getElementById('loadingText');
@@ -77,6 +79,22 @@ class ZammadDashboard {
         this.progressColumnTitle = document.getElementById('progressColumnTitle');
         this.waitingColumnTitle = document.getElementById('waitingColumnTitle');
         this.closedColumnTitle = document.getElementById('closedColumnTitle');
+
+        // Context menu text elements
+        this.startTrackingText = document.getElementById('startTrackingText');
+        this.stopTrackingText = document.getElementById('stopTrackingText');
+        this.editTimeTrackingText = document.getElementById('editTimeTrackingText');
+
+        // Debug context menu elements
+        console.log('Context menu elements found:', {
+            contextMenu: !!this.contextMenu,
+            startTrackingItem: !!this.startTrackingItem,
+            stopTrackingItem: !!this.stopTrackingItem,
+            editTimeTrackingItem: !!this.editTimeTrackingItem,
+            startTrackingText: !!this.startTrackingText,
+            stopTrackingText: !!this.stopTrackingText,
+            editTimeTrackingText: !!this.editTimeTrackingText
+        });
 
         // Ticket data
         this.tickets = [];
@@ -174,6 +192,17 @@ class ZammadDashboard {
         this.waitingColumnTitle.textContent = t('dashboard_waiting');
         this.closedColumnTitle.textContent = t('dashboard_closed');
 
+        // Context menu text
+        if (this.startTrackingText) {
+            this.startTrackingText.textContent = t('start_tracking_text');
+        }
+        if (this.stopTrackingText) {
+            this.stopTrackingText.textContent = t('stop_tracking_text');
+        }
+        if (this.editTimeTrackingText) {
+            this.editTimeTrackingText.textContent = t('edit_time_tracking_text');
+        }
+
         logger.info('UI language updated');
     }
 
@@ -184,11 +213,13 @@ class ZammadDashboard {
         try {
             const manifest = chrome.runtime.getManifest();
             const version = manifest.version;
-            this.dashboardTitle.textContent = `v${version}`;
+            this.versionDisplay.textContent = `v${version}`;
         } catch (error) {
             logger.error('Failed to get version from manifest:', error);
-            this.dashboardTitle.textContent = t('dashboard_title');
+            this.versionDisplay.textContent = 'v?.?.?';
         }
+        // Set dashboard title to translated text
+        this.dashboardTitle.textContent = t('dashboard_title');
     }
 
     /**
@@ -1934,10 +1965,23 @@ class ZammadDashboard {
             event.stopPropagation();
 
             const ticketId = event.currentTarget.getAttribute('data-ticket-id');
-            const ticket = this.tickets.find(t => t.id == ticketId);
+            console.log('Right-click on ticket:', ticketId, typeof ticketId);
+            console.log('Available tickets:', this.tickets.length);
+
+            // Find ticket with proper type conversion
+            const ticket = this.tickets.find(t => String(t.id) === String(ticketId) || t.id == ticketId);
+            console.log('Found ticket:', ticket);
+
+            // If we still can't find the ticket, create a minimal ticket object
+            const ticketData = ticket || {
+                id: ticketId,
+                number: ticketId,
+                title: 'Ticket #' + ticketId
+            };
+            console.log('Using ticket data:', ticketData);
 
             // Show context menu at mouse position
-            this.showContextMenu(event.pageX, event.pageY, ticketItem, ticket);
+            this.showContextMenu(event.pageX, event.pageY, ticketItem, ticketData);
         });
 
         return ticketItem;
@@ -3440,6 +3484,26 @@ class ZammadDashboard {
             });
         }
 
+        if (this.editTimeTrackingItem) {
+            console.log('Adding event listener to editTimeTrackingItem');
+            this.editTimeTrackingItem.addEventListener('click', (e) => {
+                console.log('Edit time tracking item clicked');
+                e.preventDefault();
+                e.stopPropagation(); // Prevent click from closing menu
+                logger.info('Edit time tracking context menu item clicked');
+
+                // Don't handle click if disabled
+                if (this.editTimeTrackingItem.classList.contains('disabled')) {
+                    console.log('Edit time tracking item is disabled, ignoring click');
+                    logger.info('Edit time tracking item is disabled, ignoring click');
+                    return;
+                }
+
+                this.editTimeTracking();
+            });
+        } else {
+            console.error('editTimeTrackingItem not found in DOM');
+        }
 
         // Hide context menu when clicking elsewhere
         document.addEventListener('click', (e) => {
@@ -3461,6 +3525,7 @@ class ZammadDashboard {
      * Show context menu at specified position
      */
     showContextMenu(x, y, ticketElement, ticketData) {
+        console.log('showContextMenu called with:', { x, y, ticketElement, ticketData });
         logger.info('showContextMenu called', {
             x, y,
             hasTicketElement: !!ticketElement,
@@ -3469,6 +3534,8 @@ class ZammadDashboard {
 
         this.currentTicketElement = ticketElement;
         this.currentTicketData = ticketData;
+
+        console.log('Set currentTicketData to:', this.currentTicketData);
 
         // Update context menu state based on current tracking status
         this.updateContextMenuState();
@@ -3514,14 +3581,17 @@ class ZammadDashboard {
             // Already tracking different ticket - only allow stop
             this.startTrackingItem.classList.add('disabled');
             this.stopTrackingItem.classList.remove('disabled');
+            this.editTimeTrackingItem.classList.remove('disabled'); // Always allow edit
         } else if (isTrackingThisTicket) {
             // Already tracking this ticket - only allow stop
             this.startTrackingItem.classList.add('disabled');
             this.stopTrackingItem.classList.remove('disabled');
+            this.editTimeTrackingItem.classList.remove('disabled'); // Always allow edit
         } else {
             // Not tracking or not tracking any ticket - allow start
             this.startTrackingItem.classList.remove('disabled');
             this.stopTrackingItem.classList.add('disabled');
+            this.editTimeTrackingItem.classList.remove('disabled'); // Always allow edit
         }
     }
 
@@ -3572,6 +3642,472 @@ class ZammadDashboard {
             });
         } catch (error) {
             logger.error('Failed to start time tracking for ticket:', error);
+        }
+    }
+
+    /**
+     * Edit time tracking for the ticket from context menu
+     */
+    editTimeTracking() {
+        console.log('editTimeTracking called');
+        logger.info('Edit time tracking context menu clicked');
+
+        // Store the ticket data BEFORE hiding the context menu
+        const ticketData = this.currentTicketData;
+        console.log('Stored ticket data:', ticketData);
+
+        this.hideContextMenu();
+
+        if (!ticketData) {
+            console.error('No current ticket data available for editing time tracking');
+            logger.error('No current ticket data available for editing time tracking');
+            alert('No ticket data available. Please try right-clicking on the ticket again.');
+            return;
+        }
+
+        console.log('Using stored ticket data:', ticketData);
+
+        try {
+            const ticketId = ticketData.id || ticketData.number;
+
+            if (!ticketId) {
+                console.error('No ticket ID found in ticket data', ticketData);
+                logger.error('No ticket ID found in ticket data', ticketData);
+                alert('No ticket ID found. Please try again.');
+                return;
+            }
+
+            console.log('Opening time tracking edit for ticket', ticketId);
+            logger.info('Opening time tracking edit for ticket', { ticketId });
+
+            // Create and show a modal for editing time tracking
+            this.showTimeEditModal(ticketId);
+
+        } catch (error) {
+            console.error('Failed to edit time tracking for ticket:', error);
+            logger.error('Failed to edit time tracking for ticket:', error);
+            alert('Error opening time tracking editor: ' + error.message);
+        }
+    }
+
+    /**
+     * Show modal for editing time tracking
+     */
+    showTimeEditModal(ticketId) {
+        console.log('showTimeEditModal called for ticket:', ticketId);
+
+        // Create modal overlay
+        const modalOverlay = document.createElement('div');
+        modalOverlay.id = 'timeEditModal';
+        modalOverlay.className = 'modal-overlay';
+        modalOverlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        `;
+
+        // Create modal content
+        const modalContent = document.createElement('div');
+        modalContent.className = 'modal-content';
+        modalContent.style.cssText = `
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            min-width: 600px;
+            max-width: 800px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        `;
+
+        modalContent.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="margin: 0;">Time Tracking - Ticket #${ticketId}</h3>
+                <button id="closeModal" style="background: none; border: none; font-size: 20px; cursor: pointer; padding: 5px;">×</button>
+            </div>
+
+            <!-- Existing Time Entries Section -->
+            <div id="existingEntriesSection" style="margin-bottom: 30px;">
+                <h4 style="margin: 0 0 15px 0; color: #333;">Existing Time Entries</h4>
+                <div id="existingEntriesList" style="border: 1px solid #ddd; border-radius: 4px; min-height: 100px; max-height: 300px; overflow-y: auto;">
+                    <div style="padding: 20px; text-align: center; color: #666;">Loading existing time entries...</div>
+                </div>
+                <div style="margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 4px; font-size: 14px;">
+                    <strong>Total Time:</strong> <span id="totalTimeDisplay">-- minutes</span>
+                </div>
+            </div>
+
+            <!-- Add New Entry Section -->
+            <div id="addNewEntrySection">
+                <h4 style="margin: 0 0 15px 0; color: #333;">Add New Time Entry</h4>
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Time (minutes):</label>
+                    <input type="number" id="timeInput" min="0" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" placeholder="Enter time in minutes">
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Activity:</label>
+                    <textarea id="activityInput" rows="3" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" placeholder="Optional: describe the activity"></textarea>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee;">
+                <button id="cancelTimeEdit" style="padding: 8px 16px; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer;">Cancel</button>
+                <button id="addNewTimeEntry" style="padding: 8px 16px; border: none; background: #28a745; color: white; border-radius: 4px; cursor: pointer;">Add Entry</button>
+            </div>
+        `;
+
+        modalOverlay.appendChild(modalContent);
+        document.body.appendChild(modalOverlay);
+
+        // Load existing time entries
+        this.loadExistingTimeEntries(ticketId, modalContent);
+
+        // Handle add new entry button
+        modalContent.querySelector('#addNewTimeEntry').addEventListener('click', () => {
+            const timeInput = modalContent.querySelector('#timeInput');
+            const activityInput = modalContent.querySelector('#activityInput');
+            const minutes = parseInt(timeInput.value);
+            const activity = activityInput.value.trim();
+
+            if (isNaN(minutes) || minutes <= 0) {
+                alert('Please enter a valid time in minutes');
+                return;
+            }
+
+            this.addNewTimeEntry(ticketId, minutes, activity, modalContent);
+        });
+
+        // Handle cancel button and close button
+        modalContent.querySelector('#cancelTimeEdit').addEventListener('click', () => {
+            document.body.removeChild(modalOverlay);
+        });
+
+        modalContent.querySelector('#closeModal').addEventListener('click', () => {
+            document.body.removeChild(modalOverlay);
+        });
+
+        // Handle clicking outside modal
+        modalOverlay.addEventListener('click', (e) => {
+            if (e.target === modalOverlay) {
+                document.body.removeChild(modalOverlay);
+            }
+        });
+
+        // Handle escape key
+        document.addEventListener('keydown', function escapeHandler(e) {
+            if (e.key === 'Escape') {
+                if (document.body.contains(modalOverlay)) {
+                    document.body.removeChild(modalOverlay);
+                }
+                document.removeEventListener('keydown', escapeHandler);
+            }
+        });
+
+        console.log('Modal created and added to body');
+    }
+
+    /**
+     * Load existing time entries for a ticket and display them
+     */
+    async loadExistingTimeEntries(ticketId, modalContent) {
+        const entriesList = modalContent.querySelector('#existingEntriesList');
+        const totalTimeDisplay = modalContent.querySelector('#totalTimeDisplay');
+
+        // Check if API is available and initialized
+        if (!zammadApi || !zammadApi.isInitialized || !zammadApi.isInitialized()) {
+            console.warn('API not available, showing fallback message');
+            entriesList.innerHTML = `
+                <div style="padding: 20px; text-align: center; color: #856404; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; margin: 10px;">
+                    <strong>API Configuration Required</strong><br>
+                    <small>To view and edit existing time entries, please configure your Zammad API settings in the extension options.</small><br>
+                    <small style="margin-top: 10px; display: block;">You can still add new time entries, but they will need to be entered manually in Zammad.</small>
+                </div>
+            `;
+            totalTimeDisplay.textContent = 'API configuration required';
+            return;
+        }
+
+        try {
+            console.log('Loading time entries for ticket:', ticketId);
+            const timeEntries = await zammadApi.getTimeEntries(ticketId);
+
+            if (!timeEntries || timeEntries.length === 0) {
+                entriesList.innerHTML = `
+                    <div style="padding: 20px; text-align: center; color: #666;">
+                        No time entries found for this ticket.
+                    </div>
+                `;
+                totalTimeDisplay.textContent = '0 minutes';
+                return;
+            }
+
+            // Calculate total time
+            const totalMinutes = timeEntries.reduce((sum, entry) => sum + (entry.time_unit || 0), 0);
+            totalTimeDisplay.textContent = `${totalMinutes} minutes (${Math.round(totalMinutes / 60 * 100) / 100} hours)`;
+
+            // Render time entries
+            entriesList.innerHTML = timeEntries.map((entry, index) => {
+                const date = entry.created_at ? new Date(entry.created_at).toLocaleString() : 'Unknown date';
+                const minutes = entry.time_unit || 0;
+                const activity = entry.activity_type || 'No description';
+
+                return `
+                    <div class="time-entry-item" data-entry-id="${entry.id}" data-index="${index}" style="
+                        padding: 12px;
+                        border-bottom: 1px solid #eee;
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        background: white;
+                    ">
+                        <div style="flex-grow: 1;">
+                            <div style="font-weight: bold; margin-bottom: 4px;">
+                                ${minutes} minutes
+                                <span style="color: #666; font-weight: normal; margin-left: 10px;">${date}</span>
+                            </div>
+                            <div style="color: #666; font-size: 14px;">${activity}</div>
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="edit-entry-btn" data-entry-id="${entry.id}" data-index="${index}" style="
+                                padding: 4px 8px;
+                                border: 1px solid #007bff;
+                                background: white;
+                                color: #007bff;
+                                border-radius: 3px;
+                                cursor: pointer;
+                                font-size: 12px;
+                            ">Edit</button>
+                            <button class="delete-entry-btn" data-entry-id="${entry.id}" data-index="${index}" style="
+                                padding: 4px 8px;
+                                border: 1px solid #dc3545;
+                                background: white;
+                                color: #dc3545;
+                                border-radius: 3px;
+                                cursor: pointer;
+                                font-size: 12px;
+                            ">Delete</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // Add event listeners to edit and delete buttons
+            entriesList.querySelectorAll('.edit-entry-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const entryIndex = parseInt(e.target.dataset.index);
+                    this.editTimeEntry(timeEntries[entryIndex], ticketId, modalContent);
+                });
+            });
+
+            entriesList.querySelectorAll('.delete-entry-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const entryIndex = parseInt(e.target.dataset.index);
+                    this.deleteTimeEntry(timeEntries[entryIndex], ticketId, modalContent);
+                });
+            });
+
+        } catch (error) {
+            logger.error('Could not load existing time entries:', error);
+            entriesList.innerHTML = `
+                <div style="padding: 20px; text-align: center; color: #dc3545;">
+                    Error loading time entries. Please check your API configuration.
+                </div>
+            `;
+            totalTimeDisplay.textContent = '-- minutes';
+        }
+    }
+
+    /**
+     * Add new time entry for a ticket
+     */
+    async addNewTimeEntry(ticketId, minutes, activity, modalContent) {
+        try {
+            logger.info('Adding new time entry', { ticketId, minutes, activity });
+
+            // Try to save via API first
+            if (zammadApi && zammadApi.isInitialized && zammadApi.isInitialized()) {
+                await zammadApi.submitTimeEntry(ticketId, minutes, activity);
+                logger.info('Time entry saved successfully via API');
+
+                // Clear the form
+                modalContent.querySelector('#timeInput').value = '';
+                modalContent.querySelector('#activityInput').value = '';
+
+                // Reload the entries list
+                this.loadExistingTimeEntries(ticketId, modalContent);
+
+                // Update the UI to reflect the new time
+                this.loadTicketTimeInfo(ticketId);
+                this.showToastNotification(t('time_recorded'), 'success');
+            } else {
+                logger.warn('API not available, cannot save time entry automatically');
+                this.showToastNotification(t('manual_entry_required', [minutes]), 'warning');
+            }
+
+        } catch (error) {
+            logger.error('Failed to add time entry:', error);
+            this.showToastNotification(t('time_update_error'), 'error');
+        }
+    }
+
+    /**
+     * Edit an existing time entry
+     */
+    editTimeEntry(entry, ticketId, modalContent) {
+        // Create inline edit form
+        const entryElement = modalContent.querySelector(`[data-entry-id="${entry.id}"]`);
+        if (!entryElement) return;
+
+        const originalHtml = entryElement.innerHTML;
+
+        entryElement.innerHTML = `
+            <div style="flex-grow: 1; display: flex; gap: 10px; align-items: center;">
+                <input type="number" id="editTimeInput-${entry.id}" value="${entry.time_unit || 0}" min="0"
+                       style="width: 80px; padding: 4px; border: 1px solid #ddd; border-radius: 3px;" />
+                <span style="font-size: 14px;">minutes</span>
+                <input type="text" id="editActivityInput-${entry.id}" value="${entry.activity_type || ''}"
+                       placeholder="Activity description"
+                       style="flex-grow: 1; padding: 4px; border: 1px solid #ddd; border-radius: 3px;" />
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <button class="save-edit-btn" style="
+                    padding: 4px 8px;
+                    border: 1px solid #28a745;
+                    background: #28a745;
+                    color: white;
+                    border-radius: 3px;
+                    cursor: pointer;
+                    font-size: 12px;
+                ">Save</button>
+                <button class="cancel-edit-btn" style="
+                    padding: 4px 8px;
+                    border: 1px solid #6c757d;
+                    background: white;
+                    color: #6c757d;
+                    border-radius: 3px;
+                    cursor: pointer;
+                    font-size: 12px;
+                ">Cancel</button>
+            </div>
+        `;
+
+        // Handle save button
+        entryElement.querySelector('.save-edit-btn').addEventListener('click', async () => {
+            const newTime = parseInt(entryElement.querySelector(`#editTimeInput-${entry.id}`).value);
+            const newActivity = entryElement.querySelector(`#editActivityInput-${entry.id}`).value.trim();
+
+            if (isNaN(newTime) || newTime < 0) {
+                alert('Please enter a valid time in minutes');
+                return;
+            }
+
+            await this.saveEditedTimeEntry(entry, ticketId, newTime, newActivity, modalContent);
+        });
+
+        // Handle cancel button
+        entryElement.querySelector('.cancel-edit-btn').addEventListener('click', () => {
+            entryElement.innerHTML = originalHtml;
+            // Re-attach event listeners
+            this.attachEntryButtonListeners(entryElement, entry, ticketId, modalContent);
+        });
+
+        // Focus on time input
+        entryElement.querySelector(`#editTimeInput-${entry.id}`).focus();
+    }
+
+    /**
+     * Save edited time entry
+     */
+    async saveEditedTimeEntry(entry, ticketId, newTime, newActivity, modalContent) {
+        try {
+            logger.info('Updating time entry', { entryId: entry.id, newTime, newActivity });
+
+            const updatedEntryData = {
+                time_unit: newTime,
+                activity_type: newActivity || entry.activity_type || 'Time tracking via dashboard'
+            };
+
+            // Try to update via API
+            if (zammadApi && zammadApi.isInitialized && zammadApi.isInitialized()) {
+                await zammadApi.updateTimeEntry(entry.id, ticketId, updatedEntryData);
+                logger.info('Time entry updated successfully via API');
+
+                // Reload the entries list
+                this.loadExistingTimeEntries(ticketId, modalContent);
+
+                // Update the UI to reflect the changed time
+                this.loadTicketTimeInfo(ticketId);
+                this.showToastNotification(t('time_updated'), 'success');
+            } else {
+                logger.warn('API not available, cannot update time entry automatically');
+                this.showToastNotification('API not available for updating entries', 'warning');
+            }
+
+        } catch (error) {
+            logger.error('Failed to update time entry:', error);
+            this.showToastNotification(t('time_update_error'), 'error');
+            // Reload the entries to restore original state
+            this.loadExistingTimeEntries(ticketId, modalContent);
+        }
+    }
+
+    /**
+     * Delete a time entry
+     */
+    async deleteTimeEntry(entry, ticketId, modalContent) {
+        const confirmDelete = confirm(`Are you sure you want to delete this ${entry.time_unit || 0} minute time entry?`);
+        if (!confirmDelete) return;
+
+        try {
+            logger.info('Deleting time entry', { entryId: entry.id });
+
+            // Try to delete via API
+            if (zammadApi && zammadApi.isInitialized && zammadApi.isInitialized()) {
+                await zammadApi.deleteTimeEntry(entry.id, ticketId);
+                logger.info('Time entry deleted successfully via API');
+
+                // Reload the entries list
+                this.loadExistingTimeEntries(ticketId, modalContent);
+
+                // Update the UI to reflect the removed time
+                this.loadTicketTimeInfo(ticketId);
+                this.showToastNotification(t('entry_deleted'), 'success');
+            } else {
+                logger.warn('API not available, cannot delete time entry automatically');
+                this.showToastNotification('API not available for deleting entries', 'warning');
+            }
+
+        } catch (error) {
+            logger.error('Failed to delete time entry:', error);
+            this.showToastNotification(t('delete_entry_error'), 'error');
+        }
+    }
+
+    /**
+     * Reattach event listeners to entry buttons after canceling edit
+     */
+    attachEntryButtonListeners(entryElement, entry, ticketId, modalContent) {
+        const editBtn = entryElement.querySelector('.edit-entry-btn');
+        const deleteBtn = entryElement.querySelector('.delete-entry-btn');
+
+        if (editBtn) {
+            editBtn.addEventListener('click', () => {
+                this.editTimeEntry(entry, ticketId, modalContent);
+            });
+        }
+
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', () => {
+                this.deleteTimeEntry(entry, ticketId, modalContent);
+            });
         }
     }
 

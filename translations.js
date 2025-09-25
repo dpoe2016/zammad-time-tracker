@@ -517,6 +517,20 @@ const translations = {
     'popup_user_filter': {
         [LANGUAGES.DE]: 'Benutzer:',
         [LANGUAGES.EN]: 'User:'
+    },
+
+    // Context menu items
+    'start_tracking_text': {
+        [LANGUAGES.DE]: 'Zeiterfassung starten',
+        [LANGUAGES.EN]: 'Start Time Tracking'
+    },
+    'stop_tracking_text': {
+        [LANGUAGES.DE]: 'Zeiterfassung beenden',
+        [LANGUAGES.EN]: 'Stop Time Tracking'
+    },
+    'edit_time_tracking_text': {
+        [LANGUAGES.DE]: 'Zeiterfassung bearbeiten',
+        [LANGUAGES.EN]: 'Edit Time Tracking'
     }
 };
 

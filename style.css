@@ -299,6 +299,16 @@ html { height: 100%; }
     align-items: center;
 }
 
+.version-display {
+    font-size: 14px;
+    color: #6c757d;
+    font-weight: 500;
+    padding: 4px 8px;
+    border-radius: 4px;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+}
+
 /* Second row: Filters and time tracking */
 .header-content {
     display: flex;
