@@ -336,8 +336,8 @@ class ZammadDashboard {
 
         // Refresh button
         this.refreshBtn.addEventListener('click', () => {
-            logger.info('Refresh button clicked');
-            this.loadTickets();
+            logger.info('Refresh button clicked - forcing refresh');
+            this.loadTickets(true);
         });
 
         // Options button
@@ -370,7 +370,7 @@ class ZammadDashboard {
             logger.info(`User filter changed to: ${selectedValue}`);
             this.selectedUserId = selectedValue;
             this.saveFilterSettings();
-            this.loadTickets();
+            this.loadTickets(true); // Force refresh when filter changes
         });
 
         // Group filter change
@@ -749,7 +749,7 @@ class ZammadDashboard {
             logger.info(`Successfully updated ticket #${ticketId} group to ${groupName}`);
 
             // Reload tickets to reflect changes
-            await this.loadTickets();
+            await this.loadTickets(true);
 
         } catch (error) {
             logger.error(`Error updating ticket group:`, error);
@@ -803,7 +803,7 @@ class ZammadDashboard {
             logger.info(`Successfully updated ticket #${ticketId} to ${stateName} state`);
 
             // Reload tickets to reflect changes
-            await this.loadTickets();
+            await this.loadTickets(true);
 
         } catch (error) {
             logger.error(`Error updating ticket state:`, error);
@@ -836,7 +836,7 @@ class ZammadDashboard {
             logger.info(`Successfully updated ticket #${ticketId} owner to ${agentName}`);
 
             // Reload tickets to reflect changes
-            await this.loadTickets();
+            await this.loadTickets(true);
 
         } catch (error) {
             logger.error(`Error updating ticket owner:`, error);
@@ -873,15 +873,16 @@ class ZammadDashboard {
 
     /**
      * Load tickets from API
+     * @param {boolean} forceRefresh - If true, bypass cache and fetch fresh data from API
      */
-    async loadTickets() {
+    async loadTickets(forceRefresh = false) {
         if (this.isLoading) return;
 
         this.isLoading = true;
         this.showLoading();
 
         try {
-            logger.info('Loading tickets from API');
+            logger.info(`Loading tickets from API${forceRefresh ? ' (forcing refresh)' : ''}`);
 
             // Check if API is initialized
             if (!zammadApi.isInitialized()) {
@@ -911,20 +912,20 @@ class ZammadDashboard {
             // Get tickets based on selected user filter
             let tickets;
             if (this.selectedUserId === 'all') {
-                tickets = await zammadApi.getAllTickets();
+                tickets = await zammadApi.getAllTickets(null, forceRefresh);
                 logger.info(`Loaded ${tickets ? tickets.length : 0} tickets from all users`);
             } else if (this.selectedUserId === 'me') {
-                tickets = await zammadApi.getAssignedTickets();
+                tickets = await zammadApi.getAssignedTickets(forceRefresh);
                 logger.info(`Loaded ${tickets ? tickets.length : 0} tickets assigned to current user`);
             } else if (this.selectedUserId === 'unassigned') {
                 // Get all tickets and filter for unassigned ones
-                tickets = await zammadApi.getAllTickets();
+                tickets = await zammadApi.getAllTickets(null, forceRefresh);
                 if (Array.isArray(tickets)) {
                     tickets = tickets.filter(ticket => !ticket.owner_id && ticket.state_id !== 9); // Exclude merged tickets
                 }
                 logger.info(`Loaded ${tickets ? tickets.length : 0} unassigned tickets`);
             } else {
-                tickets = await zammadApi.getAllTickets(this.selectedUserId);
+                tickets = await zammadApi.getAllTickets(this.selectedUserId, forceRefresh);
                 logger.info(`Loaded ${tickets ? tickets.length : 0} tickets for user ${this.selectedUserId}`);
             }
 
