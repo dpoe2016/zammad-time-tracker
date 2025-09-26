@@ -106,6 +106,14 @@ class TimetrackingPopup {
         // Initialize tabs
         this.initTabs();
 
+        // Set up cache refresh event listeners
+        this.initCacheRefreshListeners();
+
+        // Start automatic cache refresh if API is available
+        if (zammadApi.isInitialized()) {
+            zammadApi.startTicketCacheAutoRefresh();
+        }
+
         // Check for ticketId in URL
         const urlParams = new URLSearchParams(window.location.search);
         const ticketIdFromUrl = urlParams.get('ticketId');
@@ -165,6 +173,68 @@ class TimetrackingPopup {
         this.dashboardBtn = document.getElementById('dashboardBtn');
 
         logger.info('UI elements initialized');
+    }
+
+    /**
+     * Initialize cache refresh event listeners
+     */
+    initCacheRefreshListeners() {
+        this.debug('Setting up cache refresh event listeners');
+
+        // Listen for cache refresh events
+        window.addEventListener('ticketCacheRefreshed', (event) => {
+            const { cacheKey, tickets } = event.detail;
+            this.debug(`Cache refreshed for key: ${cacheKey}, tickets: ${tickets.length}`);
+
+            // Update UI based on the current active tab and cache key
+            const currentTab = document.querySelector('.tab.active')?.getAttribute('data-tab');
+
+            if (currentTab === 'tickets' &&
+                (cacheKey === 'assigned_tickets' ||
+                 cacheKey.startsWith('user_tickets_') ||
+                 cacheKey === 'all_tickets')) {
+
+                // Check if the refreshed cache key matches our current user filter
+                const shouldUpdate = this.shouldUpdateTicketsForCacheKey(cacheKey);
+
+                if (shouldUpdate) {
+                    this.debug('Updating tickets display due to cache refresh');
+                    this.assignedTickets = tickets;
+                    this.displayAssignedTickets();
+
+                    // Update info text to show data is fresh
+                    const nonClosedCount = tickets.filter(ticket => {
+                        const stateId = ticket.state_id;
+                        return stateId != 2 && stateId != 3;
+                    }).length;
+
+                    this.ticketsInfo.textContent = t('tickets_loaded', [nonClosedCount]) + ' (' + t('non_closed_only') + ') - ' + t('refreshed');
+                    this.ticketsInfo.className = 'info success';
+                }
+            }
+        });
+    }
+
+    /**
+     * Check if the UI should be updated for a given cache key
+     * @param {string} cacheKey - The cache key that was refreshed
+     * @returns {boolean} True if the UI should be updated
+     */
+    shouldUpdateTicketsForCacheKey(cacheKey) {
+        if (cacheKey === 'assigned_tickets' && this.selectedUserId === 'me') {
+            return true;
+        }
+
+        if (cacheKey === 'all_tickets' && this.selectedUserId === 'all') {
+            return true;
+        }
+
+        if (cacheKey.startsWith('user_tickets_')) {
+            const userId = cacheKey.replace('user_tickets_', '');
+            return this.selectedUserId === userId;
+        }
+
+        return false;
     }
 
     /**
@@ -331,11 +401,12 @@ class TimetrackingPopup {
     }
 
     /**
-     * Load assigned tickets from the API
+     * Load assigned tickets from the API with caching
      */
     async loadAssignedTickets() {
         // Skip if already loading
         if (this.isLoadingTickets) {
+            this.debug('Already loading tickets, skipping duplicate request');
             return;
         }
 

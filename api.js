@@ -39,18 +39,26 @@ class ZammadAPI {
     this.cacheTimestamp = null;
     this.cacheExpiryMs = 30 * 60 * 1000; // 30 minutes - customer data changes infrequently
 
+    // Ticket caching system
+    this.ticketCache = new Map();
+    this.ticketCacheTimestamp = null;
+    this.ticketCacheExpiryMs = 5 * 60 * 1000; // 5 minutes - tickets change more frequently
+
     // Request deduplication for ongoing API calls
     this.ongoingRequests = new Map();
 
     // Persistent cache keys
     this.CUSTOMER_CACHE_KEY = 'zammadCustomerCache';
     this.CUSTOMER_CACHE_TIMESTAMP_KEY = 'zammadCustomerCacheTimestamp';
+    this.TICKET_CACHE_KEY = 'zammadTicketCache';
+    this.TICKET_CACHE_TIMESTAMP_KEY = 'zammadTicketCacheTimestamp';
 
     // Load cached data from storage
     this.loadCachedEndpoints();
     this.loadCachedUserProfile();
     this.loadCachedApiFeatures();
     this.loadCachedCustomerData();
+    this.loadCachedTicketData();
   }
 
   /**
@@ -134,6 +142,190 @@ class ZammadAPI {
       console.log('Cleared persistent customer cache');
     } catch (error) {
       console.error('Error clearing persistent customer cache:', error);
+    }
+  }
+
+  /**
+   * Load cached ticket data from persistent storage
+   */
+  async loadCachedTicketData() {
+    try {
+      const result = await chrome.storage.local.get([this.TICKET_CACHE_KEY, this.TICKET_CACHE_TIMESTAMP_KEY]);
+      if (result[this.TICKET_CACHE_KEY] && result[this.TICKET_CACHE_TIMESTAMP_KEY]) {
+        const cachedData = result[this.TICKET_CACHE_KEY];
+        const timestamp = result[this.TICKET_CACHE_TIMESTAMP_KEY];
+
+        // Check if cache is still valid
+        const now = Date.now();
+        if ((now - timestamp) < this.ticketCacheExpiryMs) {
+          this.ticketCache = new Map(Object.entries(cachedData));
+          this.ticketCacheTimestamp = timestamp;
+          console.log(`Loaded ${this.ticketCache.size} tickets from persistent cache`);
+        } else {
+          console.log('Persistent ticket cache expired, clearing...');
+          await this.clearPersistedTicketCache();
+        }
+      }
+    } catch (error) {
+      console.error('Error loading cached ticket data:', error);
+    }
+  }
+
+  /**
+   * Save ticket cache to persistent storage
+   */
+  async saveTicketCacheToStorage() {
+    try {
+      if (this.ticketCache.size > 0 && this.ticketCacheTimestamp) {
+        const cacheObject = Object.fromEntries(this.ticketCache);
+        await chrome.storage.local.set({
+          [this.TICKET_CACHE_KEY]: cacheObject,
+          [this.TICKET_CACHE_TIMESTAMP_KEY]: this.ticketCacheTimestamp
+        });
+        console.log(`Saved ${this.ticketCache.size} tickets to persistent cache`);
+      }
+    } catch (error) {
+      console.error('Error saving ticket cache to storage:', error);
+    }
+  }
+
+  /**
+   * Clear persisted ticket cache
+   */
+  async clearPersistedTicketCache() {
+    try {
+      await chrome.storage.local.remove([this.TICKET_CACHE_KEY, this.TICKET_CACHE_TIMESTAMP_KEY]);
+      console.log('Cleared persistent ticket cache');
+    } catch (error) {
+      console.error('Error clearing persistent ticket cache:', error);
+    }
+  }
+
+  /**
+   * Get tickets from cache if available and valid
+   * @param {string} cacheKey - The cache key to look for
+   * @returns {Array|null} Cached tickets or null if not found/expired
+   */
+  getCachedTickets(cacheKey = 'default') {
+    if (!this.ticketCacheTimestamp) {
+      return null;
+    }
+
+    const now = Date.now();
+    const isCacheValid = (now - this.ticketCacheTimestamp) < this.ticketCacheExpiryMs;
+
+    if (!isCacheValid) {
+      console.log('Ticket cache expired');
+      this.ticketCache.clear();
+      this.ticketCacheTimestamp = null;
+      return null;
+    }
+
+    const cachedTickets = this.ticketCache.get(cacheKey);
+    if (cachedTickets) {
+      console.log(`Found ${cachedTickets.length} tickets in cache for key: ${cacheKey}`);
+      return cachedTickets;
+    }
+
+    return null;
+  }
+
+  /**
+   * Cache tickets with a specific key
+   * @param {string} cacheKey - The cache key to use
+   * @param {Array} tickets - The tickets to cache
+   */
+  async cacheTickets(cacheKey = 'default', tickets) {
+    if (!Array.isArray(tickets)) {
+      console.warn('Cannot cache tickets: invalid data format');
+      return;
+    }
+
+    this.ticketCache.set(cacheKey, tickets);
+    this.ticketCacheTimestamp = Date.now();
+
+    console.log(`Cached ${tickets.length} tickets with key: ${cacheKey}`);
+
+    // Save to persistent storage
+    await this.saveTicketCacheToStorage();
+  }
+
+  /**
+   * Refresh ticket cache in the background
+   * @param {string} cacheKey - The cache key to refresh
+   * @param {Function} refreshFunction - Function to call to get fresh data
+   * @param {Array} refreshArgs - Arguments to pass to the refresh function
+   */
+  async refreshTicketCache(cacheKey, refreshFunction, refreshArgs = []) {
+    try {
+      console.log(`Background refresh starting for cache key: ${cacheKey}`);
+
+      // Call the refresh function with force refresh flag
+      const freshTickets = await refreshFunction.apply(this, [...refreshArgs, true]);
+
+      console.log(`Background refresh completed for cache key: ${cacheKey}, got ${freshTickets.length} tickets`);
+
+      // Notify any listeners that the cache has been updated
+      if (typeof window !== 'undefined' && window.dispatchEvent) {
+        const event = new CustomEvent('ticketCacheRefreshed', {
+          detail: { cacheKey, tickets: freshTickets }
+        });
+        window.dispatchEvent(event);
+      }
+
+      return freshTickets;
+    } catch (error) {
+      console.error(`Background refresh failed for cache key: ${cacheKey}`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Start automatic cache refresh for tickets
+   * @param {number} intervalMs - Refresh interval in milliseconds (default: 2 minutes)
+   */
+  startTicketCacheAutoRefresh(intervalMs = 2 * 60 * 1000) {
+    // Clear any existing interval
+    if (this.ticketCacheRefreshInterval) {
+      clearInterval(this.ticketCacheRefreshInterval);
+    }
+
+    this.ticketCacheRefreshInterval = setInterval(async () => {
+      console.log('Starting automatic ticket cache refresh');
+
+      // Get all cache keys that need refreshing
+      const cacheKeys = Array.from(this.ticketCache.keys());
+
+      for (const cacheKey of cacheKeys) {
+        try {
+          if (cacheKey === 'assigned_tickets') {
+            await this.refreshTicketCache(cacheKey, this.getAssignedTickets);
+          } else if (cacheKey.startsWith('user_tickets_')) {
+            const userId = cacheKey.replace('user_tickets_', '');
+            await this.refreshTicketCache(cacheKey, this.getAllTickets, [userId]);
+          } else if (cacheKey === 'all_tickets') {
+            await this.refreshTicketCache(cacheKey, this.getAllTickets);
+          }
+        } catch (error) {
+          console.error(`Error refreshing cache key ${cacheKey}:`, error);
+        }
+
+        // Add small delay between refreshes to avoid overwhelming the API
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }, intervalMs);
+
+    console.log(`Ticket cache auto-refresh started with ${intervalMs/1000}s interval`);
+  }
+
+  /**
+   * Stop automatic cache refresh
+   */
+  stopTicketCacheAutoRefresh() {
+    if (this.ticketCacheRefreshInterval) {
+      clearInterval(this.ticketCacheRefreshInterval);
+      this.ticketCacheRefreshInterval = null;
+      console.log('Ticket cache auto-refresh stopped');
     }
   }
 
@@ -1092,20 +1284,32 @@ class ZammadAPI {
 
   /**
    * Get tickets assigned to the current user
-   * Uses detected API features to optimize the approach
-   * 
+   * Uses detected API features to optimize the approach with cache-first loading
+   *
    * Uses multiple Zammad API endpoints with fallbacks:
    * 1. GET /api/v1/tickets/search?query=owner.id:{user_id} (if search is supported)
    * 2. GET /api/v1/tickets?filter[owner_id]={user_id}
    * 3. GET /api/v1/tickets?owner_id={user_id}
-   * 
+   *
    * Documentation: docs/zammad/docs.zammad.org/en/latest/api/ticket/index.html#list
    * Required permission: ticket.agent
-   * 
+   *
+   * @param {boolean} forceRefresh - If true, skip cache and fetch from API
    * @returns {Promise<Array>} List of tickets assigned to the current user
    */
-  async getAssignedTickets() {
+  async getAssignedTickets(forceRefresh = false) {
     console.log('Getting tickets assigned to the current user');
+
+    const cacheKey = 'assigned_tickets';
+
+    // Try cache first unless force refresh is requested
+    if (!forceRefresh) {
+      const cachedTickets = this.getCachedTickets(cacheKey);
+      if (cachedTickets) {
+        console.log(`Returning ${cachedTickets.length} assigned tickets from cache`);
+        return cachedTickets;
+      }
+    }
 
     // Try to fetch user ID if not available
     if (!this.currentUserId) {
@@ -1113,19 +1317,6 @@ class ZammadAPI {
         await this.fetchCurrentUser();
       } catch (error) {
         console.warn('Could not fetch current user profile:', error.message);
-      }
-    }
-
-    // Try cached endpoint first
-    if (this.successfulEndpoints.assignedTickets) {
-      try {
-        console.log('Trying cached assigned tickets endpoint:', this.successfulEndpoints.assignedTickets);
-        const result = await this.request(this.successfulEndpoints.assignedTickets);
-        // Enhance tickets with customer data
-        return this.enhanceTicketsWithCustomerData(result);
-      } catch (error) {
-        console.error('Cached assigned tickets endpoint failed:', error);
-        this.successfulEndpoints.assignedTickets = null;
       }
     }
 
@@ -1209,7 +1400,12 @@ class ZammadAPI {
         this.saveCachedEndpoints();
 
         // Enhance tickets with customer data
-        return this.enhanceTicketsWithCustomerData(result);
+        const enhancedTickets = await this.enhanceTicketsWithCustomerData(result);
+
+        // Cache the results
+        await this.cacheTickets(cacheKey, enhancedTickets);
+
+        return enhancedTickets;
       } catch (error) {
         console.error(`Error with assigned tickets endpoint ${endpoint}:`, error);
 
@@ -1226,12 +1422,24 @@ class ZammadAPI {
   }
 
   /**
-   * Get all tickets, optionally filtered by user ID
+   * Get all tickets, optionally filtered by user ID with cache-first loading
    * @param {string|number} userId - Optional user ID to filter by
+   * @param {boolean} forceRefresh - If true, skip cache and fetch from API
    * @returns {Array} Array of tickets
    */
-  async getAllTickets(userId = null) {
+  async getAllTickets(userId = null, forceRefresh = false) {
     console.log(`Getting all tickets${userId ? ' for user ID: ' + userId : ''}`);
+
+    const cacheKey = userId ? `user_tickets_${userId}` : 'all_tickets';
+
+    // Try cache first unless force refresh is requested
+    if (!forceRefresh) {
+      const cachedTickets = this.getCachedTickets(cacheKey);
+      if (cachedTickets) {
+        console.log(`Returning ${cachedTickets.length} tickets from cache for key: ${cacheKey}`);
+        return cachedTickets;
+      }
+    }
 
     // If no specific user ID is provided, check if we should use the configured user IDs
     if (!userId) {
@@ -1259,7 +1467,10 @@ class ZammadAPI {
             }
 
             // Return the combined tickets with customer data enhancement
-            return this.enhanceTicketsWithCustomerData(allTickets);
+            const enhancedTickets = await this.enhanceTicketsWithCustomerData(allTickets);
+            // Cache the results
+            await this.cacheTickets(cacheKey, enhancedTickets);
+            return enhancedTickets;
           }
         }
       } catch (error) {
@@ -1272,12 +1483,18 @@ class ZammadAPI {
     if (userId) {
       const tickets = await this.getTicketsForUser(userId);
       // Enhance with customer data if not already present
-      return this.enhanceTicketsWithCustomerData(tickets);
+      const enhancedTickets = await this.enhanceTicketsWithCustomerData(tickets);
+      // Cache the results
+      await this.cacheTickets(cacheKey, enhancedTickets);
+      return enhancedTickets;
     }
 
     // If no user ID is provided and no configured user IDs, get all tickets
     const tickets = await this.getAllTicketsUnfiltered();
-    return this.enhanceTicketsWithCustomerData(tickets);
+    const enhancedTickets = await this.enhanceTicketsWithCustomerData(tickets);
+    // Cache the results
+    await this.cacheTickets(cacheKey, enhancedTickets);
+    return enhancedTickets;
   }
 
   /**
