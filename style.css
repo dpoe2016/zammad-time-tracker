@@ -1320,6 +1320,12 @@ html { height: 100%; }
     display: flex;
     align-items: center;
     gap: 8px;
+    padding-left: 24px; /* Make room for pin button on the left */
+}
+
+/* Add bottom padding to the last row to make room for link button */
+.ticket-row-3 {
+    padding-bottom: 20px; /* Make room for link button at the bottom */
 }
 
 /* Ensure second row starts at the left border without extra indent */
@@ -1363,4 +1369,88 @@ html { height: 100%; }
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+/* Pin functionality styles */
+.ticket-pin-container {
+    position: relative;
+}
+
+.ticket-pin-button {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 2px;
+    border-radius: 3px;
+    font-size: 14px;
+    color: #6c757d;
+    transition: all 0.2s ease;
+    z-index: 10;
+    opacity: 0; /* Hidden by default */
+    pointer-events: auto;
+    user-select: none;
+}
+
+.ticket-item:hover .ticket-pin-button {
+    opacity: 1;
+}
+
+.ticket-pin-button:hover {
+    background: rgba(0, 0, 0, 0.1);
+    color: #495057;
+}
+
+.ticket-pin-button.pinned {
+    opacity: 1;
+    color: #007bff;
+}
+
+.ticket-pin-button.pinned:hover {
+    color: #0056b3;
+    background: rgba(0, 123, 255, 0.1);
+}
+
+.ticket-item.pinned {
+    border-left: 4px solid #007bff !important;
+    background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.1);
+}
+
+.ticket-item.pinned::before {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    font-size: 10px;
+    opacity: 0.7;
+}
+
+.ticket-link-button {
+    position: absolute;
+    bottom: 4px;
+    left: 4px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 2px;
+    border-radius: 3px;
+    font-size: 12px;
+    color: #6c757d;
+    transition: all 0.2s ease;
+    z-index: 10;
+    opacity: 0; /* Hidden by default */
+    pointer-events: auto;
+    user-select: none;
+}
+
+.ticket-item:hover .ticket-link-button {
+    opacity: 1;
+}
+
+.ticket-link-button:hover {
+    background: rgba(0, 0, 0, 0.1);
+    color: #007bff;
 }

@@ -535,6 +535,20 @@ const translations = {
     'edit_time_tracking_text': {
         [LANGUAGES.DE]: 'Zeiterfassung bearbeiten',
         [LANGUAGES.EN]: 'Edit Time Tracking'
+    },
+
+    // Pin functionality
+    'pin_ticket': {
+        [LANGUAGES.DE]: 'Ticket anheften',
+        [LANGUAGES.EN]: 'Pin ticket'
+    },
+    'unpin_ticket': {
+        [LANGUAGES.DE]: 'Ticket lösen',
+        [LANGUAGES.EN]: 'Unpin ticket'
+    },
+    'open_ticket': {
+        [LANGUAGES.DE]: 'Ticket in Zammad öffnen',
+        [LANGUAGES.EN]: 'Open ticket in Zammad'
     }
 };
 

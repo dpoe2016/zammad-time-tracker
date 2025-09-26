@@ -113,6 +113,7 @@ class ZammadDashboard {
         this.baseUrl = '';
         this.token = '';
         this.hiddenColumns = new Set(); // Track hidden columns in agent view
+        this.pinnedTickets = new Set(); // Track pinned ticket IDs
 
         // Time tracking state
         this.isTracking = false;
@@ -125,6 +126,7 @@ class ZammadDashboard {
         // Initialize
         this.updateUILanguage();
         this.restoreFilterSettings(); // Restore saved filter settings early
+        this.initPinnedTickets(); // Load pinned tickets from storage
         this.initEventListeners();
         this.initializeApi();
         this.initDragAndDrop();
@@ -151,6 +153,77 @@ class ZammadDashboard {
                 this.errorContainer.style.display = 'block';
             }
         }
+    }
+
+    /**
+     * Initialize pinned tickets from storage
+     */
+    async initPinnedTickets() {
+        try {
+            const stored = await storage.load('pinnedTickets', []);
+            this.pinnedTickets = new Set(stored);
+            logger.info(`Loaded ${this.pinnedTickets.size} pinned tickets from storage`);
+        } catch (error) {
+            logger.error('Failed to load pinned tickets:', error);
+            this.pinnedTickets = new Set();
+        }
+    }
+
+    /**
+     * Save pinned tickets to storage
+     */
+    async savePinnedTickets() {
+        try {
+            const pinnedArray = Array.from(this.pinnedTickets);
+            await storage.save('pinnedTickets', pinnedArray);
+            logger.info(`Saved ${pinnedArray.length} pinned tickets to storage`);
+        } catch (error) {
+            logger.error('Failed to save pinned tickets:', error);
+        }
+    }
+
+    /**
+     * Toggle pin status of a ticket
+     */
+    async toggleTicketPin(ticketId) {
+        const ticketIdStr = String(ticketId);
+
+        if (this.pinnedTickets.has(ticketIdStr)) {
+            this.pinnedTickets.delete(ticketIdStr);
+            logger.info(`Unpinned ticket #${ticketId}`);
+        } else {
+            this.pinnedTickets.add(ticketIdStr);
+            logger.info(`Pinned ticket #${ticketId}`);
+        }
+
+        await this.savePinnedTickets();
+        this.updateTicketPinStates();
+        this.processTickets(); // Re-sort with new pin status
+    }
+
+    /**
+     * Update pin button states for all visible tickets
+     */
+    updateTicketPinStates() {
+        const ticketItems = document.querySelectorAll('.ticket-item');
+        ticketItems.forEach(ticketItem => {
+            const ticketId = ticketItem.getAttribute('data-ticket-id');
+            const pinButton = ticketItem.querySelector('.ticket-pin-button');
+
+            if (pinButton && ticketId) {
+                const isPinned = this.pinnedTickets.has(ticketId);
+
+                if (isPinned) {
+                    pinButton.classList.add('pinned');
+                    ticketItem.classList.add('pinned');
+                    pinButton.title = t('unpin_ticket') || 'Unpin ticket';
+                } else {
+                    pinButton.classList.remove('pinned');
+                    ticketItem.classList.remove('pinned');
+                    pinButton.title = t('pin_ticket') || 'Pin ticket';
+                }
+            }
+        });
     }
 
     /**
@@ -439,6 +512,8 @@ class ZammadDashboard {
                 this.stopTimeTracking();
             });
         }
+
+        // Pin and Link button event listeners are now added directly to each button when created
 
         // Context menu event listeners
         this.initContextMenu();
@@ -1250,8 +1325,16 @@ class ZammadDashboard {
         const filteredTickets = this.applyTicketFilters(this.tickets);
         logger.info(`Filtered to ${filteredTickets.length} tickets from ${this.tickets.length} total`);
 
-        // Sort tickets by updated_at descending (most recent first)
+        // Sort tickets: pinned first, then by updated_at descending (most recent first)
         const sortedTickets = filteredTickets.slice().sort((a, b) => {
+            const aIsPinned = this.pinnedTickets.has(String(a.id));
+            const bIsPinned = this.pinnedTickets.has(String(b.id));
+
+            // Pinned tickets always come first
+            if (aIsPinned && !bIsPinned) return -1;
+            if (!aIsPinned && bIsPinned) return 1;
+
+            // If both have same pin status, sort by updated_at
             const dateA = new Date(a.updated_at || a.updatedAt || 0);
             const dateB = new Date(b.updated_at || b.updatedAt || 0);
             return dateB - dateA;
@@ -1267,6 +1350,9 @@ class ZammadDashboard {
 
         // Re-initialize drag and drop after tickets are created
         this.initializeDragAndDropAfterTickets();
+
+        // Update pin states for all displayed tickets
+        this.updateTicketPinStates();
 
         // Show dashboard
         this.dashboardContainer.style.display = 'grid';
@@ -1849,7 +1935,7 @@ class ZammadDashboard {
 
         // Create ticket item element
         const ticketItem = document.createElement('div');
-        ticketItem.className = 'ticket-item';
+        ticketItem.className = 'ticket-item ticket-pin-container';
         ticketItem.setAttribute('data-ticket-id', String(ticketId));
         if (userId) {
             ticketItem.setAttribute('data-user-id', userId);
@@ -1888,6 +1974,8 @@ class ZammadDashboard {
 
         // Add ticket content - 3 row layout with time tracking info
         ticketItem.innerHTML = `
+        <button class="ticket-pin-button" data-ticket-id="${ticketId}" title="Pin/Unpin ticket">📌</button>
+        <button class="ticket-link-button" data-ticket-id="${ticketId}" title="${t('open_ticket') || 'Open ticket in Zammad'}">🔗</button>
         <div class="ticket-row-1">
             <div class="ticket-item-title">${ticketTitle}</div>
             <div class="ticket-time-info">
@@ -1905,6 +1993,28 @@ class ZammadDashboard {
             <span class="ticket-item-priority ${this.getPriorityClass(ticketPriority)}">${ticketPriority}</span>
         </div>
     `;
+
+        // Add direct event listeners to buttons (backup method)
+        const pinButton = ticketItem.querySelector('.ticket-pin-button');
+        const linkButton = ticketItem.querySelector('.ticket-link-button');
+
+        if (pinButton) {
+            pinButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                event.stopImmediatePropagation();
+                this.toggleTicketPin(ticketId);
+            }, true);
+        }
+
+        if (linkButton) {
+            linkButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                event.stopImmediatePropagation();
+                this.openTicketInZammad(ticketId);
+            }, true);
+        }
 
         // Load time entries asynchronously to avoid blocking ticket display
         // Add a small delay to throttle API requests when loading many tickets
@@ -1939,19 +2049,49 @@ class ZammadDashboard {
             this.hideTicketTooltip();
         });
 
-        // Add click event with selection functionality
-        ticketItem.addEventListener('click', (event) => {
-            // Check if Ctrl/Cmd key is pressed for selection
-            if (event.ctrlKey || event.metaKey) {
-                // Toggle selection
-                ticketItem.classList.toggle('selected');
-                event.preventDefault();
-                event.stopPropagation();
-            } else {
-                // Regular click opens the ticket in Zammad
-                this.openTicketInZammad(ticketId);
-            }
-        });
+        // Add ticket click handler with coordinate-based button detection
+        setTimeout(() => {
+            ticketItem.addEventListener('click', (event) => {
+                const rect = ticketItem.getBoundingClientRect();
+                const clickX = event.clientX - rect.left;
+                const clickY = event.clientY - rect.top;
+
+                // Check if click is in button areas by coordinates (primary detection method)
+                const isPinArea = clickX <= 40 && clickY <= 40; // Top-left corner
+                const isLinkArea = clickX <= 40 && clickY >= (rect.height - 40); // Bottom-left corner
+
+                if (isPinArea) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    this.toggleTicketPin(ticketId);
+                    return false;
+                }
+
+                if (isLinkArea) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    this.openTicketInZammad(ticketId);
+                    return false;
+                }
+
+                // Ignore clicks on buttons (backup detection)
+                if (event.target.matches('.ticket-pin-button') ||
+                    event.target.matches('.ticket-link-button') ||
+                    event.target.closest('.ticket-pin-button') ||
+                    event.target.closest('.ticket-link-button')) {
+                    event.stopPropagation();
+                    return false;
+                }
+
+                // Check if Ctrl/Cmd key is pressed for selection
+                if (event.ctrlKey || event.metaKey) {
+                    // Toggle selection
+                    ticketItem.classList.toggle('selected');
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+            });
+        }, 10);
 
         // Add right-click context menu for time tracking
         ticketItem.addEventListener('contextmenu', (event) => {
