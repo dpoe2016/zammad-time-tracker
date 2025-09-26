@@ -2,6 +2,8 @@
 
 A Chrome extension for time tracking in Zammad tickets.
 
+**Current Version: 3.0.2**
+
 ## 📋 Features
 
 - ⏱️ **Time Tracking** - Start/Stop timer for Zammad tickets
@@ -12,7 +14,9 @@ A Chrome extension for time tracking in Zammad tickets.
 - 🌐 **Direct Zammad API Integration** - Reliable communication via the Zammad REST API
 - 📋 **Assigned Tickets List** - View and start tracking for any of your assigned tickets
 - 📊 **Time Tracking History** - View all your time tracking entries
-- 🗂️ **Dashboard** - Kanban-style overview of tickets by status (Open, In Progress, Waiting, Closed)
+- 🗂️ **Dashboard** - Kanban-style overview of tickets by status (New, Open, In Progress, Waiting, Closed)
+- 🔄 **Auto-Refresh** - Automatic detection of new tickets with intelligent cache management
+- 📊 **Improved Sorting** - Dashboard tickets sorted by most recent updates for better workflow
 - 🐛 **Debug Mode** - Comprehensive logging for troubleshooting
 
 ## 🚀 Installation
@@ -119,9 +123,10 @@ Notes:
 
 #### Open the Dashboard
 - In the popup, go to Settings → Dashboard → Open
-- A full-page board (dashboard.html) opens with columns for Open, In Progress, Waiting, and Closed tickets
+- A full-page board (dashboard.html) opens with columns for New, Open, In Progress, Waiting, and Closed tickets
 - Use the user filter to switch between "All Users", "My Tickets", or a specific user
 - Drag and drop between columns to update ticket states where permitted
+- Tickets are automatically sorted by most recent updates (newest first) for optimal workflow
 
 #### Start Tracking from Assigned Tickets
 - Click on the "Tickets" tab to view all tickets assigned to you
@@ -346,6 +351,12 @@ chrome://extensions/
 
 ## 🔄 Updates
 
+### Version 3.0.2 (Latest)
+**Recent Improvements:**
+- **Simplified Dashboard Sorting:** Tickets now sorted exclusively by last update time for consistent ordering
+- **Auto-Refresh Enhancement:** Fixed cache management to detect new tickets even when starting with empty cache
+- **Better Workflow:** Prioritizes recently updated tickets across all dashboard views
+
 ### Update Extension
 1. Copy new files to the extension folder
 2. Open `chrome://extensions/`
@@ -420,14 +431,21 @@ If you encounter problems or have questions:
 
 ## 📈 Roadmap
 
-Planned features:
+Completed features:
 - [x] REST API Integration
 - [x] Assigned tickets list
 - [x] Time tracking history
+- [x] Dashboard with New/Open/In Progress/Waiting/Closed states
+- [x] Auto-refresh and intelligent cache management
+- [x] Optimized ticket sorting by update time
+
+Planned features:
 - [ ] Project time categories
 - [ ] Team statistics
 - [ ] Export functions
 - [ ] Mobile browser support
+- [ ] Advanced filtering options
+- [ ] Bulk time entry operations
 
 ---
 
