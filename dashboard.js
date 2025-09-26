@@ -124,6 +124,7 @@ class ZammadDashboard {
 
         // Initialize
         this.updateUILanguage();
+        this.restoreFilterSettings(); // Restore saved filter settings early
         this.initEventListeners();
         this.initializeApi();
         this.initDragAndDrop();
@@ -350,14 +351,15 @@ class ZammadDashboard {
             const selectedView = this.viewToggle.value;
             logger.info(`View changed to: ${selectedView}`);
             this.currentView = selectedView;
-            
+
             // Set default state filter to 'open' when agent view is selected
             if (selectedView === 'agent' && this.stateFilter) {
                 this.stateFilter.value = 'open';
                 this.selectedState = 'open';
                 logger.info('Default state filter set to "open" for agent view');
             }
-            
+
+            this.saveFilterSettings();
             this.updateDashboardLayout();
             this.processTickets();
         });
@@ -1658,8 +1660,8 @@ class ZammadDashboard {
             this.groupFilter.value = 'all';
             this.selectedGroup = 'all';
         }
-        
-        // Restore saved filter settings now that both filters are populated
+
+        // Apply restored filter settings to UI now that filters are populated
         await this.restoreFilterSettings();
     }
 
@@ -2732,11 +2734,13 @@ class ZammadDashboard {
     async saveFilterSettings() {
         try {
             const filterSettings = {
+                currentView: this.currentView,
                 selectedUserId: this.selectedUserId,
                 selectedGroup: this.selectedGroup,
                 selectedOrganization: this.selectedOrganization,
                 selectedPriority: this.selectedPriority,
-                selectedState: this.selectedState
+                selectedState: this.selectedState,
+                hiddenColumns: Array.from(this.hiddenColumns || [])
             };
 
             await storage.save('dashboardFilterSettings', filterSettings);
@@ -2752,23 +2756,30 @@ class ZammadDashboard {
     async restoreFilterSettings() {
         try {
             const filterSettings = await storage.load('dashboardFilterSettings', {
+                currentView: 'state',
                 selectedUserId: 'all',
                 selectedGroup: 'all',
                 selectedOrganization: 'all',
                 selectedPriority: 'all',
-                selectedState: 'all'
+                selectedState: 'all',
+                hiddenColumns: []
             });
 
             logger.info('Filter settings restored:', filterSettings);
 
             // Apply restored settings
+            this.currentView = filterSettings.currentView || 'state';
             this.selectedUserId = filterSettings.selectedUserId || 'all';
             this.selectedGroup = filterSettings.selectedGroup || 'all';
             this.selectedOrganization = filterSettings.selectedOrganization || 'all';
             this.selectedPriority = filterSettings.selectedPriority || 'all';
             this.selectedState = filterSettings.selectedState || 'all';
+            this.hiddenColumns = new Set(filterSettings.hiddenColumns || []);
 
             // Update UI elements if they exist
+            if (this.viewToggle) {
+                this.viewToggle.value = this.currentView;
+            }
             if (this.userFilter) {
                 this.userFilter.value = this.selectedUserId;
             }
@@ -2857,9 +2868,9 @@ class ZammadDashboard {
             logger.error(`Column with ID ${columnId} not found`);
             return;
         }
-        
+
         const column = ticketList.parentElement; // This is the .ticket-column div
-        
+
         if (this.hiddenColumns.has(columnId)) {
             // Show column
             column.classList.remove('hidden');
@@ -2871,11 +2882,14 @@ class ZammadDashboard {
             this.hiddenColumns.add(columnId);
             logger.info(`Hidden column ${columnId}`);
         }
-        
+
         logger.info(`Hidden columns: ${Array.from(this.hiddenColumns)}`);
-        
+
         // Update column visibility button text
         this.updateColumnVisibilityButton();
+
+        // Save the updated column visibility settings
+        this.saveFilterSettings();
     }
 
     /**
@@ -3857,7 +3871,7 @@ class ZammadDashboard {
             entriesList.innerHTML = timeEntries.map((entry, index) => {
                 const date = entry.created_at ? new Date(entry.created_at).toLocaleString() : 'Unknown date';
                 const minutes = parseFloat(entry.time_unit) || 0;
-                const activity = entry.activity_type || 'No description';
+                const activity = entry.comment || entry.activity_type || 'No description';
 
                 // Get creator name - try different fields that might contain user info
                 let creatorName = 'Unknown user';
@@ -3985,7 +3999,7 @@ class ZammadDashboard {
                 <input type="number" id="editTimeInput-${entry.id}" value="${entry.time_unit || 0}" min="0"
                        style="width: 80px; padding: 4px; border: 1px solid #ddd; border-radius: 3px;" />
                 <span style="font-size: 14px;">minutes</span>
-                <input type="text" id="editActivityInput-${entry.id}" value="${entry.activity_type || ''}"
+                <input type="text" id="editActivityInput-${entry.id}" value="${entry.comment || entry.activity_type || ''}"
                        placeholder="Activity description"
                        style="flex-grow: 1; padding: 4px; border: 1px solid #ddd; border-radius: 3px;" />
             </div>
@@ -4044,7 +4058,7 @@ class ZammadDashboard {
 
             const updatedEntryData = {
                 time_unit: newTime,
-                activity_type: newActivity || entry.activity_type || 'Time tracking via dashboard'
+                comment: newActivity || entry.comment || entry.activity_type || 'Time tracking via dashboard'
             };
 
             // Try to update via API
