@@ -418,6 +418,10 @@ const translations = {
         [LANGUAGES.DE]: 'nur nicht geschlossene',
         [LANGUAGES.EN]: 'non-closed only'
     },
+    'refreshed': {
+        [LANGUAGES.DE]: 'aktualisiert',
+        [LANGUAGES.EN]: 'refreshed'
+    },
 
     // Delete functionality
     'delete_entry': {
