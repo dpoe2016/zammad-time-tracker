@@ -293,10 +293,19 @@ class ZammadAPI {
     this.ticketCacheRefreshInterval = setInterval(async () => {
       console.log('Starting automatic ticket cache refresh');
 
-      // Get all cache keys that need refreshing
-      const cacheKeys = Array.from(this.ticketCache.keys());
+      // Get existing cache keys
+      const existingCacheKeys = Array.from(this.ticketCache.keys());
 
-      for (const cacheKey of cacheKeys) {
+      // Always include default cache keys to ensure new tickets are detected
+      // even when no cache exists yet
+      const defaultCacheKeys = ['assigned_tickets', 'all_tickets'];
+
+      // Combine existing keys with default keys (remove duplicates)
+      const allCacheKeys = [...new Set([...existingCacheKeys, ...defaultCacheKeys])];
+
+      console.log(`Refreshing cache keys: ${allCacheKeys.join(', ')}`);
+
+      for (const cacheKey of allCacheKeys) {
         try {
           if (cacheKey === 'assigned_tickets') {
             await this.refreshTicketCache(cacheKey, this.getAssignedTickets);
