@@ -3857,7 +3857,7 @@ class ZammadDashboard {
             entriesList.innerHTML = timeEntries.map((entry, index) => {
                 const date = entry.created_at ? new Date(entry.created_at).toLocaleString() : 'Unknown date';
                 const minutes = parseFloat(entry.time_unit) || 0;
-                const activity = entry.activity_type || 'No description';
+                const activity = entry.comment || entry.activity_type || 'No description';
 
                 // Get creator name - try different fields that might contain user info
                 let creatorName = 'Unknown user';
@@ -3985,7 +3985,7 @@ class ZammadDashboard {
                 <input type="number" id="editTimeInput-${entry.id}" value="${entry.time_unit || 0}" min="0"
                        style="width: 80px; padding: 4px; border: 1px solid #ddd; border-radius: 3px;" />
                 <span style="font-size: 14px;">minutes</span>
-                <input type="text" id="editActivityInput-${entry.id}" value="${entry.activity_type || ''}"
+                <input type="text" id="editActivityInput-${entry.id}" value="${entry.comment || entry.activity_type || ''}"
                        placeholder="Activity description"
                        style="flex-grow: 1; padding: 4px; border: 1px solid #ddd; border-radius: 3px;" />
             </div>
@@ -4044,7 +4044,7 @@ class ZammadDashboard {
 
             const updatedEntryData = {
                 time_unit: newTime,
-                activity_type: newActivity || entry.activity_type || 'Time tracking via dashboard'
+                comment: newActivity || entry.comment || entry.activity_type || 'Time tracking via dashboard'
             };
 
             // Try to update via API
