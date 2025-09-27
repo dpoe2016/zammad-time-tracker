@@ -1628,6 +1628,17 @@ class ZammadAPI {
       }
     }
 
+    // Try cache first unless force refresh is requested
+    if (!forceRefresh) {
+      const cachedTickets = this.getCachedTickets(cacheKey);
+      if (cachedTickets) {
+        console.log(
+          `Returning ${cachedTickets.length} tickets from cache for key: ${cacheKey}`
+        );
+        return cachedTickets;
+      }
+    }
+
     // If a specific user ID is provided, get tickets for that user
     if (userId) {
       const tickets = await this.getTicketsForUser(userId, forceRefresh);
