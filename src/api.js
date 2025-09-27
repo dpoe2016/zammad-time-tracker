@@ -44,6 +44,10 @@ class ZammadAPI {
     this.ticketCacheTimestamp = null;
     this.ticketCacheExpiryMs = 5 * 60 * 1000; // 5 minutes - tickets change more frequently
 
+    // Time entry caching system
+    this.timeEntryCache = new Map(); // Stores { data, timestamp } objects
+    this.timeEntryCacheExpiryMs = 10 * 60 * 1000; // 10 minutes - time entries change moderately
+
     // Request deduplication for ongoing API calls
     this.ongoingRequests = new Map();
 
@@ -452,6 +456,9 @@ class ZammadAPI {
 
       // Clear storage
       chrome.storage.local.remove(['zammadUserProfile', 'zammadApiFeatures']);
+
+      // Clear our new time entry cache as well
+      this.timeEntryCache.clear();
     }
 
     this.baseUrl = normalizedBaseUrl;
@@ -1334,34 +1341,72 @@ class ZammadAPI {
       throw new Error('Ticket ID is required');
     }
 
-    // Try cached endpoint first
-    if (this.successfulEndpoints.timeEntries) {
-      try {
-        const endpoint = this.successfulEndpoints.timeEntries.replace(
-          '{ticketId}',
-          ticketId
-        );
-        return await this.request(endpoint);
-      } catch (error) {
-        console.error('Cached time entries endpoint failed:', error);
-        this.successfulEndpoints.timeEntries = null;
+    // Check cache first
+    const cacheKey = `timeEntries_${ticketId}`;
+    const now = Date.now();
+
+    if (this.timeEntryCache.has(cacheKey)) {
+      const cachedEntry = this.timeEntryCache.get(cacheKey);
+      if (cachedEntry && (now - cachedEntry.timestamp) < this.timeEntryCacheExpiryMs) {
+        console.log(`Using cached time entries for ticket ${ticketId}`);
+        return cachedEntry.data;
       }
     }
 
-    // Official API endpoint for time accounting entries
-    const endpoint = `/api/v1/tickets/${ticketId}/time_accountings`;
-    try {
-      const result = await this.request(endpoint);
-      this.successfulEndpoints.timeEntries = endpoint.replace(
-        ticketId,
-        '{ticketId}'
-      );
-      this.saveCachedEndpoints();
-      return result;
-    } catch (error) {
-      console.error('Failed to get time entries:', error);
-      throw new Error('Failed to get time entries');
+    // Request deduplication - check if request is already in progress
+    const requestKey = `getTimeEntries_${ticketId}`;
+    if (this.ongoingRequests.has(requestKey)) {
+      console.log(`Returning existing promise for time entries request ${ticketId}`);
+      return this.ongoingRequests.get(requestKey);
     }
+
+    // Create and store the promise for this request
+    const requestPromise = (async () => {
+      try {
+        // Try cached endpoint first
+        if (this.successfulEndpoints.timeEntries) {
+          try {
+            const endpoint = this.successfulEndpoints.timeEntries.replace(
+              '{ticketId}',
+              ticketId
+            );
+            const result = await this.request(endpoint);
+
+            // Cache the result
+            this.timeEntryCache.set(cacheKey, { data: result, timestamp: now });
+
+            return result;
+          } catch (error) {
+            console.error('Cached time entries endpoint failed:', error);
+            this.successfulEndpoints.timeEntries = null;
+          }
+        }
+
+        // Official API endpoint for time accounting entries
+        const endpoint = `/api/v1/tickets/${ticketId}/time_accountings`;
+        const result = await this.request(endpoint);
+
+        // Cache the result
+        this.timeEntryCache.set(cacheKey, { data: result, timestamp: now });
+
+        this.successfulEndpoints.timeEntries = endpoint.replace(
+          ticketId,
+          '{ticketId}'
+        );
+        this.saveCachedEndpoints();
+        return result;
+      } catch (error) {
+        console.error('Failed to get time entries:', error);
+        throw new Error('Failed to get time entries');
+      } finally {
+        // Clean up the ongoing request
+        this.ongoingRequests.delete(requestKey);
+      }
+    })();
+
+    // Store the promise and return it
+    this.ongoingRequests.set(requestKey, requestPromise);
+    return requestPromise;
   }
 
   /**
@@ -1442,6 +1487,11 @@ class ZammadAPI {
         '{ticketId}'
       );
       this.saveCachedEndpoints();
+
+      // Clear cached time entries for this specific ticket
+      const cacheKey = `timeEntries_${ticketId}`;
+      this.timeEntryCache.delete(cacheKey);
+
       return result;
     } catch (error) {
       console.error('Failed to submit time entry:', error);
@@ -1684,8 +1734,11 @@ class ZammadAPI {
     }
 
     // Fallback: If no specific user and no configured users, get all tickets unfiltered
+    console.log('Using fallback: getting all tickets unfiltered');
     const tickets = await this.getAllTicketsUnfiltered();
+    console.log(`getAllTicketsUnfiltered returned: ${tickets ? tickets.length : 'null/undefined'} tickets`);
     const enhancedTickets = await this.enhanceTicketsWithCustomerData(tickets);
+    console.log(`After enhancement: ${enhancedTickets ? enhancedTickets.length : 'null/undefined'} tickets`);
     await this.cacheTickets(cacheKey, enhancedTickets);
     return enhancedTickets;
   }
@@ -1787,7 +1840,11 @@ class ZammadAPI {
       try {
         console.log(`Trying endpoint for all tickets: ${endpoint}`);
         const result = await this.request(endpoint);
-        console.log(`Successfully got ${result ? result.length : 0} tickets`);
+        console.log(`Successfully got ${result ? result.length : 0} tickets from ${endpoint}`);
+        console.log(`Result type: ${typeof result}, isArray: ${Array.isArray(result)}`);
+        if (Array.isArray(result) && result.length > 0) {
+          console.log(`Sample ticket:`, result[0]);
+        }
         // Note: Enhancement is handled by the calling getAllTickets() method
         return result;
       } catch (error) {
@@ -1996,6 +2053,16 @@ class ZammadAPI {
   clearTimeHistoryCache() {
     console.log('Clearing time history cache');
     this.successfulEndpoints.timeHistory = null;
+
+    // Clear only time history related cache entries, not individual ticket time entries
+    const keysToDelete = [];
+    for (const [key] of this.timeEntryCache) {
+      if (key.startsWith('timeHistory_')) {
+        keysToDelete.push(key);
+      }
+    }
+    keysToDelete.forEach(key => this.timeEntryCache.delete(key));
+
     this.saveCachedEndpoints();
   }
 
@@ -2006,7 +2073,29 @@ class ZammadAPI {
   async getTimeHistory() {
     console.log('Getting time tracking history for current user');
 
-    // Try cached endpoint first, but be careful with admin endpoints
+    // Check cache first
+    const cacheKey = `timeHistory_${this.currentUserId}`;
+    const now = Date.now();
+
+    if (this.timeEntryCache.has(cacheKey)) {
+      const cachedEntry = this.timeEntryCache.get(cacheKey);
+      if (cachedEntry && (now - cachedEntry.timestamp) < this.timeEntryCacheExpiryMs) {
+        console.log('Using cached time history');
+        return cachedEntry.data;
+      }
+    }
+
+    // Request deduplication - check if request is already in progress
+    const requestKey = `getTimeHistory_${this.currentUserId}`;
+    if (this.ongoingRequests.has(requestKey)) {
+      console.log('Returning existing promise for time history request');
+      return this.ongoingRequests.get(requestKey);
+    }
+
+    // Create and store the promise for this request
+    const requestPromise = (async () => {
+      try {
+        // Try cached endpoint first, but be careful with admin endpoints
     if (
       this.successfulEndpoints.timeHistory &&
       this.successfulEndpoints.timeHistory !== 'fallback_via_tickets'
@@ -2028,8 +2117,15 @@ class ZammadAPI {
           console.log(
             `Filtered ${result.length} entries to ${filteredResult.length} for current user`
           );
+
+          // Cache the filtered result
+          this.timeEntryCache.set(cacheKey, { data: filteredResult, timestamp: now });
+
           return filteredResult;
         }
+
+        // Cache the unfiltered result
+        this.timeEntryCache.set(cacheKey, { data: result, timestamp: now });
 
         return result;
       } catch (error) {
@@ -2088,6 +2184,9 @@ class ZammadAPI {
             this.saveCachedEndpoints();
           }
 
+          // Cache the filtered result
+          this.timeEntryCache.set(cacheKey, { data: filteredResult, timestamp: now });
+
           return filteredResult;
         } catch (error) {
           console.warn(`Admin endpoint ${endpoint} failed:`, error.message);
@@ -2132,19 +2231,27 @@ class ZammadAPI {
         return [];
       }
 
-      // Collect time entries from each ticket
+      // Collect time entries from each ticket - OPTIMIZED with parallel requests
       const allTimeEntries = [];
-      const maxTicketsToCheck = 20; // Reduced limit to avoid too many API calls
-      const ticketsToCheck = Array.isArray(tickets)
-        ? tickets.slice(0, maxTicketsToCheck)
+      const maxTicketsToCheck = 50; // Increased limit for better coverage
+
+      // Sort tickets by updated_at desc to prioritize recent activity
+      const sortedTickets = Array.isArray(tickets)
+        ? tickets.sort((a, b) => {
+            const dateA = new Date(a.updated_at || 0);
+            const dateB = new Date(b.updated_at || 0);
+            return dateB - dateA;
+          }).slice(0, maxTicketsToCheck)
         : [];
 
-      for (const ticket of ticketsToCheck) {
+      console.log(`Fetching time entries from ${sortedTickets.length} tickets in parallel`);
+
+      // Create parallel requests for all tickets
+      const timeEntryPromises = sortedTickets.map(async (ticket) => {
         try {
           const ticketId = ticket.id || ticket.ticket_id;
-          if (!ticketId) continue;
+          if (!ticketId) return [];
 
-          console.log(`Getting time entries for ticket ${ticketId}`);
           const timeEntries = await this.getTimeEntries(ticketId);
           if (Array.isArray(timeEntries)) {
             // Filter entries by current user
@@ -2154,16 +2261,21 @@ class ZammadAPI {
                 entry.created_by_id == this.currentUserId ||
                 entry.user_id == this.currentUserId
             );
-            allTimeEntries.push(...userEntries);
+            return userEntries;
           }
+          return [];
         } catch (error) {
           console.warn(
             `Failed to get time entries for ticket ${ticket.id}:`,
             error.message
           );
-          // Continue with other tickets
+          return [];
         }
-      }
+      });
+
+      // Execute all requests in parallel and flatten results
+      const results = await Promise.all(timeEntryPromises);
+      results.forEach(entries => allTimeEntries.push(...entries));
 
       // Sort by date (newest first)
       allTimeEntries.sort((a, b) => {
@@ -2173,21 +2285,36 @@ class ZammadAPI {
       });
 
       console.log(
-        `Collected ${allTimeEntries.length} time entries from ${ticketsToCheck.length} tickets`
+        `Collected ${allTimeEntries.length} time entries from ${sortedTickets.length} tickets`
       );
 
       // Cache this method as successful
       this.successfulEndpoints.timeHistory = 'fallback_via_tickets';
       this.saveCachedEndpoints();
 
-      return allTimeEntries;
+      // Cache the result
+      this.timeEntryCache.set(cacheKey, { data: allTimeEntries, timestamp: now });
+
+        return allTimeEntries;
+      } catch (error) {
+        console.error('Fallback method also failed:', error);
+        throw new Error(
+          'Failed to get time tracking history. This may be due to insufficient API permissions or no assigned tickets.'
+        );
+      }
     } catch (error) {
-      console.error('Fallback method also failed:', error);
-      throw new Error(
-        'Failed to get time tracking history. This may be due to insufficient API permissions or no assigned tickets.'
-      );
+      console.error('Time history request failed:', error);
+      throw error;
+    } finally {
+      // Clean up the ongoing request
+      this.ongoingRequests.delete(requestKey);
     }
-  }
+  })();
+
+  // Store the promise and return it
+  this.ongoingRequests.set(requestKey, requestPromise);
+  return requestPromise;
+}
   /**
    * Get time entry details
    *
@@ -2285,6 +2412,10 @@ class ZammadAPI {
       const endpoint = `/api/v1/tickets/${ticketId}/time_accountings/${entryId}`;
       const result = await this.request(endpoint, 'PUT', updateData);
       console.log(`Successfully updated time entry ${entryId}`, result);
+
+      // Clear cached time entries for this specific ticket
+      const cacheKey = `timeEntries_${ticketId}`;
+      this.timeEntryCache.delete(cacheKey);
 
       // Clear time history cache after successful update
       this.clearTimeHistoryCache();

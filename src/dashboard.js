@@ -987,11 +987,64 @@ class ZammadDashboard {
       // Initialize API
       zammadApi.init(apiSettings.baseUrl, apiSettings.token);
 
-      // Load tickets
-      this.loadTickets();
+      // Give a small delay to allow background validation to start
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Check if we have valid cached tickets first
+      const shouldForceRefresh = await this.shouldForceInitialRefresh();
+      logger.info(`Initial load: shouldForceRefresh = ${shouldForceRefresh}`);
+
+      // Load tickets with smart refresh logic
+      this.loadTickets(shouldForceRefresh);
     } catch (error) {
       logger.error('Error initializing API:', error);
       this.showError('Failed to initialize API: ' + error.message);
+    }
+  }
+
+  /**
+   * Determine if we should force refresh on initial load
+   * @returns {Promise<boolean>} True if we should force refresh, false if cache can be used
+   */
+  async shouldForceInitialRefresh() {
+    try {
+      // Check if we have any existing tickets in memory
+      if (this.tickets && this.tickets.length > 0) {
+        logger.info('Found existing tickets in memory, using cache');
+        return false;
+      }
+
+      // Check if API has valid cached tickets
+      const cacheKey = this.selectedUserId === 'me' ? 'assigned_tickets' :
+                       this.selectedUserId === 'all' ? 'all_tickets' :
+                       `user_tickets_${this.selectedUserId}`;
+
+      const cachedTickets = zammadApi.getCachedTickets(cacheKey);
+      if (cachedTickets !== null) {
+        // Cache exists (even if empty array) - use it
+        logger.info(`Found cached tickets (${cachedTickets.length} items), using cache`);
+        return false;
+      }
+
+      // Check if we have a recent successful fetch timestamp
+      const lastFetchTimestamp = await storage.load('lastTicketFetchTimestamp');
+      if (lastFetchTimestamp) {
+        const timeSinceLastFetch = Date.now() - new Date(lastFetchTimestamp).getTime();
+        const fiveMinutes = 5 * 60 * 1000;
+
+        if (timeSinceLastFetch < fiveMinutes) {
+          logger.info('Recent fetch timestamp found, but no cached tickets - possible cache corruption, forcing refresh');
+          return true;
+        }
+      }
+
+      // No cache available, need to fetch
+      logger.info('No valid cache found, forcing refresh');
+      return true;
+
+    } catch (error) {
+      logger.error('Error checking cache status, forcing refresh:', error);
+      return true;
     }
   }
 
@@ -1000,7 +1053,11 @@ class ZammadDashboard {
    * @param {boolean} forceRefresh - If true, bypass cache and fetch fresh data from API
    */
   async loadTickets(forceRefresh = false) {
-    if (this.isLoading) return;
+    logger.info(`loadTickets called with forceRefresh: ${forceRefresh}`);
+    if (this.isLoading) {
+      logger.info('Already loading tickets, returning early');
+      return;
+    }
 
     this.isLoading = true;
     this.showLoading();
@@ -1047,6 +1104,8 @@ class ZammadDashboard {
       let tickets;
       const isIncrementalFetch = !forceRefresh && (await storage.load('lastTicketFetchTimestamp'));
 
+      logger.info(`Loading tickets for user filter: ${this.selectedUserId}, forceRefresh: ${forceRefresh}, isIncrementalFetch: ${isIncrementalFetch}`);
+
       if (this.selectedUserId === 'all') {
         tickets = await zammadApi.getAllTickets(null, forceRefresh);
       } else if (this.selectedUserId === 'me') {
@@ -1065,6 +1124,8 @@ class ZammadDashboard {
         );
       }
 
+      logger.info(`API returned tickets: ${tickets ? (Array.isArray(tickets) ? tickets.length : typeof tickets) : 'null/undefined'}`);
+
       // Store tickets
       if (isIncrementalFetch) {
         // Merge new/updated tickets into the existing list
@@ -1074,10 +1135,37 @@ class ZammadDashboard {
         logger.info(`Merged ${tickets ? tickets.length : 0} tickets into existing list of ${this.tickets.length}`);
       } else {
         // Full refresh, replace the list
-        this.tickets = Array.isArray(tickets) ? tickets : [];
+        if (Array.isArray(tickets)) {
+          this.tickets = tickets;
+          logger.info(`Loaded ${tickets.length} tickets from API. Tickets array:`, tickets.slice(0, 3)); // Log first 3 tickets for debugging
+        } else if (tickets === null || tickets === undefined) {
+          logger.error('API call failed (returned null/undefined), keeping existing tickets');
+          logger.info(`Current tickets count: ${this.tickets.length}`);
+          // Keep existing tickets if API call completely failed
+          // Don't save timestamp so we'll try again next time
+
+          // Still need to update the display with existing tickets
+          this.updateDashboardLayout();
+          this.processTickets();
+
+          // Populate filters from existing tickets
+          await this.populateUserFilterFromSettings();
+          await this.populateGroupFilterFromTickets();
+          this.applyGroupFilter();
+          await this.populateOrganizationFilterFromTickets();
+          this.applyOrganizationFilter();
+
+          this.hideLoading();
+          await this.highlightAllActiveTrackingTickets();
+          return; // Exit early since we're using existing data
+        } else {
+          // Handle other unexpected types
+          logger.warn(`Unexpected tickets type: ${typeof tickets}, treating as empty`);
+          this.tickets = [];
+        }
       }
 
-      // Save the timestamp of the latest fetch
+      // Save the timestamp of the latest fetch (only if we got new data)
       await storage.save('lastTicketFetchTimestamp', new Date().toISOString());
 
       // Customer data enhancement is now handled automatically in the API layer

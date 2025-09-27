@@ -496,7 +496,15 @@ class TimetrackingPopup {
       }
 
       // Store tickets
-      this.assignedTickets = Array.isArray(tickets) ? tickets : [];
+      if (Array.isArray(tickets)) {
+        this.assignedTickets = tickets;
+      } else if (tickets === null || tickets === undefined) {
+        this.debug('API call failed (returned null/undefined), keeping existing tickets');
+        // Keep existing tickets to avoid showing empty list on API failures
+      } else {
+        this.debug(`Unexpected tickets type: ${typeof tickets}, treating as empty`);
+        this.assignedTickets = [];
+      }
 
       // Update user filter with actual ticket owners
       await this.populateUserFilterFromTickets();
