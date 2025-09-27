@@ -219,7 +219,7 @@ const translations = {
   },
   api_save: {
     [LANGUAGES.DE]: 'Speichern',
-    [LANGUAGES.EN]: 'Save',
+    [LANGUAGES.EN]: 'Save Settings',
   },
   api_cancel: {
     [LANGUAGES.DE]: 'Abbrechen',
@@ -232,6 +232,16 @@ const translations = {
   api_error: {
     [LANGUAGES.DE]: 'API Fehler',
     [LANGUAGES.EN]: 'API Error',
+  },
+
+  // Options page form labels
+  user_ids_label: {
+    [LANGUAGES.DE]: 'Benutzer-Filter',
+    [LANGUAGES.EN]: 'Filter User IDs',
+  },
+  dashboard_refresh_interval: {
+    [LANGUAGES.DE]: 'Dashboard Auto-Aktualisierung (Sekunden)',
+    [LANGUAGES.EN]: 'Dashboard Auto Refresh (seconds)',
   },
 
   // Content script
