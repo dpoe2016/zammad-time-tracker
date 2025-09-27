@@ -19,6 +19,8 @@ function initOptionsPage() {
   const dashboardRefreshSecInput = document.getElementById(
     'dashboardRefreshSec'
   );
+  const showTooltipsInput = document.getElementById('showTooltips');
+  const tooltipDelayInput = document.getElementById('tooltipDelay');
 
   // Update UI language if translations are available
   if (typeof updateUILanguage === 'function') {
@@ -107,6 +109,16 @@ function initOptionsPage() {
         dashboardRefreshSecInput.value = settings.dashboardRefreshSec;
       }
 
+      // Load tooltip setting (default to true if not set)
+      showTooltipsInput.checked = settings.showTooltips !== false;
+
+      // Load tooltip delay setting (default to 2000ms if not set)
+      if (typeof settings.tooltipDelay !== 'undefined') {
+        tooltipDelayInput.value = settings.tooltipDelay;
+      } else {
+        tooltipDelayInput.value = 2000; // Default to 2000ms
+      }
+
       console.log('API settings loaded');
     } catch (error) {
       console.error('Error loading API settings:', error);
@@ -131,6 +143,11 @@ function initOptionsPage() {
           ? undefined
           : Math.max(0, parseInt(dashboardRefreshSecRaw, 10) || 0);
 
+      const tooltipDelayRaw = tooltipDelayInput.value.trim();
+      const tooltipDelay = tooltipDelayRaw === ''
+        ? 2000
+        : Math.max(0, Math.min(10000, parseInt(tooltipDelayRaw, 10) || 2000));
+
       // Validate inputs
       if (!baseUrl) {
         showStatus('Base URL is required', 'error');
@@ -143,7 +160,13 @@ function initOptionsPage() {
       }
 
       // Create settings object
-      const settings = { baseUrl, token, userIds };
+      const settings = {
+        baseUrl,
+        token,
+        userIds,
+        showTooltips: showTooltipsInput.checked,
+        tooltipDelay: tooltipDelay
+      };
       if (typeof dashboardRefreshSec !== 'undefined') {
         settings.dashboardRefreshSec = dashboardRefreshSec;
       }
@@ -208,6 +231,10 @@ function updateUILanguage() {
       if (dashRefLabel)
         dashRefLabel.textContent =
           t('dashboard_refresh_interval') || 'Dashboard Auto Refresh (seconds)';
+      document.getElementById('showTooltipsLabel').textContent =
+        t('show_tooltips_label') || 'Show ticket tooltips on dashboard';
+      document.getElementById('tooltipDelayLabel').textContent =
+        t('tooltip_delay_label') || 'Tooltip delay (milliseconds)';
       document.getElementById('apiSaveBtn').textContent = t('api_save');
     }
   } catch (error) {

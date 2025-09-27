@@ -2287,32 +2287,8 @@ class ZammadDashboard {
       this.loadTicketTimeInfo(ticketId);
     }, Math.random() * 500); // Random delay up to 500ms to spread out API calls
 
-    // Add hover tooltip functionality
-    let tooltipElement = null;
-    let hoverTimeout = null;
-
-    ticketItem.addEventListener('mouseenter', (event) => {
-      // Clear any existing timeout
-      if (hoverTimeout) {
-        clearTimeout(hoverTimeout);
-      }
-
-      // Show tooltip after a 5-second delay
-      hoverTimeout = setTimeout(() => {
-        this.showTicketTooltip(event.target, ticket);
-      }, 5000); // 5-second delay before showing tooltip
-    });
-
-    ticketItem.addEventListener('mouseleave', (event) => {
-      // Clear timeout if mouse leaves before delay
-      if (hoverTimeout) {
-        clearTimeout(hoverTimeout);
-        hoverTimeout = null;
-      }
-
-      // Hide tooltip
-      this.hideTicketTooltip();
-    });
+    // Add hover tooltip functionality only if enabled
+    this.addTooltipListeners(ticketItem, ticket);
 
     // Add ticket click handler with coordinate-based button detection
     setTimeout(() => {
@@ -2388,6 +2364,54 @@ class ZammadDashboard {
     });
 
     return ticketItem;
+  }
+
+  /**
+   * Add tooltip event listeners if tooltips are enabled
+   * @param {HTMLElement} ticketItem - The ticket element
+   * @param {Object} ticket - The ticket data object
+   */
+  async addTooltipListeners(ticketItem, ticket) {
+    try {
+      // Load settings to check if tooltips are enabled
+      const result = await chrome.storage.local.get(['zammadApiSettings']);
+      const settings = result.zammadApiSettings || {};
+
+      // Only add tooltip listeners if tooltips are enabled (default to true)
+      if (settings.showTooltips !== false) {
+        let tooltipElement = null;
+        let hoverTimeout = null;
+
+        // Get tooltip delay from settings (default to 2000ms)
+        const tooltipDelay = settings.tooltipDelay || 2000;
+
+        ticketItem.addEventListener('mouseenter', (event) => {
+          // Clear any existing timeout
+          if (hoverTimeout) {
+            clearTimeout(hoverTimeout);
+          }
+
+          // Show tooltip after the configured delay
+          hoverTimeout = setTimeout(() => {
+            this.showTicketTooltip(event.target, ticket);
+          }, tooltipDelay);
+        });
+
+        ticketItem.addEventListener('mouseleave', (event) => {
+          // Clear timeout if mouse leaves before delay
+          if (hoverTimeout) {
+            clearTimeout(hoverTimeout);
+            hoverTimeout = null;
+          }
+
+          // Hide tooltip
+          this.hideTicketTooltip();
+        });
+      }
+    } catch (error) {
+      console.error('Error setting up tooltip listeners:', error);
+      // If there's an error loading settings, don't add tooltip listeners
+    }
   }
 
   /**

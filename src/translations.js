@@ -560,6 +560,16 @@ const translations = {
     [LANGUAGES.DE]: 'Ticket in Zammad öffnen',
     [LANGUAGES.EN]: 'Open ticket in Zammad',
   },
+
+  // Tooltip settings
+  show_tooltips_label: {
+    [LANGUAGES.DE]: 'Ticket-Tooltips im Dashboard anzeigen',
+    [LANGUAGES.EN]: 'Show ticket tooltips on dashboard',
+  },
+  tooltip_delay_label: {
+    [LANGUAGES.DE]: 'Tooltip-Verzögerung (Millisekunden)',
+    [LANGUAGES.EN]: 'Tooltip delay (milliseconds)',
+  },
 };
 
 // Get translation by key

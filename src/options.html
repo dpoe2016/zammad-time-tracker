@@ -175,6 +175,38 @@
         >
       </div>
 
+      <div class="form-group">
+        <label>
+          <input
+            type="checkbox"
+            id="showTooltips"
+            style="margin-right: 8px;"
+          />
+          <span id="showTooltipsLabel">Show ticket tooltips on dashboard</span>
+        </label>
+        <small
+          >Enable detailed tooltips when hovering over tickets in the dashboard</small
+        >
+      </div>
+
+      <div class="form-group">
+        <label for="tooltipDelay" id="tooltipDelayLabel"
+          >Tooltip delay (milliseconds)</label
+        >
+        <input
+          type="number"
+          id="tooltipDelay"
+          placeholder="2000"
+          class="form-control"
+          min="0"
+          max="10000"
+          step="100"
+        />
+        <small
+          >Set how long to wait before showing tooltips (0-10000ms, default: 2000ms)</small
+        >
+      </div>
+
       <button id="apiSaveBtn" class="btn btn-primary">Save Settings</button>
 
       <div id="statusMessage" class="status-message"></div>
