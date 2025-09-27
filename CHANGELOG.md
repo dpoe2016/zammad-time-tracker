@@ -28,3 +28,8 @@
 
 - Updated version to 3.1.3
 
+
+## [3.1.3] - 2025-09-27
+
+- Updated version to 3.1.3
+
