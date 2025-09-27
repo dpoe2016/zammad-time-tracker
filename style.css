@@ -1387,7 +1387,7 @@ html { height: 100%; }
     border-radius: 3px;
     font-size: 14px;
     color: #6c757d;
-    transition: all 0.2s ease;
+    transition: all 0.2s ease, opacity 0.2s ease 0s; /* Reset delay when hiding */
     z-index: 10;
     opacity: 0; /* Hidden by default */
     pointer-events: auto;
@@ -1439,7 +1439,7 @@ html { height: 100%; }
     border-radius: 3px;
     font-size: 12px;
     color: #6c757d;
-    transition: all 0.2s ease;
+    transition: all 0.2s ease, opacity 0.2s ease 0s; /* Reset delay when hiding */
     z-index: 10;
     opacity: 0; /* Hidden by default */
     pointer-events: auto;

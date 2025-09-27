@@ -2032,10 +2032,10 @@ class ZammadDashboard {
                 clearTimeout(hoverTimeout);
             }
 
-            // Show tooltip after a brief delay
+            // Show tooltip after a 5-second delay
             hoverTimeout = setTimeout(() => {
                 this.showTicketTooltip(event.target, ticket);
-            }, 500); // 500ms delay before showing tooltip
+            }, 5000); // 5-second delay before showing tooltip
         });
 
         ticketItem.addEventListener('mouseleave', (event) => {

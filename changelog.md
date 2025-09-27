@@ -391,3 +391,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 - Updated version to 3.0.4
 
+
+## [3.0.5] - 2025-09-26
+
+- Updated version to 3.0.5
+
