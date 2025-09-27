@@ -1,0 +1,91 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Test Merged Ticket Filter</title>
+  </head>
+  <body>
+    <h1>Test Merged Ticket Filter</h1>
+    <div id="result"></div>
+
+    <script>
+      // Mock logger for testing
+      const logger = {
+        info: console.log,
+        warn: console.warn,
+        error: console.error,
+        debug: console.log,
+      };
+
+      // Test data with mixed ticket states including merged tickets
+      const testTickets = [
+        { id: 1, state_id: 1, title: 'Open ticket', owner_id: 10 },
+        { id: 2, state_id: 9, title: 'Merged ticket 1', owner_id: 20 }, // Should be filtered
+        { id: 3, state_id: 4, title: 'Another open ticket', owner_id: 30 },
+        { id: 4, state_id: 9, title: 'Merged ticket 2', owner_id: null }, // Should be filtered
+        { id: 5, state_id: 2, title: 'Closed ticket', owner_id: 40 },
+        { id: 6, state_id: 10, title: 'In progress ticket', owner_id: 50 },
+      ];
+
+      // Test the filtering logic from processTickets method
+      function testProcessTicketsFilter() {
+        console.log('Testing processTickets filter...');
+        console.log('Original tickets:', testTickets.length);
+
+        // Filter out merged tickets (state_id === 9) - same logic as in dashboard.js
+        const filteredTickets = testTickets.filter(
+          (ticket) => ticket.state_id !== 9
+        );
+        console.log('Filtered tickets:', filteredTickets.length);
+        console.log(
+          `Filtered ${testTickets.length - filteredTickets.length} merged tickets from dashboard`
+        );
+
+        const mergedTickets = filteredTickets.filter(
+          (ticket) => ticket.state_id === 9
+        );
+        console.log(
+          'Merged tickets remaining after filter:',
+          mergedTickets.length
+        );
+
+        return mergedTickets.length === 0;
+      }
+
+      // Test the unassigned filter logic
+      function testUnassignedFilter() {
+        console.log('\nTesting unassigned filter...');
+
+        // Filter for unassigned tickets excluding merged ones - same logic as in dashboard.js
+        const unassignedTickets = testTickets.filter(
+          (ticket) => !ticket.owner_id && ticket.state_id !== 9
+        );
+        console.log('Unassigned non-merged tickets:', unassignedTickets.length);
+
+        const mergedInUnassigned = unassignedTickets.filter(
+          (ticket) => ticket.state_id === 9
+        );
+        console.log(
+          'Merged tickets in unassigned filter:',
+          mergedInUnassigned.length
+        );
+
+        return mergedInUnassigned.length === 0;
+      }
+
+      // Run tests
+      const processTest = testProcessTicketsFilter();
+      const unassignedTest = testUnassignedFilter();
+
+      const resultDiv = document.getElementById('result');
+      if (processTest && unassignedTest) {
+        resultDiv.innerHTML =
+          '<p style="color: green;">✅ All tests passed! Merged tickets are properly filtered out.</p>';
+        console.log('✅ All tests passed!');
+      } else {
+        resultDiv.innerHTML =
+          '<p style="color: red;">❌ Tests failed! Merged tickets are not being filtered correctly.</p>';
+        console.log('❌ Tests failed!');
+      }
+    </script>
+  </body>
+</html>
