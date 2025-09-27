@@ -2,7 +2,7 @@
 
 A Chrome extension for time tracking in Zammad tickets.
 
-**Current Version: 3.0.2**
+**Current Version: 3.0.5**
 
 ## 📋 Features
 
@@ -17,6 +17,7 @@ A Chrome extension for time tracking in Zammad tickets.
 - 🗂️ **Dashboard** - Kanban-style overview of tickets by status (New, Open, In Progress, Waiting, Closed)
 - 🔄 **Auto-Refresh** - Automatic detection of new tickets with intelligent cache management
 - 📊 **Improved Sorting** - Dashboard tickets sorted by most recent updates for better workflow
+- 📌 **Ticket Pinning** - Pin important tickets for priority management and quick access
 - 🐛 **Debug Mode** - Comprehensive logging for troubleshooting
 
 ## 🚀 Installation
@@ -351,11 +352,12 @@ chrome://extensions/
 
 ## 🔄 Updates
 
-### Version 3.0.2 (Latest)
+### Version 3.0.5 (Latest)
 **Recent Improvements:**
-- **Simplified Dashboard Sorting:** Tickets now sorted exclusively by last update time for consistent ordering
-- **Auto-Refresh Enhancement:** Fixed cache management to detect new tickets even when starting with empty cache
-- **Better Workflow:** Prioritizes recently updated tickets across all dashboard views
+- **Ticket Pin Functionality:** Added ability to pin important tickets for priority management
+- **Enhanced Button Behavior:** Improved hover behavior for buttons and tooltips
+- **Dashboard Refresh:** Enhanced refresh functionality that forces API refresh to load new tickets
+- **Performance Optimizations:** Better ticket sorting and state management
 
 ### Update Extension
 1. Copy new files to the extension folder
@@ -438,6 +440,7 @@ Completed features:
 - [x] Dashboard with New/Open/In Progress/Waiting/Closed states
 - [x] Auto-refresh and intelligent cache management
 - [x] Optimized ticket sorting by update time
+- [x] Ticket pin functionality for priority management
 
 Planned features:
 - [ ] Project time categories
