@@ -48,3 +48,8 @@
 
 - Updated version to 3.1.4
 
+
+## [3.1.5] - 2025-09-27
+
+- Updated version to 3.1.5
+
