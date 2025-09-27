@@ -27,11 +27,52 @@ function initOptionsPage() {
     console.log('Translations not available, using default text');
   }
 
-  // Load saved settings
-  loadApiSettings();
+  // Load saved settings and populate user dropdown
+  loadApiSettingsAndUsers();
 
   // Add event listener for save button
   apiSaveBtn.addEventListener('click', saveApiSettings);
+
+  /**
+   * Load API settings and then populate the user dropdown
+   */
+  async function loadApiSettingsAndUsers() {
+    await loadApiSettings();
+    // If API is configured, populate the user dropdown
+    if (apiBaseUrlInput.value && apiTokenInput.value) {
+      populateUserDropdown();
+    }
+  }
+
+  /**
+   * Populate the user dropdown with admins and agents
+   */
+  async function populateUserDropdown() {
+    userIdsInput.innerHTML = '<option>Loading users...</option>';
+    try {
+      // Initialize API if it hasn't been already
+      if (!zammadApi.isInitialized()) {
+        zammadApi.init(apiBaseUrlInput.value, apiTokenInput.value);
+      }
+      const users = await zammadApi.getAdminAndAgentUsers();
+      userIdsInput.innerHTML = ''; // Clear loading message
+
+      users
+        .sort((a, b) => a.firstname.localeCompare(b.firstname))
+        .forEach((user) => {
+          const option = document.createElement('option');
+          option.value = user.id;
+          option.textContent = `${user.firstname} ${user.lastname}`;
+          userIdsInput.appendChild(option);
+        });
+
+      // After populating, re-apply the saved selections
+      await loadApiSettings();
+    } catch (error) {
+      console.error('Error populating user dropdown:', error);
+      userIdsInput.innerHTML = '<option>Error loading users</option>';
+    }
+  }
 
   /**
    * Load API settings from storage
@@ -54,7 +95,12 @@ function initOptionsPage() {
       }
 
       if (settings.userIds) {
-        userIdsInput.value = settings.userIds;
+        const selectedIds = settings.userIds.split(',');
+        Array.from(userIdsInput.options).forEach((option) => {
+          if (selectedIds.includes(option.value)) {
+            option.selected = true;
+          }
+        });
       }
 
       if (typeof settings.dashboardRefreshSec !== 'undefined') {
@@ -75,7 +121,10 @@ function initOptionsPage() {
     try {
       const baseUrl = apiBaseUrlInput.value.trim();
       const token = apiTokenInput.value.trim();
-      const userIds = userIdsInput.value.trim();
+      const selectedUserIds = Array.from(userIdsInput.selectedOptions).map(
+        (option) => option.value
+      );
+      const userIds = selectedUserIds.join(',');
       const dashboardRefreshSecRaw = dashboardRefreshSecInput.value.trim();
       const dashboardRefreshSec =
         dashboardRefreshSecRaw === ''
@@ -116,6 +165,9 @@ function initOptionsPage() {
 
       console.log('API settings saved');
       showStatus('Settings saved successfully', 'success');
+
+      // Re-populate the user dropdown with the new settings
+      populateUserDropdown();
     } catch (error) {
       console.error('Error saving API settings:', error);
       showStatus('Error saving settings: ' + error.message, 'error');

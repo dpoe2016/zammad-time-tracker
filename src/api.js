@@ -1628,68 +1628,53 @@ class ZammadAPI {
       }
     }
 
-    // If no specific user ID is provided, check if we should use the configured user IDs
-    if (!userId) {
-      try {
-        const settings = await this.getSettings();
-        if (settings.userIds) {
-          // If we have multiple user IDs, we'll need to make multiple requests and combine the results
-          const userIdList = settings.userIds
-            .split(',')
-            .map((id) => id.trim())
-            .filter((id) => id);
-          userIdList.push('1'); // Always include user ID 1 (unassigned) for compatibility
-          if (userIdList.length > 0) {
-            console.log(
-              `Using configured user IDs from settings: ${userIdList.join(', ')}`
-            );
-
-            // Get tickets for each user ID and combine them
-            const allTickets = [];
-            for (const id of userIdList) {
-              try {
-                const userTickets = await this.getTicketsForUser(id);
-                if (Array.isArray(userTickets)) {
-                  allTickets.push(...userTickets);
-                }
-              } catch (error) {
-                console.error(
-                  `Error getting tickets for user ID ${id}:`,
-                  error
-                );
-                // Continue with other user IDs
-              }
-            }
-
-            // Return the combined tickets with customer data enhancement
-            const enhancedTickets =
-              await this.enhanceTicketsWithCustomerData(allTickets);
-            // Cache the results
-            await this.cacheTickets(cacheKey, enhancedTickets);
-            return enhancedTickets;
-          }
-        }
-      } catch (error) {
-        console.error('Error checking for configured user IDs:', error);
-        // Continue with default behavior
-      }
-    }
-
-    // If a specific user ID is provided or no configured user IDs, get tickets for that user
+    // If a specific user ID is provided, get tickets for that user
     if (userId) {
-      const tickets = await this.getTicketsForUser(userId);
-      // Enhance with customer data if not already present
+      const tickets = await this.getTicketsForUser(userId, forceRefresh);
       const enhancedTickets =
         await this.enhanceTicketsWithCustomerData(tickets);
-      // Cache the results
       await this.cacheTickets(cacheKey, enhancedTickets);
       return enhancedTickets;
     }
 
-    // If no user ID is provided and no configured user IDs, get all tickets
+    // If no specific user ID is provided, check for configured user IDs in settings
+    try {
+      const settings = await this.getSettings();
+      if (settings.userIds && settings.userIds.length > 0) {
+        const userIdList = settings.userIds
+          .split(',')
+          .map((id) => id.trim())
+          .filter((id) => id);
+        userIdList.push('1'); // Always include user ID 1 (unassigned) for compatibility
+
+        console.log(
+          `Using configured user IDs from settings: ${userIdList.join(', ')}`
+        );
+
+        const allTickets = [];
+        for (const id of userIdList) {
+          try {
+            const userTickets = await this.getTicketsForUser(id, forceRefresh);
+            if (Array.isArray(userTickets)) {
+              allTickets.push(...userTickets);
+            }
+          } catch (error) {
+            console.error(`Error getting tickets for user ID ${id}:`, error);
+          }
+        }
+
+        const enhancedTickets =
+          await this.enhanceTicketsWithCustomerData(allTickets);
+        await this.cacheTickets(cacheKey, enhancedTickets);
+        return enhancedTickets;
+      }
+    } catch (error) {
+      console.error('Error checking for configured user IDs:', error);
+    }
+
+    // Fallback: If no specific user and no configured users, get all tickets unfiltered
     const tickets = await this.getAllTicketsUnfiltered();
     const enhancedTickets = await this.enhanceTicketsWithCustomerData(tickets);
-    // Cache the results
     await this.cacheTickets(cacheKey, enhancedTickets);
     return enhancedTickets;
   }
@@ -1808,73 +1793,44 @@ class ZammadAPI {
    * @returns {Array} Array of users
    */
   async getAllUsers() {
-    console.log('Getting all users from API');
+    console.log('Getting all users from API with pagination');
 
-    // Try cached endpoint first
-    if (this.successfulEndpoints.allUsers) {
+    const endpoint = '/api/v1/users';
+    const perPage = 100; // Fetch 100 users per page
+    let currentPage = 1;
+    let allUsers = [];
+    let keepFetching = true;
+
+    while (keepFetching) {
       try {
-        console.log(
-          'Trying cached all users endpoint:',
-          this.successfulEndpoints.allUsers
-        );
-        const users = await this.request(this.successfulEndpoints.allUsers);
-        console.log(
-          `Successfully got ${users ? users.length : 0} users from cached endpoint`
-        );
-        return users;
-      } catch (error) {
-        console.error('Cached all users endpoint failed:', error);
-        this.successfulEndpoints.allUsers = null;
-      }
-    }
+        const url = `${endpoint}?per_page=${perPage}&page=${currentPage}`;
+        console.log(`Fetching users from: ${url}`);
+        const usersOnPage = await this.request(url);
 
-    // Try different endpoints for getting users
-    const endpoints = [
-      '/api/v1/users',
-      '/api/v1/users/search?query=*',
-      '/api/v1/users?expand=true',
-      '/api/v1/users?per_page=100',
-    ];
-
-    for (const endpoint of endpoints) {
-      try {
-        console.log(`Trying all users endpoint: ${endpoint}`);
-        const users = await this.request(endpoint);
-
-        if (Array.isArray(users) && users.length > 0) {
-          console.log(
-            `Successfully got ${users.length} users from endpoint: ${endpoint}`
-          );
-
-          // Cache the successful endpoint
-          this.successfulEndpoints.allUsers = endpoint;
-          this.saveCachedEndpoints();
-
-          return users;
+        if (Array.isArray(usersOnPage) && usersOnPage.length > 0) {
+          allUsers = allUsers.concat(usersOnPage);
+          // If we received fewer users than we asked for, it's the last page
+          if (usersOnPage.length < perPage) {
+            keepFetching = false;
+          } else {
+            currentPage++;
+          }
         } else {
-          console.warn(
-            `Endpoint ${endpoint} returned no users or invalid format`
-          );
+          // No more users found
+          keepFetching = false;
         }
       } catch (error) {
-        console.error(`Error with all users endpoint ${endpoint}:`, error);
+        console.error(`Error fetching page ${currentPage} of users:`, error);
+        keepFetching = false; // Stop fetching on error
+        // If we already have some users, we can return them, otherwise throw
+        if (allUsers.length === 0) {
+          throw error;
+        }
       }
     }
 
-    // If all endpoints failed, try to use the current user as a fallback
-    console.warn('All user endpoints failed, using current user as fallback');
-    try {
-      const currentUser = await this.fetchCurrentUser();
-      if (currentUser) {
-        return [currentUser];
-      }
-    } catch (error) {
-      console.error('Failed to get current user as fallback:', error);
-    }
-
-    // If everything failed, return an empty array
-    console.error('Failed to get users from any endpoint');
-    return [];
+    console.log(`Successfully fetched a total of ${allUsers.length} users.`);
+    return allUsers;
   }
 
   /**
@@ -2442,6 +2398,55 @@ class ZammadAPI {
       }
 
       throw new Error(`Failed to get user ${userId}: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get all roles from Zammad
+   * @returns {Promise<Array>} Array of role objects
+   */
+  async getRoles() {
+    console.log('Getting all roles from Zammad API');
+    try {
+      const endpoint = '/api/v1/roles';
+      const result = await this.request(endpoint);
+      return Array.isArray(result) ? result : [];
+    } catch (error) {
+      console.error('Error fetching roles:', error);
+      throw new Error(`Failed to get roles: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get all admin and agent users
+   * @returns {Promise<Array>} Array of user objects
+   */
+  async getAdminAndAgentUsers() {
+    console.log('Getting all admin and agent users');
+    try {
+      const [roles, users] = await Promise.all([
+        this.getRoles(),
+        this.getAllUsers(),
+      ]);
+
+      const adminOrAgentRoleIds = roles
+        .filter((role) => role.name === 'Admin' || role.name === 'Agent')
+        .map((role) => role.id);
+
+      if (adminOrAgentRoleIds.length === 0) {
+        console.warn('Could not find Admin or Agent roles.');
+        return users; // Fallback to all users
+      }
+
+      const filteredUsers = users.filter((user) =>
+        user.role_ids.some((roleId) => adminOrAgentRoleIds.includes(roleId))
+      );
+
+      console.log(`Filtered ${users.length} users down to ${filteredUsers.length} admins/agents`);
+      return filteredUsers;
+    } catch (error) {
+      console.error('Error getting admin and agent users:', error);
+      throw error;
     }
   }
 

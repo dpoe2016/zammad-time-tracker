@@ -1083,8 +1083,8 @@ class ZammadDashboard {
       // Customer data enhancement is now handled automatically in the API layer
       // The tickets returned by getAssignedTickets() and getAllTickets() are already enhanced with customer data
 
-      // Populate user filter with actual ticket owners
-      await this.populateUserFilterFromTickets();
+      // Populate user filter with users from settings
+      await this.populateUserFilterFromSettings();
 
       // Update dashboard layout and process tickets
       this.updateDashboardLayout();
@@ -1716,128 +1716,72 @@ class ZammadDashboard {
   }
 
   /**
-   * Populate user filter dropdown with actual ticket owners
+   * Populate user filter dropdown with users selected in the options.
    */
-  async populateUserFilterFromTickets() {
+  async populateUserFilterFromSettings() {
     const userFilter = document.getElementById('userFilter');
     if (!userFilter) return;
 
-    // Get unique owner IDs from tickets
-    const ownerIds = [
-      ...new Set(this.tickets.map((t) => t.owner_id).filter((id) => id)),
-    ];
-
-    // Check if there are unassigned tickets
-    const hasUnassignedTickets = this.tickets.some((t) => !t.owner_id);
-
-    console.log(
-      `Found ${ownerIds.length} unique ticket owners: ${ownerIds.join(', ')}`
-    );
-    if (hasUnassignedTickets) {
-      console.log('Found unassigned tickets');
-    }
+    // 1. Get configured user IDs from settings
+    const settings = await storage.load('zammadApiSettings', {});
+    const configuredUserIds = (settings.userIds || '')
+      .split(',')
+      .filter((id) => id);
 
     // Preserve current selection
     const currentSelection = userFilter.value;
 
-    // Clear existing user options (keep "All", "Me", and "Unassigned")
+    // Clear existing dynamic options (keep defaults)
     const optionsToRemove = Array.from(userFilter.options).filter(
-      (opt) =>
-        opt.value !== 'all' && opt.value !== 'me' && opt.value !== 'unassigned'
+      (opt) => !['all', 'me', 'unassigned'].includes(opt.value)
     );
     optionsToRemove.forEach((option) => option.remove());
 
-    // Add "Unassigned" option if there are unassigned tickets and it doesn't exist
-    if (
-      hasUnassignedTickets &&
-      !Array.from(userFilter.options).some((opt) => opt.value === 'unassigned')
-    ) {
-      const unassignedOption = document.createElement('option');
-      unassignedOption.value = 'unassigned';
-      unassignedOption.textContent = 'Unassigned';
-      // Insert after "Me" option
-      const meOption = Array.from(userFilter.options).find(
-        (opt) => opt.value === 'me'
+    if (configuredUserIds.length === 0) {
+      logger.info(
+        'No users configured in options. Filter will only show defaults.'
       );
-      if (meOption && meOption.nextSibling) {
-        userFilter.insertBefore(unassignedOption, meOption.nextSibling);
-      } else {
-        userFilter.appendChild(unassignedOption);
-      }
-    }
-
-    // Remove "Unassigned" option if there are no unassigned tickets
-    if (!hasUnassignedTickets) {
-      const unassignedOption = Array.from(userFilter.options).find(
-        (opt) => opt.value === 'unassigned'
-      );
-      if (unassignedOption) {
-        unassignedOption.remove();
-      }
-    }
-
-    if (ownerIds.length === 0 && !hasUnassignedTickets) {
-      console.log('No ticket owners found');
       return;
     }
 
-    // Fetch user information for all owners
-    const userPromises = ownerIds.map(async (ownerId) => {
+    // 3. Fetch details for each configured user
+    const userPromises = configuredUserIds.map(async (userId) => {
       try {
-        // Check cache first
-        if (this.userCache && this.userCache.has(ownerId)) {
-          return { id: ownerId, name: this.userCache.get(ownerId) };
-        }
-
-        // Fetch from API
-        const user = await this.fetchUserInfo(ownerId);
+        const user = await this.fetchUserInfo(userId);
         if (user) {
           const fullName =
             `${user.firstname || ''} ${user.lastname || ''}`.trim() ||
             user.login ||
-            user.email ||
             `User ${user.id}`;
-
-          // Cache the result
-          if (this.userCache) {
-            this.userCache.set(ownerId, fullName);
-          }
-
-          return { id: ownerId, name: fullName };
-        } else {
-          return { id: ownerId, name: `User ${ownerId}` };
+          return { id: userId, name: fullName };
         }
+        return { id: userId, name: `User ${userId}` };
       } catch (error) {
-        console.error(`Failed to fetch user ${ownerId}:`, error);
-        return { id: ownerId, name: `User ${ownerId}` };
+        logger.error(`Failed to fetch user ${userId}:`, error);
+        return { id: userId, name: `User ${userId}` };
       }
     });
 
-    // Wait for all user data to load
     const users = await Promise.all(userPromises);
 
-    // Sort users by name
-    users.sort((a, b) => a.name.localeCompare(b.name));
+    // 4. Populate the dropdown
+    users
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .forEach((user) => {
+        if (!userFilter.querySelector(`option[value="${user.id}"]`)) {
+          const option = document.createElement('option');
+          option.value = user.id;
+          option.textContent = user.name;
+          userFilter.appendChild(option);
+        }
+      });
 
-    // Add user options to dropdown
-    users.forEach((user) => {
-      const option = document.createElement('option');
-      option.value = user.id;
-      option.textContent = user.name;
-      userFilter.appendChild(option);
-    });
-
-    // Restore previous selection if it still exists
+    // 5. Restore selection
     if (
-      currentSelection &&
-      Array.from(userFilter.options).some(
-        (opt) => opt.value === currentSelection
-      )
+      Array.from(userFilter.options).some((opt) => opt.value === currentSelection)
     ) {
       userFilter.value = currentSelection;
     }
-
-    console.log(`Added ${users.length} users to filter dropdown`);
   }
 
   /**

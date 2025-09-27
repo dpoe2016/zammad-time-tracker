@@ -78,7 +78,7 @@ function showNotification(title, message) {
   chrome.notifications.create(
     {
       type: 'basic',
-      iconUrl: 'icons/icon48.png',
+      iconUrl: 'src/icons/icon48.png',
       title: title,
       message: message,
       requireInteraction: false,
@@ -243,7 +243,7 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
       chrome.scripting
         .executeScript({
           target: { tabId: tabId },
-          files: ['content.js'],
+          files: ['src/content.js'],
         })
         .then(function () {
           logger.debug('Content script successfully injected');
@@ -289,7 +289,7 @@ chrome.action.onClicked.addListener(function (tab) {
     // Force open in new tab (not popup)
     chrome.tabs.create(
       {
-        url: chrome.runtime.getURL('dashboard.html'),
+        url: chrome.runtime.getURL('src/dashboard.html'),
         active: true,
       },
       function (newTab) {

@@ -143,15 +143,17 @@
 
       <div class="form-group">
         <label for="userIds" id="userIdsLabel">Filter User IDs</label>
-        <input
-          type="text"
+        <select
+          multiple
           id="userIds"
-          placeholder="Comma-separated user IDs (e.g., 1,2,3)"
           class="form-control"
-        />
+          style="height: 150px"
+        >
+          <!-- Users will be populated dynamically -->
+        </select>
         <small
-          >Enter comma-separated user IDs to filter tickets in the
-          dashboard</small
+          >Select one or more users to filter tickets in the dashboard. Use
+          Ctrl/Cmd + Click to select multiple users.</small
         >
       </div>
 
