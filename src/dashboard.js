@@ -3030,6 +3030,14 @@ class ZammadDashboard {
         userElement.textContent = userName;
       }
     });
+
+    // Also update agent column title if in agent view
+    if (this.currentView === 'agent') {
+      const agentTitleElement = document.getElementById(`agent-title-${userId}`);
+      if (agentTitleElement) {
+        agentTitleElement.textContent = userName;
+      }
+    }
   }
 
   /**
