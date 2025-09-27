@@ -12,7 +12,7 @@ logger.info('Background Script loaded');
 let trackingState = {
   isTracking: false,
   ticketId: null,
-  startTime: null
+  startTime: null,
 };
 
 // Helper function to manage badge state
@@ -75,23 +75,26 @@ function showNotification(title, message) {
     return;
   }
 
-  chrome.notifications.create({
-    type: 'basic',
-    iconUrl: 'icons/icon48.png',
-    title: title,
-    message: message,
-    requireInteraction: false
-  }, function(notificationId) {
-    if (chrome.runtime.lastError) {
-      logger.error('Notification error', chrome.runtime.lastError.message);
-    } else {
-      logger.debug('Notification created', notificationId);
+  chrome.notifications.create(
+    {
+      type: 'basic',
+      iconUrl: 'icons/icon48.png',
+      title: title,
+      message: message,
+      requireInteraction: false,
+    },
+    function (notificationId) {
+      if (chrome.runtime.lastError) {
+        logger.error('Notification error', chrome.runtime.lastError.message);
+      } else {
+        logger.debug('Notification created', notificationId);
+      }
     }
-  });
+  );
 }
 
 // Installation Event
-chrome.runtime.onInstalled.addListener(function(details) {
+chrome.runtime.onInstalled.addListener(function (details) {
   logger.info('Extension installed/updated', details.reason);
 
   if (details.reason === 'install') {
@@ -101,17 +104,17 @@ chrome.runtime.onInstalled.addListener(function(details) {
 });
 
 // Message Handler - Main communication
-chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
+chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
   logger.info('Message received', request.action);
 
   try {
     switch (request.action) {
       case 'ping':
         // Health Check
-        sendResponse({ 
-          status: 'alive', 
+        sendResponse({
+          status: 'alive',
           timestamp: Date.now(),
-          version: chrome.runtime.getManifest().version
+          version: chrome.runtime.getManifest().version,
         });
         break;
 
@@ -151,7 +154,7 @@ function handleTrackingStarted(data) {
     isTracking: true,
     ticketId: data.ticketId,
     startTime: data.startTime || new Date().toISOString(),
-    title: data.title || null
+    title: data.title || null,
   };
 
   // Save tracking state to storage
@@ -162,8 +165,12 @@ function handleTrackingStarted(data) {
 
   // Notification
   showNotification(
-    t('tracking_started_notification'), 
-    t('ticket_id') + ' #' + (data.ticketId || t('unknown')) + ' - ' + t('timer_running')
+    t('tracking_started_notification'),
+    t('ticket_id') +
+      ' #' +
+      (data.ticketId || t('unknown')) +
+      ' - ' +
+      t('timer_running')
   );
 }
 
@@ -177,7 +184,7 @@ function handleTrackingStopped(data) {
     isTracking: false,
     ticketId: null,
     startTime: null,
-    title: null
+    title: null,
   };
 
   // Save tracking state to storage
@@ -187,8 +194,14 @@ function handleTrackingStopped(data) {
   updateBadge(false);
 
   // Notification with status
-  var message = t('ticket_id') + ' #' + (data.ticketId || t('unknown')) + 
-                ' - ' + t('duration') + ': ' + (data.duration || '?');
+  var message =
+    t('ticket_id') +
+    ' #' +
+    (data.ticketId || t('unknown')) +
+    ' - ' +
+    t('duration') +
+    ': ' +
+    (data.duration || '?');
 
   if (data.success) {
     message += '\n' + t('auto_time_entry');
@@ -207,20 +220,15 @@ function isZammadUrl(url) {
     return false;
   }
 
-  var patterns = [
-    /zammad/i,
-    /\/ticket/i,
-    /\/agent/i,
-    /ticketZoom/i
-  ];
+  var patterns = [/zammad/i, /\/ticket/i, /\/agent/i, /ticketZoom/i];
 
-  return patterns.some(function(pattern) {
+  return patterns.some(function (pattern) {
     return pattern.test(url);
   });
 }
 
 // Tab Updates for Content Script Injection
-chrome.tabs.onUpdated.addListener(function(tabId, changeInfo, tab) {
+chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
   // Only for fully loaded pages
   if (changeInfo.status !== 'complete' || !tab.url) {
     return;
@@ -232,15 +240,18 @@ chrome.tabs.onUpdated.addListener(function(tabId, changeInfo, tab) {
 
     // Inject content script (with error handling)
     if (chrome.scripting && chrome.scripting.executeScript) {
-      chrome.scripting.executeScript({
-        target: { tabId: tabId },
-        files: ['content.js']
-      }).then(function() {
-        logger.debug('Content script successfully injected');
-      }).catch(function(error) {
-        // This is normal if the script is already injected
-        logger.debug('Content script already exists', error.message);
-      });
+      chrome.scripting
+        .executeScript({
+          target: { tabId: tabId },
+          files: ['content.js'],
+        })
+        .then(function () {
+          logger.debug('Content script successfully injected');
+        })
+        .catch(function (error) {
+          // This is normal if the script is already injected
+          logger.debug('Content script already exists', error.message);
+        });
     } else {
       logger.warn('Scripting API not available');
     }
@@ -248,7 +259,7 @@ chrome.tabs.onUpdated.addListener(function(tabId, changeInfo, tab) {
 });
 
 // Tab Activation Event - Ensure badge state is maintained when tabs are switched
-chrome.tabs.onActivated.addListener(function(activeInfo) {
+chrome.tabs.onActivated.addListener(function (activeInfo) {
   logger.debug('Tab activated', activeInfo.tabId);
 
   // Check if we have active tracking and restore badge if needed
@@ -263,31 +274,34 @@ chrome.tabs.onActivated.addListener(function(activeInfo) {
 });
 
 // Startup Event
-chrome.runtime.onStartup.addListener(function() {
+chrome.runtime.onStartup.addListener(function () {
   logger.info('Browser started - Extension reactivated');
   // Load tracking state when browser starts
   loadTrackingState();
 });
 
 // Extension Icon Click Handler - Open dashboard in new tab
-chrome.action.onClicked.addListener(function(tab) {
+chrome.action.onClicked.addListener(function (tab) {
   logger.info('Extension icon clicked - opening dashboard in new tab');
   console.log('Extension icon clicked - opening dashboard in new tab');
 
   try {
     // Force open in new tab (not popup)
-    chrome.tabs.create({
-      url: chrome.runtime.getURL('dashboard.html'),
-      active: true
-    }, function(newTab) {
-      if (chrome.runtime.lastError) {
-        logger.error('Error creating tab:', chrome.runtime.lastError);
-        console.error('Error creating tab:', chrome.runtime.lastError);
-      } else {
-        logger.info('Dashboard opened in tab:', newTab.id);
-        console.log('Dashboard opened in tab:', newTab.id);
+    chrome.tabs.create(
+      {
+        url: chrome.runtime.getURL('dashboard.html'),
+        active: true,
+      },
+      function (newTab) {
+        if (chrome.runtime.lastError) {
+          logger.error('Error creating tab:', chrome.runtime.lastError);
+          console.error('Error creating tab:', chrome.runtime.lastError);
+        } else {
+          logger.info('Dashboard opened in tab:', newTab.id);
+          console.log('Dashboard opened in tab:', newTab.id);
+        }
       }
-    });
+    );
   } catch (error) {
     logger.error('Exception in onClicked handler:', error);
     console.error('Exception in onClicked handler:', error);

@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Test Agent Horizontal View</title>
+    <link rel="stylesheet" href="style.css" />
+    <style>
+      body {
+        margin: 20px;
+      }
+      .test-section {
+        margin: 20px 0;
+        padding: 20px;
+        border: 2px solid #ccc;
+        border-radius: 8px;
+      }
+      .debug-info {
+        background: #f0f0f0;
+        padding: 10px;
+        margin: 10px 0;
+        border-radius: 4px;
+        font-family: monospace;
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Test: Agent Horizontal View</h1>
+
+    <div class="test-section">
+      <h2>Test 1: Basic Horizontal Layout</h2>
+      <button onclick="testHorizontalLayout()">
+        Aktiviere Horizontal Layout
+      </button>
+      <button onclick="testVerticalLayout()">Aktiviere Vertical Layout</button>
+      <div id="debug1" class="debug-info"></div>
+
+      <div id="dashboard1" class="dashboard">
+        <div class="ticket-column">
+          <div class="column-header">
+            <span>Agent 1</span>
+            <span class="count">2</span>
+          </div>
+          <div class="ticket-list" id="agent-123">
+            <div class="ticket-item">Ticket #001</div>
+            <div class="ticket-item">Ticket #002</div>
+          </div>
+        </div>
+
+        <div class="ticket-column">
+          <div class="column-header">
+            <span>Agent 2</span>
+            <span class="count">1</span>
+          </div>
+          <div class="ticket-list" id="agent-456">
+            <div class="ticket-item">Ticket #003</div>
+          </div>
+        </div>
+
+        <div class="ticket-column">
+          <div class="column-header">
+            <span>Unassigned</span>
+            <span class="count">1</span>
+          </div>
+          <div class="ticket-list" id="agent-unassigned">
+            <div class="ticket-item">Ticket #004</div>
+          </div>
+        </div>
+
+        <div class="ticket-column">
+          <div class="column-header">
+            <span>Agent 3</span>
+            <span class="count">0</span>
+          </div>
+          <div class="ticket-list" id="agent-789"></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      let hiddenColumns = new Set();
+
+      function testHorizontalLayout() {
+        const dashboard = document.getElementById('dashboard1');
+        dashboard.classList.add('agent-horizontal');
+        addToggleButtons();
+        updateDebug(
+          'debug1',
+          'Horizontal layout aktiviert - Toggle buttons hinzugefügt'
+        );
+      }
+
+      function addToggleButtons() {
+        const headers = document.querySelectorAll('.column-header');
+        headers.forEach((header, index) => {
+          // Remove existing toggle button if any
+          const existingButton = header.querySelector('.column-toggle');
+          if (existingButton) {
+            existingButton.remove();
+          }
+
+          // Add new toggle button
+          const toggleButton = document.createElement('button');
+          toggleButton.className = 'column-toggle';
+          toggleButton.innerHTML = '×';
+          toggleButton.title = 'Spalte ausblenden';
+
+          const ticketList = header.nextElementSibling;
+          const columnId = ticketList.id;
+
+          toggleButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleColumnTest(columnId);
+          });
+
+          header.insertBefore(toggleButton, header.firstChild);
+        });
+      }
+
+      function testVerticalLayout() {
+        const dashboard = document.getElementById('dashboard1');
+        dashboard.classList.remove('agent-horizontal');
+        // Remove toggle buttons
+        document
+          .querySelectorAll('.column-toggle')
+          .forEach((btn) => btn.remove());
+        updateDebug(
+          'debug1',
+          'Vertical layout aktiviert - Toggle buttons entfernt'
+        );
+      }
+
+      function toggleColumnTest(columnId) {
+        const ticketList = document.getElementById(columnId);
+        if (!ticketList) {
+          updateDebug('debug1', `FEHLER: Column ${columnId} nicht gefunden`);
+          return;
+        }
+
+        const column = ticketList.parentElement;
+
+        if (hiddenColumns.has(columnId)) {
+          // Show column
+          column.classList.remove('hidden');
+          hiddenColumns.delete(columnId);
+          updateDebug('debug1', `Spalte ${columnId} angezeigt`);
+        } else {
+          // Hide column
+          column.classList.add('hidden');
+          hiddenColumns.add(columnId);
+          updateDebug('debug1', `Spalte ${columnId} versteckt`);
+        }
+
+        updateDebug(
+          'debug1',
+          `Versteckte Spalten: [${Array.from(hiddenColumns).join(', ')}]`
+        );
+      }
+
+      function updateDebug(elementId, message) {
+        const debug = document.getElementById(elementId);
+        const timestamp = new Date().toLocaleTimeString();
+        debug.innerHTML += `<br>[${timestamp}] ${message}`;
+        debug.scrollTop = debug.scrollHeight;
+      }
+
+      // Initialize test
+      window.onload = function () {
+        updateDebug(
+          'debug1',
+          'Test geladen. Klicke "Aktiviere Horizontal Layout" und dann die × Buttons.'
+        );
+        updateDebug(
+          'debug1',
+          'Verfügbare Spalten: agent-123, agent-456, agent-unassigned, agent-789'
+        );
+      };
+    </script>
+  </body>
+</html>

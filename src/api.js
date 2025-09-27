@@ -18,9 +18,9 @@ class ZammadAPI {
     this.userProfile = null;
     this.apiVersion = null;
     this.apiFeatures = {
-      supportsMe: null,         // Whether /api/v1/users/me is supported
+      supportsMe: null, // Whether /api/v1/users/me is supported
       supportsTimeAccounting: null, // Whether direct time_accountings endpoint is supported
-      supportsTicketSearch: null // Whether ticket search API is supported
+      supportsTicketSearch: null, // Whether ticket search API is supported
     };
 
     // Cache for successful endpoints
@@ -31,7 +31,7 @@ class ZammadAPI {
       assignedTickets: null,
       timeHistory: null,
       userProfile: null,
-      allUsers: null
+      allUsers: null,
     };
 
     // Enhanced caching system for customer data
@@ -94,17 +94,25 @@ class ZammadAPI {
    */
   async loadCachedCustomerData() {
     try {
-      const result = await chrome.storage.local.get([this.CUSTOMER_CACHE_KEY, this.CUSTOMER_CACHE_TIMESTAMP_KEY]);
-      if (result[this.CUSTOMER_CACHE_KEY] && result[this.CUSTOMER_CACHE_TIMESTAMP_KEY]) {
+      const result = await chrome.storage.local.get([
+        this.CUSTOMER_CACHE_KEY,
+        this.CUSTOMER_CACHE_TIMESTAMP_KEY,
+      ]);
+      if (
+        result[this.CUSTOMER_CACHE_KEY] &&
+        result[this.CUSTOMER_CACHE_TIMESTAMP_KEY]
+      ) {
         const cachedData = result[this.CUSTOMER_CACHE_KEY];
         const timestamp = result[this.CUSTOMER_CACHE_TIMESTAMP_KEY];
 
         // Check if cache is still valid
         const now = Date.now();
-        if ((now - timestamp) < this.cacheExpiryMs) {
+        if (now - timestamp < this.cacheExpiryMs) {
           this.customerCache = new Map(Object.entries(cachedData));
           this.cacheTimestamp = timestamp;
-          console.log(`Loaded ${this.customerCache.size} customers from persistent cache`);
+          console.log(
+            `Loaded ${this.customerCache.size} customers from persistent cache`
+          );
         } else {
           console.log('Persistent customer cache expired, clearing...');
           await this.clearPersistedCustomerCache();
@@ -124,9 +132,11 @@ class ZammadAPI {
         const cacheObject = Object.fromEntries(this.customerCache);
         await chrome.storage.local.set({
           [this.CUSTOMER_CACHE_KEY]: cacheObject,
-          [this.CUSTOMER_CACHE_TIMESTAMP_KEY]: this.cacheTimestamp
+          [this.CUSTOMER_CACHE_TIMESTAMP_KEY]: this.cacheTimestamp,
         });
-        console.log(`Saved ${this.customerCache.size} customers to persistent cache`);
+        console.log(
+          `Saved ${this.customerCache.size} customers to persistent cache`
+        );
       }
     } catch (error) {
       console.error('Error saving customer cache to storage:', error);
@@ -138,7 +148,10 @@ class ZammadAPI {
    */
   async clearPersistedCustomerCache() {
     try {
-      await chrome.storage.local.remove([this.CUSTOMER_CACHE_KEY, this.CUSTOMER_CACHE_TIMESTAMP_KEY]);
+      await chrome.storage.local.remove([
+        this.CUSTOMER_CACHE_KEY,
+        this.CUSTOMER_CACHE_TIMESTAMP_KEY,
+      ]);
       console.log('Cleared persistent customer cache');
     } catch (error) {
       console.error('Error clearing persistent customer cache:', error);
@@ -150,17 +163,25 @@ class ZammadAPI {
    */
   async loadCachedTicketData() {
     try {
-      const result = await chrome.storage.local.get([this.TICKET_CACHE_KEY, this.TICKET_CACHE_TIMESTAMP_KEY]);
-      if (result[this.TICKET_CACHE_KEY] && result[this.TICKET_CACHE_TIMESTAMP_KEY]) {
+      const result = await chrome.storage.local.get([
+        this.TICKET_CACHE_KEY,
+        this.TICKET_CACHE_TIMESTAMP_KEY,
+      ]);
+      if (
+        result[this.TICKET_CACHE_KEY] &&
+        result[this.TICKET_CACHE_TIMESTAMP_KEY]
+      ) {
         const cachedData = result[this.TICKET_CACHE_KEY];
         const timestamp = result[this.TICKET_CACHE_TIMESTAMP_KEY];
 
         // Check if cache is still valid
         const now = Date.now();
-        if ((now - timestamp) < this.ticketCacheExpiryMs) {
+        if (now - timestamp < this.ticketCacheExpiryMs) {
           this.ticketCache = new Map(Object.entries(cachedData));
           this.ticketCacheTimestamp = timestamp;
-          console.log(`Loaded ${this.ticketCache.size} tickets from persistent cache`);
+          console.log(
+            `Loaded ${this.ticketCache.size} tickets from persistent cache`
+          );
         } else {
           console.log('Persistent ticket cache expired, clearing...');
           await this.clearPersistedTicketCache();
@@ -180,9 +201,11 @@ class ZammadAPI {
         const cacheObject = Object.fromEntries(this.ticketCache);
         await chrome.storage.local.set({
           [this.TICKET_CACHE_KEY]: cacheObject,
-          [this.TICKET_CACHE_TIMESTAMP_KEY]: this.ticketCacheTimestamp
+          [this.TICKET_CACHE_TIMESTAMP_KEY]: this.ticketCacheTimestamp,
         });
-        console.log(`Saved ${this.ticketCache.size} tickets to persistent cache`);
+        console.log(
+          `Saved ${this.ticketCache.size} tickets to persistent cache`
+        );
       }
     } catch (error) {
       console.error('Error saving ticket cache to storage:', error);
@@ -194,7 +217,10 @@ class ZammadAPI {
    */
   async clearPersistedTicketCache() {
     try {
-      await chrome.storage.local.remove([this.TICKET_CACHE_KEY, this.TICKET_CACHE_TIMESTAMP_KEY]);
+      await chrome.storage.local.remove([
+        this.TICKET_CACHE_KEY,
+        this.TICKET_CACHE_TIMESTAMP_KEY,
+      ]);
       console.log('Cleared persistent ticket cache');
     } catch (error) {
       console.error('Error clearing persistent ticket cache:', error);
@@ -212,7 +238,8 @@ class ZammadAPI {
     }
 
     const now = Date.now();
-    const isCacheValid = (now - this.ticketCacheTimestamp) < this.ticketCacheExpiryMs;
+    const isCacheValid =
+      now - this.ticketCacheTimestamp < this.ticketCacheExpiryMs;
 
     if (!isCacheValid) {
       console.log('Ticket cache expired');
@@ -223,7 +250,9 @@ class ZammadAPI {
 
     const cachedTickets = this.ticketCache.get(cacheKey);
     if (cachedTickets) {
-      console.log(`Found ${cachedTickets.length} tickets in cache for key: ${cacheKey}`);
+      console.log(
+        `Found ${cachedTickets.length} tickets in cache for key: ${cacheKey}`
+      );
       return cachedTickets;
     }
 
@@ -261,21 +290,29 @@ class ZammadAPI {
       console.log(`Background refresh starting for cache key: ${cacheKey}`);
 
       // Call the refresh function with force refresh flag
-      const freshTickets = await refreshFunction.apply(this, [...refreshArgs, true]);
+      const freshTickets = await refreshFunction.apply(this, [
+        ...refreshArgs,
+        true,
+      ]);
 
-      console.log(`Background refresh completed for cache key: ${cacheKey}, got ${freshTickets.length} tickets`);
+      console.log(
+        `Background refresh completed for cache key: ${cacheKey}, got ${freshTickets.length} tickets`
+      );
 
       // Notify any listeners that the cache has been updated
       if (typeof window !== 'undefined' && window.dispatchEvent) {
         const event = new CustomEvent('ticketCacheRefreshed', {
-          detail: { cacheKey, tickets: freshTickets }
+          detail: { cacheKey, tickets: freshTickets },
         });
         window.dispatchEvent(event);
       }
 
       return freshTickets;
     } catch (error) {
-      console.error(`Background refresh failed for cache key: ${cacheKey}`, error);
+      console.error(
+        `Background refresh failed for cache key: ${cacheKey}`,
+        error
+      );
       return null;
     }
   }
@@ -301,7 +338,9 @@ class ZammadAPI {
       const defaultCacheKeys = ['assigned_tickets', 'all_tickets'];
 
       // Combine existing keys with default keys (remove duplicates)
-      const allCacheKeys = [...new Set([...existingCacheKeys, ...defaultCacheKeys])];
+      const allCacheKeys = [
+        ...new Set([...existingCacheKeys, ...defaultCacheKeys]),
+      ];
 
       console.log(`Refreshing cache keys: ${allCacheKeys.join(', ')}`);
 
@@ -311,7 +350,9 @@ class ZammadAPI {
             await this.refreshTicketCache(cacheKey, this.getAssignedTickets);
           } else if (cacheKey.startsWith('user_tickets_')) {
             const userId = cacheKey.replace('user_tickets_', '');
-            await this.refreshTicketCache(cacheKey, this.getAllTickets, [userId]);
+            await this.refreshTicketCache(cacheKey, this.getAllTickets, [
+              userId,
+            ]);
           } else if (cacheKey === 'all_tickets') {
             await this.refreshTicketCache(cacheKey, this.getAllTickets);
           }
@@ -320,11 +361,13 @@ class ZammadAPI {
         }
 
         // Add small delay between refreshes to avoid overwhelming the API
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise((resolve) => setTimeout(resolve, 1000));
       }
     }, intervalMs);
 
-    console.log(`Ticket cache auto-refresh started with ${intervalMs/1000}s interval`);
+    console.log(
+      `Ticket cache auto-refresh started with ${intervalMs / 1000}s interval`
+    );
   }
 
   /**
@@ -337,7 +380,6 @@ class ZammadAPI {
       console.log('Ticket cache auto-refresh stopped');
     }
   }
-
 
   /**
    * Load cached endpoints from storage
@@ -359,7 +401,9 @@ class ZammadAPI {
    */
   async saveCachedEndpoints() {
     try {
-      await chrome.storage.local.set({ zammadApiEndpoints: this.successfulEndpoints });
+      await chrome.storage.local.set({
+        zammadApiEndpoints: this.successfulEndpoints,
+      });
       console.log('Saved API endpoints to cache:', this.successfulEndpoints);
     } catch (error) {
       console.error('Error saving cached endpoints:', error);
@@ -378,7 +422,9 @@ class ZammadAPI {
       throw new Error('API Token is required');
     }
 
-    const normalizedBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+    const normalizedBaseUrl = baseUrl.endsWith('/')
+      ? baseUrl.slice(0, -1)
+      : baseUrl;
 
     // If the base URL has changed, clear cached endpoints
     if (this.baseUrl !== normalizedBaseUrl) {
@@ -390,7 +436,7 @@ class ZammadAPI {
         assignedTickets: null,
         timeHistory: null,
         userProfile: null,
-        allUsers: null
+        allUsers: null,
       };
       this.saveCachedEndpoints();
 
@@ -401,7 +447,7 @@ class ZammadAPI {
       this.apiFeatures = {
         supportsMe: null,
         supportsTimeAccounting: null,
-        supportsTicketSearch: null
+        supportsTicketSearch: null,
       };
 
       // Clear storage
@@ -442,33 +488,39 @@ class ZammadAPI {
       apiVersion: null,
       supportsMe: false,
       supportsTimeAccounting: false,
-      supportsTicketSearch: false
+      supportsTicketSearch: false,
     };
 
     // Try to get API version info
     try {
       // First try the /api/v1/version endpoint
       try {
-        const versionInfo = await this.request('/api/v1/version', 'GET', null, { retry: false });
+        const versionInfo = await this.request('/api/v1/version', 'GET', null, {
+          retry: false,
+        });
         if (versionInfo && versionInfo.version) {
           features.apiVersion = versionInfo.version;
           console.log(`Detected Zammad version: ${features.apiVersion}`);
         }
       } catch (versionError) {
-        console.log('Version endpoint not available, trying alternative methods');
+        console.log(
+          'Version endpoint not available, trying alternative methods'
+        );
 
         // Try to get version from the about page
         try {
           const response = await fetch(`${this.baseUrl}/api/v1/about`, {
             method: 'GET',
-            headers: { 'Accept': 'application/json' }
+            headers: { Accept: 'application/json' },
           });
 
           if (response.ok) {
             const aboutInfo = await response.json();
             if (aboutInfo && aboutInfo.version) {
               features.apiVersion = aboutInfo.version;
-              console.log(`Detected Zammad version from about: ${features.apiVersion}`);
+              console.log(
+                `Detected Zammad version from about: ${features.apiVersion}`
+              );
             }
           }
         } catch (aboutError) {
@@ -481,7 +533,9 @@ class ZammadAPI {
 
     // Test if /api/v1/users/me is supported
     try {
-      const meResponse = await this.request('/api/v1/users/me', 'GET', null, { retry: false });
+      const meResponse = await this.request('/api/v1/users/me', 'GET', null, {
+        retry: false,
+      });
       if (meResponse && meResponse.id) {
         features.supportsMe = true;
         console.log('API supports /api/v1/users/me endpoint');
@@ -494,7 +548,9 @@ class ZammadAPI {
     // Test if direct time_accountings endpoint is supported
     try {
       // We don't need the actual response, just to know if the endpoint exists
-      await this.request('/api/v1/time_accountings', 'GET', null, { retry: false });
+      await this.request('/api/v1/time_accountings', 'GET', null, {
+        retry: false,
+      });
       features.supportsTimeAccounting = true;
       console.log('API supports direct time_accountings endpoint');
     } catch (timeError) {
@@ -502,7 +558,9 @@ class ZammadAPI {
       if (timeError.message.includes('403')) {
         // If it's a permission error, the endpoint exists but we don't have access
         features.supportsTimeAccounting = true;
-        console.log('API supports time_accountings endpoint but permission denied');
+        console.log(
+          'API supports time_accountings endpoint but permission denied'
+        );
       } else {
         features.supportsTimeAccounting = false;
         console.log('Direct time_accountings endpoint not supported');
@@ -511,7 +569,9 @@ class ZammadAPI {
 
     // Test if ticket search API is supported
     try {
-      await this.request('/api/v1/tickets/search?query=*', 'GET', null, { retry: false });
+      await this.request('/api/v1/tickets/search?query=*', 'GET', null, {
+        retry: false,
+      });
       features.supportsTicketSearch = true;
       console.log('API supports ticket search endpoint');
     } catch (searchError) {
@@ -519,7 +579,9 @@ class ZammadAPI {
       if (searchError.message.includes('403')) {
         // If it's a permission error, the endpoint exists but we don't have access
         features.supportsTicketSearch = true;
-        console.log('API supports ticket search endpoint but permission denied');
+        console.log(
+          'API supports ticket search endpoint but permission denied'
+        );
       } else {
         features.supportsTicketSearch = false;
         console.log('Ticket search endpoint not supported');
@@ -586,10 +648,10 @@ class ZammadAPI {
       const response = await fetch(`${this.baseUrl}/api/v1/users/me`, {
         method: 'GET',
         headers: {
-          'Authorization': `Token token=${this.token}`,
-          'X-Requested-With': 'XMLHttpRequest'
+          Authorization: `Token token=${this.token}`,
+          'X-Requested-With': 'XMLHttpRequest',
         },
-        credentials: 'omit'
+        credentials: 'omit',
       });
 
       // Check if response is OK (status 200-299)
@@ -606,21 +668,24 @@ class ZammadAPI {
 
       // For other status codes, log the issue but consider the token valid
       // as the issue might be with the specific endpoint, not the token
-      console.warn(`Unexpected status code ${response.status} when checking token validity`);
+      console.warn(
+        `Unexpected status code ${response.status} when checking token validity`
+      );
       return true;
     } catch (error) {
       console.error('Error checking token validity:', error);
 
       // Network errors don't necessarily mean the token is invalid
       if (error.message.includes('Failed to fetch')) {
-        console.warn('Network error when checking token validity, assuming token is still valid');
+        console.warn(
+          'Network error when checking token validity, assuming token is still valid'
+        );
         return true;
       }
 
       return false;
     }
   }
-
 
   /**
    * Check if there's a session conflict by testing authentication method
@@ -638,9 +703,9 @@ class ZammadAPI {
       const sessionResponse = await fetch(testUrl, {
         method: 'GET',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
-        credentials: 'include'
+        credentials: 'include',
       });
 
       // Test with token-only
@@ -648,9 +713,9 @@ class ZammadAPI {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Token token=${this.token}`
+          Authorization: `Token token=${this.token}`,
         },
-        credentials: 'omit'
+        credentials: 'omit',
       });
 
       const sessionWorks = sessionResponse.ok;
@@ -701,7 +766,10 @@ class ZammadAPI {
       // Add timeout for validation
       const validationPromise = this.fetchCurrentUser();
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Token validation timeout after 10 seconds')), 10000);
+        setTimeout(
+          () => reject(new Error('Token validation timeout after 10 seconds')),
+          10000
+        );
       });
 
       await Promise.race([validationPromise, timeoutPromise]);
@@ -715,13 +783,27 @@ class ZammadAPI {
 
       // Provide more specific error information
       if (error.message.includes('timeout')) {
-        console.error('Token validation timed out - check network connection and API endpoint');
-      } else if (error.message.includes('401') || error.message.includes('403')) {
-        console.error('Token validation failed - invalid token or insufficient permissions');
-      } else if (error.message.includes('fetch') || error.message.includes('Network error')) {
-        console.error('Network error during token validation - check URL and connectivity');
+        console.error(
+          'Token validation timed out - check network connection and API endpoint'
+        );
+      } else if (
+        error.message.includes('401') ||
+        error.message.includes('403')
+      ) {
+        console.error(
+          'Token validation failed - invalid token or insufficient permissions'
+        );
+      } else if (
+        error.message.includes('fetch') ||
+        error.message.includes('Network error')
+      ) {
+        console.error(
+          'Network error during token validation - check URL and connectivity'
+        );
         // Add a more descriptive message for network errors
-        console.error(`Could not connect to ${this.baseUrl}. Please check your network connection and URL settings.`);
+        console.error(
+          `Could not connect to ${this.baseUrl}. Please check your network connection and URL settings.`
+        );
       }
 
       return false;
@@ -737,12 +819,20 @@ class ZammadAPI {
     // Try cached endpoint first
     if (this.successfulEndpoints.userProfile) {
       try {
-        console.log('Trying cached user profile endpoint:', this.successfulEndpoints.userProfile);
-        const profile = await this.request(this.successfulEndpoints.userProfile);
+        console.log(
+          'Trying cached user profile endpoint:',
+          this.successfulEndpoints.userProfile
+        );
+        const profile = await this.request(
+          this.successfulEndpoints.userProfile
+        );
         this.userProfile = profile;
         this.currentUserId = profile.id;
         this.saveCachedUserProfile();
-        console.log('User profile fetched from cache successfully:', profile.id);
+        console.log(
+          'User profile fetched from cache successfully:',
+          profile.id
+        );
         return profile;
       } catch (error) {
         console.error('Cached user profile endpoint failed:', error);
@@ -752,22 +842,26 @@ class ZammadAPI {
 
     // Define multiple endpoints to try
     let endpoints = [
-      '/api/v1/users/me',              // Official Zammad API endpoint
+      '/api/v1/users/me', // Official Zammad API endpoint
     ];
 
     // Prioritize endpoints based on detected API features
     if (this.apiFeatures) {
       // If we know the /me endpoint is supported, prioritize it
       if (this.apiFeatures.supportsMe === true) {
-        console.log('API is known to support /api/v1/users/me, prioritizing this endpoint');
+        console.log(
+          'API is known to support /api/v1/users/me, prioritizing this endpoint'
+        );
         endpoints = [
           '/api/v1/users/me',
-          ...endpoints.filter(e => e !== '/api/v1/users/me')
+          ...endpoints.filter((e) => e !== '/api/v1/users/me'),
         ];
       } else if (this.apiFeatures.supportsMe === false) {
         // If we know the /me endpoint is NOT supported, remove it
-        console.log('API is known to NOT support /api/v1/users/me, removing this endpoint');
-        endpoints = endpoints.filter(e => e !== '/api/v1/users/me');
+        console.log(
+          'API is known to NOT support /api/v1/users/me, removing this endpoint'
+        );
+        endpoints = endpoints.filter((e) => e !== '/api/v1/users/me');
       }
     }
 
@@ -792,7 +886,10 @@ class ZammadAPI {
             this.saveCachedApiFeatures();
           }
 
-          console.log('User profile fetched successfully:', profile.id || profile.login);
+          console.log(
+            'User profile fetched successfully:',
+            profile.id || profile.login
+          );
           return profile;
         } else {
           console.warn(`Endpoint ${endpoint} returned invalid profile data`);
@@ -803,7 +900,11 @@ class ZammadAPI {
         lastError = error;
 
         // Update API features if this was the /me endpoint and it returned 404
-        if (endpoint === '/api/v1/users/me' && error.message.includes('404') && this.apiFeatures) {
+        if (
+          endpoint === '/api/v1/users/me' &&
+          error.message.includes('404') &&
+          this.apiFeatures
+        ) {
           this.apiFeatures.supportsMe = false;
           this.saveCachedApiFeatures();
         }
@@ -823,7 +924,9 @@ class ZammadAPI {
         const tokenParts = this.token.split(':');
         if (tokenParts.length > 1 && !isNaN(parseInt(tokenParts[0]))) {
           const possibleUserId = parseInt(tokenParts[0]);
-          console.log(`Extracted possible user ID from token: ${possibleUserId}`);
+          console.log(
+            `Extracted possible user ID from token: ${possibleUserId}`
+          );
           this.currentUserId = possibleUserId;
           return { id: possibleUserId, source: 'token_extraction' };
         }
@@ -834,13 +937,25 @@ class ZammadAPI {
 
     // Provide specific guidance based on the last error
     if (lastError) {
-      if (lastError.message.includes('401') || lastError.message.includes('403')) {
-        throw new Error(`Authentication failed: Invalid API token or insufficient permissions. Error: ${lastError.message}`);
+      if (
+        lastError.message.includes('401') ||
+        lastError.message.includes('403')
+      ) {
+        throw new Error(
+          `Authentication failed: Invalid API token or insufficient permissions. Error: ${lastError.message}`
+        );
       } else if (lastError.message.includes('404')) {
-        throw new Error(`API endpoint not found: Your Zammad version may not support these endpoints. Error: ${lastError.message}`);
-      } else if (lastError.message.includes('Failed to fetch') || lastError.message.includes('Network error')) {
+        throw new Error(
+          `API endpoint not found: Your Zammad version may not support these endpoints. Error: ${lastError.message}`
+        );
+      } else if (
+        lastError.message.includes('Failed to fetch') ||
+        lastError.message.includes('Network error')
+      ) {
         // Handle network connectivity issues more gracefully
-        throw new Error(`Network error: Could not connect to ${this.baseUrl}. Please check your network connection and URL settings.`);
+        throw new Error(
+          `Network error: Could not connect to ${this.baseUrl}. Please check your network connection and URL settings.`
+        );
       } else {
         throw new Error(`Failed to fetch user profile: ${lastError.message}`);
       }
@@ -865,7 +980,7 @@ class ZammadAPI {
       assignedTickets: null,
       timeHistory: null,
       userProfile: null,
-      allUsers: null
+      allUsers: null,
     };
 
     // Clear storage cache
@@ -875,7 +990,9 @@ class ZammadAPI {
     // Detect session conflicts
     const hasConflict = await this.detectSessionConflict();
     if (hasConflict) {
-      console.warn('Session conflict detected - requests will use token-only authentication');
+      console.warn(
+        'Session conflict detected - requests will use token-only authentication'
+      );
     }
 
     // Re-validate with token-only
@@ -914,7 +1031,7 @@ class ZammadAPI {
         assignedTickets: null,
         timeHistory: null,
         userProfile: null,
-        allUsers: null
+        allUsers: null,
       };
 
       // Clear storage cache
@@ -924,7 +1041,9 @@ class ZammadAPI {
       // Re-validate with token-only
       await this.validateToken();
 
-      console.log('API refreshed with new settings - using token-only authentication');
+      console.log(
+        'API refreshed with new settings - using token-only authentication'
+      );
       return true;
     } catch (error) {
       console.error('Error refreshing API settings:', error);
@@ -962,7 +1081,9 @@ class ZammadAPI {
         baseUrl: settings.baseUrl,
         hasToken: !!settings.token,
         tokenLength: settings.token ? settings.token.length : 0,
-        tokenStart: settings.token ? settings.token.substring(0, 10) + '...' : 'No token'
+        tokenStart: settings.token
+          ? settings.token.substring(0, 10) + '...'
+          : 'No token',
       });
 
       // Validate settings
@@ -989,7 +1110,7 @@ class ZammadAPI {
       retry: true,
       maxRetries: 1,
       retryCount: 0,
-      ...options
+      ...options,
     };
 
     // Check basic initialization
@@ -1014,33 +1135,39 @@ class ZammadAPI {
       method: method,
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Token token=${cleanToken}`,
-        'Accept': 'application/json',
+        Authorization: `Token token=${cleanToken}`,
+        Accept: 'application/json',
         'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache',
-        'X-Requested-With': 'XMLHttpRequest'
+        Pragma: 'no-cache',
+        'X-Requested-With': 'XMLHttpRequest',
       },
       credentials: 'omit',
-      cache: 'no-cache'
+      cache: 'no-cache',
     };
 
     // Add body for POST/PUT requests
-    if ((method === 'POST' || method === 'PUT' || method === 'DELETE') && data) {
+    if (
+      (method === 'POST' || method === 'PUT' || method === 'DELETE') &&
+      data
+    ) {
       fetchOptions.body = JSON.stringify(data);
     }
 
     console.log(`Making ${method} request to: ${url}`);
     console.log('Request headers:', {
       'Content-Type': fetchOptions.headers['Content-Type'],
-      'Authorization': `Token token=${cleanToken.substring(0, 10)}...`, // Log only first 10 chars
-      'Accept': fetchOptions.headers['Accept']
+      Authorization: `Token token=${cleanToken.substring(0, 10)}...`, // Log only first 10 chars
+      Accept: fetchOptions.headers['Accept'],
     });
 
     try {
       const response = await fetch(url, fetchOptions);
 
       console.log(`Response status: ${response.status}`);
-      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+      console.log(
+        'Response headers:',
+        Object.fromEntries(response.headers.entries())
+      );
 
       // Enhanced error handling for 401/403
       if (response.status === 401 || response.status === 403) {
@@ -1052,7 +1179,11 @@ class ZammadAPI {
           // Try to parse JSON error
           try {
             const errorJson = JSON.parse(errorText);
-            errorDetails = errorJson.error || errorJson.error_human || errorJson.message || errorText;
+            errorDetails =
+              errorJson.error ||
+              errorJson.error_human ||
+              errorJson.message ||
+              errorText;
           } catch (parseError) {
             errorDetails = errorText;
           }
@@ -1062,9 +1193,13 @@ class ZammadAPI {
 
         // Provide specific guidance based on error
         if (response.status === 401) {
-          throw new Error(`Authentication failed (401): ${errorDetails}. Please check your API token - it may be invalid or expired.`);
+          throw new Error(
+            `Authentication failed (401): ${errorDetails}. Please check your API token - it may be invalid or expired.`
+          );
         } else {
-          throw new Error(`Access denied (403): ${errorDetails}. Please check your user permissions - you may need Agent role or higher.`);
+          throw new Error(
+            `Access denied (403): ${errorDetails}. Please check your user permissions - you may need Agent role or higher.`
+          );
         }
       }
 
@@ -1103,13 +1238,14 @@ class ZammadAPI {
         console.log('API Response (text):', text);
         return text || true;
       }
-
     } catch (error) {
       console.error(`API request failed:`, error);
 
       // Provide helpful error messages
       if (error.message.includes('Failed to fetch')) {
-        throw new Error(`Network error: Could not connect to ${this.baseUrl}. Please check your URL and network connection.`);
+        throw new Error(
+          `Network error: Could not connect to ${this.baseUrl}. Please check your URL and network connection.`
+        );
       }
 
       throw error;
@@ -1130,10 +1266,10 @@ class ZammadAPI {
 
   /**
    * Get ticket information
-   * 
+   *
    * Uses the official Zammad API endpoint:
    * GET /api/v1/tickets/{ticket_id}
-   * 
+   *
    * Documentation: docs/zammad/docs.zammad.org/en/latest/api/ticket/index.html#show
    * Required permission: ticket.agent or ticket.customer
    */
@@ -1145,7 +1281,10 @@ class ZammadAPI {
     // Try cached endpoint first
     if (this.successfulEndpoints.ticket) {
       try {
-        const endpoint = this.successfulEndpoints.ticket.replace('{ticketId}', ticketId);
+        const endpoint = this.successfulEndpoints.ticket.replace(
+          '{ticketId}',
+          ticketId
+        );
         return await this.request(endpoint);
       } catch (error) {
         console.error('Cached endpoint failed:', error);
@@ -1157,7 +1296,7 @@ class ZammadAPI {
     const endpoints = [
       `/api/v1/tickets/${ticketId}`, // Official API endpoint
       `/api/v1/tickets/search?number=${ticketId}`, // Alternative using search
-      `/api/v1/tickets?number=${ticketId}` // Alternative using query parameter
+      `/api/v1/tickets?number=${ticketId}`, // Alternative using query parameter
     ];
 
     for (const endpoint of endpoints) {
@@ -1166,7 +1305,10 @@ class ZammadAPI {
         const result = await this.request(endpoint);
 
         // Cache successful endpoint
-        this.successfulEndpoints.ticket = endpoint.replace(ticketId, '{ticketId}');
+        this.successfulEndpoints.ticket = endpoint.replace(
+          ticketId,
+          '{ticketId}'
+        );
         this.saveCachedEndpoints();
 
         return result;
@@ -1180,10 +1322,10 @@ class ZammadAPI {
 
   /**
    * Get time tracking entries for a ticket
-   * 
+   *
    * Uses the official Zammad API endpoint:
    * GET /api/v1/tickets/{ticket_id}/time_accountings
-   * 
+   *
    * Documentation: docs/zammad/docs.zammad.org/en/latest/api/ticket/timeaccounting.html#list
    * Required permission: ticket.agent or admin.time_accounting
    */
@@ -1195,7 +1337,10 @@ class ZammadAPI {
     // Try cached endpoint first
     if (this.successfulEndpoints.timeEntries) {
       try {
-        const endpoint = this.successfulEndpoints.timeEntries.replace('{ticketId}', ticketId);
+        const endpoint = this.successfulEndpoints.timeEntries.replace(
+          '{ticketId}',
+          ticketId
+        );
         return await this.request(endpoint);
       } catch (error) {
         console.error('Cached time entries endpoint failed:', error);
@@ -1207,7 +1352,10 @@ class ZammadAPI {
     const endpoint = `/api/v1/tickets/${ticketId}/time_accountings`;
     try {
       const result = await this.request(endpoint);
-      this.successfulEndpoints.timeEntries = endpoint.replace(ticketId, '{ticketId}');
+      this.successfulEndpoints.timeEntries = endpoint.replace(
+        ticketId,
+        '{ticketId}'
+      );
       this.saveCachedEndpoints();
       return result;
     } catch (error) {
@@ -1218,13 +1366,13 @@ class ZammadAPI {
 
   /**
    * Submit time tracking entry
-   * 
+   *
    * Uses the official Zammad API endpoint:
    * POST /api/v1/tickets/{ticket_id}/time_accountings
-   * 
+   *
    * Documentation: docs/zammad/docs.zammad.org/en/latest/api/ticket/timeaccounting.html#create
    * Required permission: ticket.agent or admin.time_accounting
-   * 
+   *
    * @param {number|string} ticketId - The ID of the ticket to add time to
    * @param {number} timeSpent - The amount of time spent (can be negative for corrections)
    * @param {string} comment - Optional comment for the time entry
@@ -1246,13 +1394,16 @@ class ZammadAPI {
     if (Math.abs(timeSpent) < epsilon) {
       console.log('Time spent is too close to zero, skipping submission');
       // Return a successful response instead of throwing an error
-      return { success: true, message: 'No adjustment needed (value too small)' };
+      return {
+        success: true,
+        message: 'No adjustment needed (value too small)',
+      };
     }
 
     // Prepare data according to the API documentation
     const data = {
       time_unit: timeSpent,
-      ticket_id: ticketId
+      ticket_id: ticketId,
     };
 
     if (comment) {
@@ -1267,8 +1418,13 @@ class ZammadAPI {
     // Try cached endpoint first
     if (this.successfulEndpoints.timeSubmission) {
       try {
-        const endpoint = this.successfulEndpoints.timeSubmission.includes('{ticketId}')
-          ? this.successfulEndpoints.timeSubmission.replace('{ticketId}', ticketId)
+        const endpoint = this.successfulEndpoints.timeSubmission.includes(
+          '{ticketId}'
+        )
+          ? this.successfulEndpoints.timeSubmission.replace(
+              '{ticketId}',
+              ticketId
+            )
           : this.successfulEndpoints.timeSubmission;
         return await this.request(endpoint, 'POST', data);
       } catch (error) {
@@ -1277,12 +1433,14 @@ class ZammadAPI {
       }
     }
 
-
     // Official API endpoint for creating time accounting entries
     const endpoint = `/api/v1/tickets/${ticketId}/time_accountings`;
     try {
       const result = await this.request(endpoint, 'POST', data);
-      this.successfulEndpoints.timeSubmission = endpoint.replace(ticketId, '{ticketId}');
+      this.successfulEndpoints.timeSubmission = endpoint.replace(
+        ticketId,
+        '{ticketId}'
+      );
       this.saveCachedEndpoints();
       return result;
     } catch (error) {
@@ -1315,7 +1473,9 @@ class ZammadAPI {
     if (!forceRefresh) {
       const cachedTickets = this.getCachedTickets(cacheKey);
       if (cachedTickets) {
-        console.log(`Returning ${cachedTickets.length} assigned tickets from cache`);
+        console.log(
+          `Returning ${cachedTickets.length} assigned tickets from cache`
+        );
         return cachedTickets;
       }
     }
@@ -1334,25 +1494,29 @@ class ZammadAPI {
 
     // Prioritize endpoints based on detected API features
     if (this.apiFeatures && this.apiFeatures.supportsTicketSearch === false) {
-      console.log('API is known to NOT support ticket search, using only filter endpoints');
+      console.log(
+        'API is known to NOT support ticket search, using only filter endpoints'
+      );
       // If search is not supported, only use filter endpoints
       if (this.currentUserId) {
         endpoints = [
           `/api/v1/tickets?filter[owner_id]=${this.currentUserId}`,
           `/api/v1/tickets?owner_id=${this.currentUserId}`,
           '/api/v1/tickets?filter[owner_id]=me',
-          '/api/v1/tickets?owner_id=me'
+          '/api/v1/tickets?owner_id=me',
         ];
       } else {
         endpoints = [
           '/api/v1/tickets?filter[owner_id]=me',
-          '/api/v1/tickets?owner_id=me'
+          '/api/v1/tickets?owner_id=me',
         ];
       }
     } else {
       // Use all endpoints, with search endpoints first if search is known to be supported
       if (this.apiFeatures && this.apiFeatures.supportsTicketSearch === true) {
-        console.log('API is known to support ticket search, prioritizing search endpoints');
+        console.log(
+          'API is known to support ticket search, prioritizing search endpoints'
+        );
         if (this.currentUserId) {
           endpoints = [
             `/api/v1/tickets/search?query=owner.id:${this.currentUserId}`,
@@ -1360,13 +1524,13 @@ class ZammadAPI {
             `/api/v1/tickets?owner_id=${this.currentUserId}`,
             '/api/v1/tickets/search?query=owner.id:me',
             '/api/v1/tickets?filter[owner_id]=me',
-            '/api/v1/tickets?owner_id=me'
+            '/api/v1/tickets?owner_id=me',
           ];
         } else {
           endpoints = [
             '/api/v1/tickets/search?query=owner.id:me',
             '/api/v1/tickets?filter[owner_id]=me',
-            '/api/v1/tickets?owner_id=me'
+            '/api/v1/tickets?owner_id=me',
           ];
         }
       } else {
@@ -1379,13 +1543,13 @@ class ZammadAPI {
             `/api/v1/tickets?owner_id=${this.currentUserId}`,
             '/api/v1/tickets/search?query=owner.id:me',
             '/api/v1/tickets?filter[owner_id]=me',
-            '/api/v1/tickets?owner_id=me'
+            '/api/v1/tickets?owner_id=me',
           ];
         } else {
           endpoints = [
             '/api/v1/tickets/search?query=owner.id:me',
             '/api/v1/tickets?filter[owner_id]=me',
-            '/api/v1/tickets?owner_id=me'
+            '/api/v1/tickets?owner_id=me',
           ];
         }
       }
@@ -1409,20 +1573,30 @@ class ZammadAPI {
         this.saveCachedEndpoints();
 
         // Enhance tickets with customer data
-        const enhancedTickets = await this.enhanceTicketsWithCustomerData(result);
+        const enhancedTickets =
+          await this.enhanceTicketsWithCustomerData(result);
 
         // Cache the results
         await this.cacheTickets(cacheKey, enhancedTickets);
 
         return enhancedTickets;
       } catch (error) {
-        console.error(`Error with assigned tickets endpoint ${endpoint}:`, error);
+        console.error(
+          `Error with assigned tickets endpoint ${endpoint}:`,
+          error
+        );
 
         // Update API features based on error
-        if (endpoint.includes('/search') && error.message.includes('404') && this.apiFeatures) {
+        if (
+          endpoint.includes('/search') &&
+          error.message.includes('404') &&
+          this.apiFeatures
+        ) {
           this.apiFeatures.supportsTicketSearch = false;
           this.saveCachedApiFeatures();
-          console.log('API does not support ticket search endpoint (404 error)');
+          console.log(
+            'API does not support ticket search endpoint (404 error)'
+          );
         }
       }
     }
@@ -1437,7 +1611,9 @@ class ZammadAPI {
    * @returns {Array} Array of tickets
    */
   async getAllTickets(userId = null, forceRefresh = false) {
-    console.log(`Getting all tickets${userId ? ' for user ID: ' + userId : ''}`);
+    console.log(
+      `Getting all tickets${userId ? ' for user ID: ' + userId : ''}`
+    );
 
     const cacheKey = userId ? `user_tickets_${userId}` : 'all_tickets';
 
@@ -1445,7 +1621,9 @@ class ZammadAPI {
     if (!forceRefresh) {
       const cachedTickets = this.getCachedTickets(cacheKey);
       if (cachedTickets) {
-        console.log(`Returning ${cachedTickets.length} tickets from cache for key: ${cacheKey}`);
+        console.log(
+          `Returning ${cachedTickets.length} tickets from cache for key: ${cacheKey}`
+        );
         return cachedTickets;
       }
     }
@@ -1456,10 +1634,15 @@ class ZammadAPI {
         const settings = await this.getSettings();
         if (settings.userIds) {
           // If we have multiple user IDs, we'll need to make multiple requests and combine the results
-          const userIdList = settings.userIds.split(',').map(id => id.trim()).filter(id => id);
+          const userIdList = settings.userIds
+            .split(',')
+            .map((id) => id.trim())
+            .filter((id) => id);
           userIdList.push('1'); // Always include user ID 1 (unassigned) for compatibility
           if (userIdList.length > 0) {
-            console.log(`Using configured user IDs from settings: ${userIdList.join(', ')}`);
+            console.log(
+              `Using configured user IDs from settings: ${userIdList.join(', ')}`
+            );
 
             // Get tickets for each user ID and combine them
             const allTickets = [];
@@ -1470,13 +1653,17 @@ class ZammadAPI {
                   allTickets.push(...userTickets);
                 }
               } catch (error) {
-                console.error(`Error getting tickets for user ID ${id}:`, error);
+                console.error(
+                  `Error getting tickets for user ID ${id}:`,
+                  error
+                );
                 // Continue with other user IDs
               }
             }
 
             // Return the combined tickets with customer data enhancement
-            const enhancedTickets = await this.enhanceTicketsWithCustomerData(allTickets);
+            const enhancedTickets =
+              await this.enhanceTicketsWithCustomerData(allTickets);
             // Cache the results
             await this.cacheTickets(cacheKey, enhancedTickets);
             return enhancedTickets;
@@ -1492,7 +1679,8 @@ class ZammadAPI {
     if (userId) {
       const tickets = await this.getTicketsForUser(userId);
       // Enhance with customer data if not already present
-      const enhancedTickets = await this.enhanceTicketsWithCustomerData(tickets);
+      const enhancedTickets =
+        await this.enhanceTicketsWithCustomerData(tickets);
       // Cache the results
       await this.cacheTickets(cacheKey, enhancedTickets);
       return enhancedTickets;
@@ -1511,18 +1699,26 @@ class ZammadAPI {
    * @param {string|number} userId - User ID to get tickets for
    * @returns {Array} Array of tickets
    */
-  async getTicketsForUser(userId) {
+  async getTicketsForUser(userId, forceRefresh = false) {
     if (!userId) {
       throw new Error('User ID is required');
     }
 
     console.log(`Getting tickets for user ID: ${userId}`);
 
-    const threeYearsAgo = new Date();
-    threeYearsAgo.setFullYear(threeYearsAgo.getFullYear() - 3);
-    const formattedDate = threeYearsAgo.toISOString().split('T')[0]; // Format: YYYY-MM-DD
+    const lastFetchTimestamp = await storage.load('lastTicketFetchTimestamp');
+    let query;
 
-    const query = `owner.id:${userId} AND created_at:>${formattedDate} AND !state.id:2 AND !state.id 3`;
+    if (lastFetchTimestamp && !forceRefresh) {
+      console.log(`Performing incremental fetch for tickets updated since ${lastFetchTimestamp}`);
+      query = `owner.id:${userId} AND updated_at:>'${lastFetchTimestamp}'`;
+    } else {
+      console.log('Performing a full ticket fetch.');
+      const threeYearsAgo = new Date();
+      threeYearsAgo.setFullYear(threeYearsAgo.getFullYear() - 3);
+      const formattedDate = threeYearsAgo.toISOString().split('T')[0]; // Format: YYYY-MM-DD
+      query = `owner.id:${userId} AND created_at:>${formattedDate} AND !state.id:2 AND !state.id 3`;
+    }
     const perPage = 1000;
     const totalPages = 2;
     const allTickets = [];
@@ -1562,10 +1758,12 @@ class ZammadAPI {
     console.log(`Getting articles for ticket ID: ${ticketId}`);
 
     const endpoint = `/api/v1/ticket_articles/by_ticket/${ticketId}`;
-    
+
     try {
       const result = await this.request(endpoint);
-      console.log(`Successfully got ${result ? result.length : 0} articles for ticket ${ticketId}`);
+      console.log(
+        `Successfully got ${result ? result.length : 0} articles for ticket ${ticketId}`
+      );
       return result || [];
     } catch (error) {
       console.error(`Error getting articles for ticket ${ticketId}:`, error);
@@ -1586,7 +1784,7 @@ class ZammadAPI {
       '/api/v1/tickets/search?expand=true&assets=true',
       '/api/v1/tickets',
       '/api/v1/tickets/search?query=*',
-      '/api/v1/tickets/search'
+      '/api/v1/tickets/search',
     ];
 
     for (const endpoint of endpoints) {
@@ -1615,9 +1813,14 @@ class ZammadAPI {
     // Try cached endpoint first
     if (this.successfulEndpoints.allUsers) {
       try {
-        console.log('Trying cached all users endpoint:', this.successfulEndpoints.allUsers);
+        console.log(
+          'Trying cached all users endpoint:',
+          this.successfulEndpoints.allUsers
+        );
         const users = await this.request(this.successfulEndpoints.allUsers);
-        console.log(`Successfully got ${users ? users.length : 0} users from cached endpoint`);
+        console.log(
+          `Successfully got ${users ? users.length : 0} users from cached endpoint`
+        );
         return users;
       } catch (error) {
         console.error('Cached all users endpoint failed:', error);
@@ -1630,7 +1833,7 @@ class ZammadAPI {
       '/api/v1/users',
       '/api/v1/users/search?query=*',
       '/api/v1/users?expand=true',
-      '/api/v1/users?per_page=100'
+      '/api/v1/users?per_page=100',
     ];
 
     for (const endpoint of endpoints) {
@@ -1639,7 +1842,9 @@ class ZammadAPI {
         const users = await this.request(endpoint);
 
         if (Array.isArray(users) && users.length > 0) {
-          console.log(`Successfully got ${users.length} users from endpoint: ${endpoint}`);
+          console.log(
+            `Successfully got ${users.length} users from endpoint: ${endpoint}`
+          );
 
           // Cache the successful endpoint
           this.successfulEndpoints.allUsers = endpoint;
@@ -1647,7 +1852,9 @@ class ZammadAPI {
 
           return users;
         } else {
-          console.warn(`Endpoint ${endpoint} returned no users or invalid format`);
+          console.warn(
+            `Endpoint ${endpoint} returned no users or invalid format`
+          );
         }
       } catch (error) {
         console.error(`Error with all users endpoint ${endpoint}:`, error);
@@ -1702,13 +1909,13 @@ class ZammadAPI {
 
   /**
    * Delete a time tracking entry
-   * 
+   *
    * Uses the official Zammad API endpoint:
    * DELETE /api/v1/tickets/{ticket_id}/time_accountings/{timeaccounting_id}
-   * 
+   *
    * Documentation: docs/zammad/docs.zammad.org/en/latest/api/ticket/timeaccounting.html#remove
    * Required permission: admin.time_accounting
-   * 
+   *
    * @param {number|string} entryId - The ID of the time entry to delete
    * @param {number|string} ticketId - Optional ticket ID if known
    * @returns {Promise<object>} Success response
@@ -1718,14 +1925,18 @@ class ZammadAPI {
       throw new Error('Entry ID is required');
     }
 
-    console.log(`Attempting to delete time entry ${entryId} (token-only authentication)`);
+    console.log(
+      `Attempting to delete time entry ${entryId} (token-only authentication)`
+    );
 
     // Array of endpoints to try for deletion
     const deleteEndpoints = [];
 
     // If ticket ID is provided, try the ticket-specific endpoint first (official API)
     if (ticketId) {
-      deleteEndpoints.push(`/api/v1/tickets/${ticketId}/time_accountings/${entryId}`);
+      deleteEndpoints.push(
+        `/api/v1/tickets/${ticketId}/time_accountings/${entryId}`
+      );
     } else {
       // If no ticket ID provided, try to get the time entry details to determine the ticket ID
       try {
@@ -1733,10 +1944,15 @@ class ZammadAPI {
         console.log('Time entry details:', timeEntryDetails);
 
         if (timeEntryDetails && timeEntryDetails.ticket_id) {
-          deleteEndpoints.push(`/api/v1/tickets/${timeEntryDetails.ticket_id}/time_accountings/${entryId}`);
+          deleteEndpoints.push(
+            `/api/v1/tickets/${timeEntryDetails.ticket_id}/time_accountings/${entryId}`
+          );
         }
       } catch (detailsError) {
-        console.warn('Could not get time entry details, proceeding with direct deletion:', detailsError.message);
+        console.warn(
+          'Could not get time entry details, proceeding with direct deletion:',
+          detailsError.message
+        );
       }
     }
 
@@ -1751,21 +1967,29 @@ class ZammadAPI {
         console.log(`Trying delete endpoint: ${endpoint}`);
         // Pass null as data for DELETE requests
         const result = await this.request(endpoint, 'DELETE', null);
-        console.log(`Successfully deleted time entry ${entryId} using endpoint: ${endpoint}`);
+        console.log(
+          `Successfully deleted time entry ${entryId} using endpoint: ${endpoint}`
+        );
 
         // Clear time history cache after successful deletion
         this.clearTimeHistoryCache();
 
         return result;
       } catch (deleteError) {
-        console.error(`Delete failed for endpoint ${endpoint}:`, deleteError.message);
+        console.error(
+          `Delete failed for endpoint ${endpoint}:`,
+          deleteError.message
+        );
         lastError = deleteError;
 
         // If it's a 404, the entry might already be deleted
         if (deleteError.message.includes('404')) {
           console.log('Entry might already be deleted (404 error)');
           this.clearTimeHistoryCache();
-          return { success: true, message: 'Entry already deleted or not found' };
+          return {
+            success: true,
+            message: 'Entry already deleted or not found',
+          };
         }
 
         // Continue to next endpoint
@@ -1775,18 +1999,29 @@ class ZammadAPI {
 
     // If all endpoints failed, provide detailed error information
     if (lastError) {
-      if (lastError.message.includes('403') || lastError.message.includes('401')) {
-        throw new Error('Permission denied: You need admin.time_accounting permission to delete time entries. Please check your API token permissions or contact your Zammad administrator.');
+      if (
+        lastError.message.includes('403') ||
+        lastError.message.includes('401')
+      ) {
+        throw new Error(
+          'Permission denied: You need admin.time_accounting permission to delete time entries. Please check your API token permissions or contact your Zammad administrator.'
+        );
       }
 
       if (lastError.message.includes('404')) {
-        throw new Error(`Time entry ${entryId} not found. It may have already been deleted.`);
+        throw new Error(
+          `Time entry ${entryId} not found. It may have already been deleted.`
+        );
       }
 
-      throw new Error(`Failed to delete time entry ${entryId}. Last error: ${lastError.message}`);
+      throw new Error(
+        `Failed to delete time entry ${entryId}. Last error: ${lastError.message}`
+      );
     }
 
-    throw new Error(`Failed to delete time entry ${entryId}. No valid endpoint found.`);
+    throw new Error(
+      `Failed to delete time entry ${entryId}. No valid endpoint found.`
+    );
   }
   /**
    * Clear time history cache to force fresh data retrieval
@@ -1805,18 +2040,27 @@ class ZammadAPI {
     console.log('Getting time tracking history for current user');
 
     // Try cached endpoint first, but be careful with admin endpoints
-    if (this.successfulEndpoints.timeHistory && this.successfulEndpoints.timeHistory !== 'fallback_via_tickets') {
+    if (
+      this.successfulEndpoints.timeHistory &&
+      this.successfulEndpoints.timeHistory !== 'fallback_via_tickets'
+    ) {
       try {
-        console.log('Trying cached time history endpoint:', this.successfulEndpoints.timeHistory);
+        console.log(
+          'Trying cached time history endpoint:',
+          this.successfulEndpoints.timeHistory
+        );
         const result = await this.request(this.successfulEndpoints.timeHistory);
 
         // IMPORTANT: Always filter admin endpoint results by current user
         if (Array.isArray(result) && this.currentUserId) {
-          const filteredResult = result.filter(entry =>
-            entry.created_by_id === this.currentUserId ||
-            entry.user_id === this.currentUserId
+          const filteredResult = result.filter(
+            (entry) =>
+              entry.created_by_id === this.currentUserId ||
+              entry.user_id === this.currentUserId
           );
-          console.log(`Filtered ${result.length} entries to ${filteredResult.length} for current user`);
+          console.log(
+            `Filtered ${result.length} entries to ${filteredResult.length} for current user`
+          );
           return filteredResult;
         }
 
@@ -1832,7 +2076,9 @@ class ZammadAPI {
 
     // If we know the API doesn't support direct time_accountings, skip to fallback
     if (this.apiFeatures && this.apiFeatures.supportsTimeAccounting === false) {
-      console.log('API is known to NOT support direct time_accountings, skipping to fallback method');
+      console.log(
+        'API is known to NOT support direct time_accountings, skipping to fallback method'
+      );
       tryDirectEndpointsFirst = false;
     }
 
@@ -1842,7 +2088,7 @@ class ZammadAPI {
     if (tryDirectEndpointsFirst && this.currentUserId) {
       const adminEndpoints = [
         `/api/v1/time_accountings?created_by_id=${this.currentUserId}`,
-        '/api/v1/time_accountings'
+        '/api/v1/time_accountings',
       ];
 
       for (const endpoint of adminEndpoints) {
@@ -1858,13 +2104,16 @@ class ZammadAPI {
 
           // ALWAYS filter by current user, regardless of endpoint
           const filteredResult = Array.isArray(result)
-            ? result.filter(entry =>
-              entry.created_by_id == this.currentUserId ||
-              entry.user_id == this.currentUserId
-            )
+            ? result.filter(
+                (entry) =>
+                  entry.created_by_id == this.currentUserId ||
+                  entry.user_id == this.currentUserId
+              )
             : result;
 
-          console.log(`Got ${Array.isArray(result) ? result.length : 0} total entries, filtered to ${Array.isArray(filteredResult) ? filteredResult.length : 0} for current user`);
+          console.log(
+            `Got ${Array.isArray(result) ? result.length : 0} total entries, filtered to ${Array.isArray(filteredResult) ? filteredResult.length : 0} for current user`
+          );
 
           // Only cache endpoints that properly filter by user
           if (endpoint.includes('created_by_id')) {
@@ -1883,7 +2132,9 @@ class ZammadAPI {
               this.apiFeatures.supportsTimeAccounting = false;
               this.saveCachedApiFeatures();
             }
-            console.log('API does not support direct time_accountings endpoint (404 error)');
+            console.log(
+              'API does not support direct time_accountings endpoint (404 error)'
+            );
             break; // No need to try other admin endpoints
           } else if (error.message.includes('403')) {
             // If it's a 403, the endpoint exists but we don't have permission
@@ -1891,7 +2142,9 @@ class ZammadAPI {
               this.apiFeatures.supportsTimeAccounting = true;
               this.saveCachedApiFeatures();
             }
-            console.log('API supports time_accountings endpoint but permission denied (403 error)');
+            console.log(
+              'API supports time_accountings endpoint but permission denied (403 error)'
+            );
           }
           // Continue with next endpoint or fallback
         }
@@ -1904,7 +2157,9 @@ class ZammadAPI {
     try {
       // Get assigned tickets first
       const tickets = await this.getAssignedTickets();
-      console.log(`Found ${tickets ? tickets.length : 0} assigned tickets for time history collection`);
+      console.log(
+        `Found ${tickets ? tickets.length : 0} assigned tickets for time history collection`
+      );
 
       if (!tickets || tickets.length === 0) {
         return [];
@@ -1913,7 +2168,9 @@ class ZammadAPI {
       // Collect time entries from each ticket
       const allTimeEntries = [];
       const maxTicketsToCheck = 20; // Reduced limit to avoid too many API calls
-      const ticketsToCheck = Array.isArray(tickets) ? tickets.slice(0, maxTicketsToCheck) : [];
+      const ticketsToCheck = Array.isArray(tickets)
+        ? tickets.slice(0, maxTicketsToCheck)
+        : [];
 
       for (const ticket of ticketsToCheck) {
         try {
@@ -1924,15 +2181,19 @@ class ZammadAPI {
           const timeEntries = await this.getTimeEntries(ticketId);
           if (Array.isArray(timeEntries)) {
             // Filter entries by current user
-            const userEntries = timeEntries.filter(entry =>
-              !this.currentUserId ||
-              entry.created_by_id == this.currentUserId ||
-              entry.user_id == this.currentUserId
+            const userEntries = timeEntries.filter(
+              (entry) =>
+                !this.currentUserId ||
+                entry.created_by_id == this.currentUserId ||
+                entry.user_id == this.currentUserId
             );
             allTimeEntries.push(...userEntries);
           }
         } catch (error) {
-          console.warn(`Failed to get time entries for ticket ${ticket.id}:`, error.message);
+          console.warn(
+            `Failed to get time entries for ticket ${ticket.id}:`,
+            error.message
+          );
           // Continue with other tickets
         }
       }
@@ -1944,28 +2205,31 @@ class ZammadAPI {
         return dateB - dateA;
       });
 
-      console.log(`Collected ${allTimeEntries.length} time entries from ${ticketsToCheck.length} tickets`);
+      console.log(
+        `Collected ${allTimeEntries.length} time entries from ${ticketsToCheck.length} tickets`
+      );
 
       // Cache this method as successful
       this.successfulEndpoints.timeHistory = 'fallback_via_tickets';
       this.saveCachedEndpoints();
 
       return allTimeEntries;
-
     } catch (error) {
       console.error('Fallback method also failed:', error);
-      throw new Error('Failed to get time tracking history. This may be due to insufficient API permissions or no assigned tickets.');
+      throw new Error(
+        'Failed to get time tracking history. This may be due to insufficient API permissions or no assigned tickets.'
+      );
     }
   }
   /**
    * Get time entry details
-   * 
+   *
    * Uses the official Zammad API endpoint:
    * GET /api/v1/tickets/{ticket_id}/time_accountings/{timeaccounting_id}
-   * 
+   *
    * Documentation: docs/zammad/docs.zammad.org/en/latest/api/ticket/timeaccounting.html#show
    * Required permission: ticket.agent or admin.time_accounting
-   * 
+   *
    * @param {number|string} entryId - The ID of the time entry to get details for
    * @param {number|string} ticketId - Optional ticket ID if known
    * @returns {Promise<object>} The time entry details
@@ -1992,26 +2256,34 @@ class ZammadAPI {
       try {
         console.log(`Trying to get time entry details from: ${endpoint}`);
         const result = await this.request(endpoint);
-        console.log(`Successfully got time entry details from: ${endpoint}`, result);
+        console.log(
+          `Successfully got time entry details from: ${endpoint}`,
+          result
+        );
         return result;
       } catch (error) {
-        console.error(`Failed to get time entry details from ${endpoint}:`, error.message);
+        console.error(
+          `Failed to get time entry details from ${endpoint}:`,
+          error.message
+        );
         lastError = error;
       }
     }
 
-    throw new Error(`Could not retrieve time entry details. Last error: ${lastError?.message || 'Unknown error'}`);
+    throw new Error(
+      `Could not retrieve time entry details. Last error: ${lastError?.message || 'Unknown error'}`
+    );
   }
 
   /**
    * Update a time entry
-   * 
+   *
    * Uses the official Zammad API endpoint:
    * PUT /api/v1/tickets/{ticket_id}/time_accountings/{timeaccounting_id}
-   * 
+   *
    * Documentation: docs/zammad/docs.zammad.org/en/latest/api/ticket/timeaccounting.html#update
    * Required permission: admin.time_accounting
-   * 
+   *
    * @param {number|string} entryId - The ID of the time entry to update
    * @param {number|string} ticketId - The ID of the ticket the time entry belongs to
    * @param {object} data - The data to update (time_unit, type_id, etc.)
@@ -2033,10 +2305,13 @@ class ZammadAPI {
     // Ensure the entry ID is included in the data
     const updateData = {
       ...data,
-      id: entryId
+      id: entryId,
     };
 
-    console.log(`Updating time entry ${entryId} for ticket ${ticketId}`, updateData);
+    console.log(
+      `Updating time entry ${entryId} for ticket ${ticketId}`,
+      updateData
+    );
 
     try {
       // Use the official API endpoint
@@ -2053,7 +2328,9 @@ class ZammadAPI {
 
       // Provide more specific error messages
       if (error.message.includes('403')) {
-        throw new Error('Permission denied: You need admin.time_accounting permission to update time entries. Please check your API token permissions or contact your Zammad administrator.');
+        throw new Error(
+          'Permission denied: You need admin.time_accounting permission to update time entries. Please check your API token permissions or contact your Zammad administrator.'
+        );
       }
 
       throw new Error(`Failed to update time entry: ${error.message}`);
@@ -2062,13 +2339,13 @@ class ZammadAPI {
 
   /**
    * Get all groups from Zammad
-   * 
+   *
    * Uses the official Zammad API endpoint:
    * GET /api/v1/groups
-   * 
+   *
    * Documentation: docs/zammad/docs.zammad.org/en/latest/api/group.html#list
    * Required permission: ticket.agent or admin.group
-   * 
+   *
    * @returns {Promise<Array>} Array of groups
    */
   async getAllGroups() {
@@ -2078,7 +2355,7 @@ class ZammadAPI {
       const endpoint = '/api/v1/groups';
       console.log(`Fetching groups from endpoint: ${endpoint}`);
       const result = await this.request(endpoint);
-      
+
       if (Array.isArray(result)) {
         console.log(`Successfully fetched ${result.length} groups`);
         return result;
@@ -2147,7 +2424,9 @@ class ZammadAPI {
       const result = await this.request(endpoint);
 
       if (result && (result.id || result.login)) {
-        console.log(`Successfully fetched user: ${result.login || result.email || result.id}`);
+        console.log(
+          `Successfully fetched user: ${result.login || result.email || result.id}`
+        );
         return result;
       } else {
         console.warn('User API returned unexpected format:', result);
@@ -2177,17 +2456,25 @@ class ZammadAPI {
     }
 
     const startTime = Date.now();
-    console.log(`Enhancing ${tickets.length} tickets with customer data (optimized)`);
+    console.log(
+      `Enhancing ${tickets.length} tickets with customer data (optimized)`
+    );
 
     // Step 1: Identify tickets that need customer data and collect unique customer IDs
     const ticketsNeedingCustomerData = [];
     const customerIdsToFetch = new Set();
 
     for (const ticket of tickets) {
-      const hasCustomerData = ticket.customer_data &&
-        (ticket.customer_data.firstname || ticket.customer_data.lastname || ticket.customer_data.email);
+      const hasCustomerData =
+        ticket.customer_data &&
+        (ticket.customer_data.firstname ||
+          ticket.customer_data.lastname ||
+          ticket.customer_data.email);
 
-      console.log(`Ticket ${ticket.id}: customer_id=${ticket.customer_id}, hasCustomerData=${hasCustomerData}, customer_data=`, ticket.customer_data);
+      console.log(
+        `Ticket ${ticket.id}: customer_id=${ticket.customer_id}, hasCustomerData=${hasCustomerData}, customer_data=`,
+        ticket.customer_data
+      );
 
       if (!hasCustomerData && ticket.customer_id) {
         ticketsNeedingCustomerData.push(ticket);
@@ -2200,24 +2487,30 @@ class ZammadAPI {
       return tickets;
     }
 
-    console.log(`Need to fetch ${customerIdsToFetch.size} unique customers for ${ticketsNeedingCustomerData.length} tickets`);
+    console.log(
+      `Need to fetch ${customerIdsToFetch.size} unique customers for ${ticketsNeedingCustomerData.length} tickets`
+    );
 
     // Step 2: Batch fetch all needed customer data
-    const customerDataMap = await this.batchFetchCustomers(Array.from(customerIdsToFetch));
+    const customerDataMap = await this.batchFetchCustomers(
+      Array.from(customerIdsToFetch)
+    );
 
     // Step 3: Apply customer data to tickets
-    const enhancedTickets = tickets.map(ticket => {
+    const enhancedTickets = tickets.map((ticket) => {
       if (ticket.customer_id && customerDataMap.has(ticket.customer_id)) {
         return {
           ...ticket,
-          customer_data: customerDataMap.get(ticket.customer_id)
+          customer_data: customerDataMap.get(ticket.customer_id),
         };
       }
       return ticket;
     });
 
     const endTime = Date.now();
-    console.log(`Enhanced ${enhancedTickets.length} tickets with customer data in ${endTime - startTime}ms`);
+    console.log(
+      `Enhanced ${enhancedTickets.length} tickets with customer data in ${endTime - startTime}ms`
+    );
     return enhancedTickets;
   }
 
@@ -2236,7 +2529,8 @@ class ZammadAPI {
 
     // Check if cache is still valid
     const now = Date.now();
-    const cacheValid = this.cacheTimestamp && (now - this.cacheTimestamp) < this.cacheExpiryMs;
+    const cacheValid =
+      this.cacheTimestamp && now - this.cacheTimestamp < this.cacheExpiryMs;
 
     if (cacheValid) {
       console.log('Using cached customer data');
@@ -2260,16 +2554,20 @@ class ZammadAPI {
     }
 
     // Identify customers that need to be fetched
-    const customerIdsToFetch = customerIds.filter(id => !customerMap.has(id));
+    const customerIdsToFetch = customerIds.filter((id) => !customerMap.has(id));
 
     if (customerIdsToFetch.length > 0) {
-      console.log(`Need to fetch ${customerIdsToFetch.length} customers from API`);
+      console.log(
+        `Need to fetch ${customerIdsToFetch.length} customers from API`
+      );
 
       try {
         // Method 1: Try to fetch all users at once and filter for needed customers
         const allUsers = await this.getAllUsers();
         if (Array.isArray(allUsers) && allUsers.length > 0) {
-          console.log(`Got ${allUsers.length} users from getAllUsers, filtering for needed customers`);
+          console.log(
+            `Got ${allUsers.length} users from getAllUsers, filtering for needed customers`
+          );
 
           for (const user of allUsers) {
             if (customerIdsToFetch.includes(user.id)) {
@@ -2279,28 +2577,42 @@ class ZammadAPI {
             }
           }
 
-          const foundCount = customerMap.size - (customerIds.length - customerIdsToFetch.length); // Subtract cached hits
-          console.log(`Found ${foundCount}/${customerIdsToFetch.length} needed customers from getAllUsers`);
+          const foundCount =
+            customerMap.size - (customerIds.length - customerIdsToFetch.length); // Subtract cached hits
+          console.log(
+            `Found ${foundCount}/${customerIdsToFetch.length} needed customers from getAllUsers`
+          );
 
           // If we found most customers this way, update cache timestamp and return
           if (foundCount >= customerIdsToFetch.length * 0.8) {
             this.cacheTimestamp = now;
-            console.log(`Batch fetch completed: ${customerMap.size}/${customerIds.length} customers found`);
+            console.log(
+              `Batch fetch completed: ${customerMap.size}/${customerIds.length} customers found`
+            );
             return customerMap;
           }
         }
       } catch (error) {
-        console.warn('getAllUsers failed, falling back to search method:', error.message);
+        console.warn(
+          'getAllUsers failed, falling back to search method:',
+          error.message
+        );
       }
 
       // Method 2: Fallback - try user search if getAllUsers didn't work well
       try {
-        const stillMissingIds = customerIdsToFetch.filter(id => !customerMap.has(id));
+        const stillMissingIds = customerIdsToFetch.filter(
+          (id) => !customerMap.has(id)
+        );
         if (stillMissingIds.length > 0) {
-          console.log(`Searching for ${stillMissingIds.length} missing customers`);
+          console.log(
+            `Searching for ${stillMissingIds.length} missing customers`
+          );
 
           // Try user search endpoint
-          const searchResult = await this.request('/api/v1/users/search?query=*&per_page=1000');
+          const searchResult = await this.request(
+            '/api/v1/users/search?query=*&per_page=1000'
+          );
           if (Array.isArray(searchResult)) {
             console.log(`User search returned ${searchResult.length} users`);
 
@@ -2318,9 +2630,13 @@ class ZammadAPI {
       }
 
       // Method 3: Last resort - individual fetches for remaining missing customers (limited)
-      const finalMissingIds = customerIdsToFetch.filter(id => !customerMap.has(id));
+      const finalMissingIds = customerIdsToFetch.filter(
+        (id) => !customerMap.has(id)
+      );
       if (finalMissingIds.length > 0 && finalMissingIds.length <= 5) {
-        console.log(`Fetching ${finalMissingIds.length} customers individually as last resort`);
+        console.log(
+          `Fetching ${finalMissingIds.length} customers individually as last resort`
+        );
 
         const individualPromises = finalMissingIds.map(async (customerId) => {
           try {
@@ -2331,13 +2647,18 @@ class ZammadAPI {
               this.customerCache.set(customerId, customerData);
             }
           } catch (error) {
-            console.warn(`Failed to fetch customer ${customerId}:`, error.message);
+            console.warn(
+              `Failed to fetch customer ${customerId}:`,
+              error.message
+            );
           }
         });
 
         await Promise.all(individualPromises);
       } else if (finalMissingIds.length > 5) {
-        console.warn(`Too many missing customers (${finalMissingIds.length}), skipping individual fetches to maintain performance`);
+        console.warn(
+          `Too many missing customers (${finalMissingIds.length}), skipping individual fetches to maintain performance`
+        );
       }
 
       // Update cache timestamp and persist to storage after successful fetch
@@ -2345,7 +2666,9 @@ class ZammadAPI {
       await this.saveCustomerCacheToStorage();
     }
 
-    console.log(`Batch fetch completed: ${customerMap.size}/${customerIds.length} customers found`);
+    console.log(
+      `Batch fetch completed: ${customerMap.size}/${customerIds.length} customers found`
+    );
     return customerMap;
   }
 }
