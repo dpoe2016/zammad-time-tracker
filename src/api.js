@@ -1539,6 +1539,10 @@ class ZammadAPI {
       }
     }
 
+    // Check for timestamp filtering
+    const lastFetchTimestamp = await storage.load('lastTicketFetchTimestamp');
+    let shouldUseTimestampFilter = lastFetchTimestamp && !forceRefresh;
+
     // Define endpoints to try
     let endpoints = [];
 
@@ -1547,6 +1551,7 @@ class ZammadAPI {
       console.log(
         'API is known to NOT support ticket search, using only filter endpoints'
       );
+      shouldUseTimestampFilter = false; // Filter endpoints don't support timestamp filtering
       // If search is not supported, only use filter endpoints
       if (this.currentUserId) {
         endpoints = [
@@ -1562,45 +1567,56 @@ class ZammadAPI {
         ];
       }
     } else {
-      // Use all endpoints, with search endpoints first if search is known to be supported
-      if (this.apiFeatures && this.apiFeatures.supportsTicketSearch === true) {
-        console.log(
-          'API is known to support ticket search, prioritizing search endpoints'
-        );
-        if (this.currentUserId) {
-          endpoints = [
-            `/api/v1/tickets/search?query=owner.id:${this.currentUserId}`,
-            `/api/v1/tickets?filter[owner_id]=${this.currentUserId}`,
-            `/api/v1/tickets?owner_id=${this.currentUserId}`,
-            '/api/v1/tickets/search?query=owner.id:me',
-            '/api/v1/tickets?filter[owner_id]=me',
-            '/api/v1/tickets?owner_id=me',
-          ];
-        } else {
-          endpoints = [
-            '/api/v1/tickets/search?query=owner.id:me',
-            '/api/v1/tickets?filter[owner_id]=me',
-            '/api/v1/tickets?owner_id=me',
-          ];
-        }
+      // Use search endpoints with timestamp filtering when possible
+      if (shouldUseTimestampFilter) {
+        console.log(`Performing incremental fetch for assigned tickets updated since ${lastFetchTimestamp}`);
+        const query = this.currentUserId
+          ? `owner.id:${this.currentUserId} AND updated_at:>'${lastFetchTimestamp}'`
+          : `owner.id:me AND updated_at:>'${lastFetchTimestamp}'`;
+        endpoints = [
+          `/api/v1/tickets/search?query=${encodeURIComponent(query)}&expand=true&assets=true`,
+        ];
       } else {
-        // We don't know if search is supported, try all endpoints
-        // but prioritize explicit user ID endpoints
-        if (this.currentUserId) {
-          endpoints = [
-            `/api/v1/tickets/search?query=owner.id:${this.currentUserId}`,
-            `/api/v1/tickets?filter[owner_id]=${this.currentUserId}`,
-            `/api/v1/tickets?owner_id=${this.currentUserId}`,
-            '/api/v1/tickets/search?query=owner.id:me',
-            '/api/v1/tickets?filter[owner_id]=me',
-            '/api/v1/tickets?owner_id=me',
-          ];
+        // Use all endpoints, with search endpoints first if search is known to be supported
+        if (this.apiFeatures && this.apiFeatures.supportsTicketSearch === true) {
+          console.log(
+            'API is known to support ticket search, prioritizing search endpoints'
+          );
+          if (this.currentUserId) {
+            endpoints = [
+              `/api/v1/tickets/search?query=owner.id:${this.currentUserId}`,
+              `/api/v1/tickets?filter[owner_id]=${this.currentUserId}`,
+              `/api/v1/tickets?owner_id=${this.currentUserId}`,
+              '/api/v1/tickets/search?query=owner.id:me',
+              '/api/v1/tickets?filter[owner_id]=me',
+              '/api/v1/tickets?owner_id=me',
+            ];
+          } else {
+            endpoints = [
+              '/api/v1/tickets/search?query=owner.id:me',
+              '/api/v1/tickets?filter[owner_id]=me',
+              '/api/v1/tickets?owner_id=me',
+            ];
+          }
         } else {
-          endpoints = [
-            '/api/v1/tickets/search?query=owner.id:me',
-            '/api/v1/tickets?filter[owner_id]=me',
-            '/api/v1/tickets?owner_id=me',
-          ];
+          // We don't know if search is supported, try all endpoints
+          // but prioritize explicit user ID endpoints
+          if (this.currentUserId) {
+            endpoints = [
+              `/api/v1/tickets/search?query=owner.id:${this.currentUserId}`,
+              `/api/v1/tickets?filter[owner_id]=${this.currentUserId}`,
+              `/api/v1/tickets?owner_id=${this.currentUserId}`,
+              '/api/v1/tickets/search?query=owner.id:me',
+              '/api/v1/tickets?filter[owner_id]=me',
+              '/api/v1/tickets?owner_id=me',
+            ];
+          } else {
+            endpoints = [
+              '/api/v1/tickets/search?query=owner.id:me',
+              '/api/v1/tickets?filter[owner_id]=me',
+              '/api/v1/tickets?owner_id=me',
+            ];
+          }
         }
       }
     }
@@ -1735,7 +1751,7 @@ class ZammadAPI {
 
     // Fallback: If no specific user and no configured users, get all tickets unfiltered
     console.log('Using fallback: getting all tickets unfiltered');
-    const tickets = await this.getAllTicketsUnfiltered();
+    const tickets = await this.getAllTicketsUnfiltered(forceRefresh);
     console.log(`getAllTicketsUnfiltered returned: ${tickets ? tickets.length : 'null/undefined'} tickets`);
     const enhancedTickets = await this.enhanceTicketsWithCustomerData(tickets);
     console.log(`After enhancement: ${enhancedTickets ? enhancedTickets.length : 'null/undefined'} tickets`);
@@ -1824,17 +1840,30 @@ class ZammadAPI {
    * Get all tickets without filtering
    * @returns {Array} Array of tickets
    */
-  async getAllTicketsUnfiltered() {
+  async getAllTicketsUnfiltered(forceRefresh = false) {
     console.log('Getting all tickets (unfiltered)');
 
-    const endpoints = [
-      '/api/v1/tickets?expand=true&assets=true',
-      '/api/v1/tickets/search?query=*&expand=true&assets=true',
-      '/api/v1/tickets/search?expand=true&assets=true',
-      '/api/v1/tickets',
-      '/api/v1/tickets/search?query=*',
-      '/api/v1/tickets/search',
-    ];
+    // Check for timestamp filtering
+    const lastFetchTimestamp = await storage.load('lastTicketFetchTimestamp');
+    let shouldUseTimestampFilter = lastFetchTimestamp && !forceRefresh;
+
+    let endpoints;
+    if (shouldUseTimestampFilter && (!this.apiFeatures || this.apiFeatures.supportsTicketSearch !== false)) {
+      console.log(`Performing incremental fetch for all tickets updated since ${lastFetchTimestamp}`);
+      const query = `updated_at:>'${lastFetchTimestamp}'`;
+      endpoints = [
+        `/api/v1/tickets/search?query=${encodeURIComponent(query)}&expand=true&assets=true`,
+      ];
+    } else {
+      endpoints = [
+        '/api/v1/tickets?expand=true&assets=true',
+        '/api/v1/tickets/search?query=*&expand=true&assets=true',
+        '/api/v1/tickets/search?expand=true&assets=true',
+        '/api/v1/tickets',
+        '/api/v1/tickets/search?query=*',
+        '/api/v1/tickets/search',
+      ];
+    }
 
     for (const endpoint of endpoints) {
       try {

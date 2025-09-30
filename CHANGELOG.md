@@ -53,3 +53,8 @@
 
 - Updated version to 3.1.5
 
+
+## [3.1.5] - 2025-09-29
+
+- Updated version to 3.1.5
+
