@@ -1132,12 +1132,12 @@ class ZammadDashboard {
         const ticketMap = new Map(this.tickets.map(t => [t.id, t]));
         (tickets || []).forEach(ticket => ticketMap.set(ticket.id, ticket));
         this.tickets = Array.from(ticketMap.values());
-        logger.info(`Merged ${tickets ? tickets.length : 0} tickets into existing list of ${this.tickets.length}`);
+        logger.info(`Merged ${tickets ? tickets.length : 0} updated/new tickets into existing list, total: ${this.tickets.length}`);
       } else {
         // Full refresh, replace the list
         if (Array.isArray(tickets)) {
           this.tickets = tickets;
-          logger.info(`Loaded ${tickets.length} tickets from API. Tickets array:`, tickets.slice(0, 3)); // Log first 3 tickets for debugging
+          logger.info(`Loaded ${tickets.length} tickets from API (full refresh). Tickets array:`, tickets.slice(0, 3)); // Log first 3 tickets for debugging
         } else if (tickets === null || tickets === undefined) {
           logger.error('API call failed (returned null/undefined), keeping existing tickets');
           logger.info(`Current tickets count: ${this.tickets.length}`);
