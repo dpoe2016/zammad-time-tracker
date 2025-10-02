@@ -182,6 +182,14 @@ const translations = {
     [LANGUAGES.DE]: 'Einstellungen gespeichert',
     [LANGUAGES.EN]: 'Settings saved',
   },
+  comment_label: {
+    [LANGUAGES.DE]: 'Kommentar',
+    [LANGUAGES.EN]: 'Comment',
+  },
+  comment_placeholder: {
+    [LANGUAGES.DE]: 'Optional: Kommentar zur Zeiterfassung...',
+    [LANGUAGES.EN]: 'Optional: comment for time entry...',
+  },
 
   // API Settings
   api_settings: {

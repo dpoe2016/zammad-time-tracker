@@ -271,7 +271,8 @@ if (typeof window.ZammadTimetracker === 'undefined') {
             break;
           case 'stopTracking':
             // Handle async stopTracking
-            this.stopTracking()
+            const comment = request.comment || '';
+            this.stopTracking(comment)
               .then((stopResult) => {
                 console.log('Stop tracking result:', stopResult);
                 sendResponse({ success: stopResult });
@@ -514,7 +515,7 @@ if (typeof window.ZammadTimetracker === 'undefined') {
       }
     }
 
-    async stopTracking() {
+    async stopTracking(comment = '') {
       if (!this.isTracking) return false;
 
       const endTime = new Date();
@@ -524,7 +525,7 @@ if (typeof window.ZammadTimetracker === 'undefined') {
 
       try {
         // Enter time in Zammad
-        const success = await this.submitTimeEntry(duration);
+        const success = await this.submitTimeEntry(duration, comment);
 
         // If we reach here, submitTimeEntry succeeded
         this.clearTrackingState();
@@ -582,7 +583,7 @@ if (typeof window.ZammadTimetracker === 'undefined') {
       }
     }
 
-    async submitTimeEntry(durationInSeconds) {
+    async submitTimeEntry(durationInSeconds, userComment = '') {
       try {
         const durationInMinutes = Math.round(durationInSeconds / 60);
         console.log(
@@ -596,7 +597,8 @@ if (typeof window.ZammadTimetracker === 'undefined') {
           window.zammadApi.isInitialized()
         ) {
           console.log('Submitting time entry via API');
-          const comment = 'Time tracked via Zammad Timetracking Extension';
+          // Use user comment if provided, otherwise use default
+          const comment = userComment || 'Time tracked via Zammad Timetracking Extension';
 
           // Let any API errors bubble up to stopTracking()
           const response = await window.zammadApi.submitTimeEntry(

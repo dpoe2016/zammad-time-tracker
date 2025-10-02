@@ -1129,10 +1129,21 @@ class ZammadDashboard {
       // Store tickets
       if (isIncrementalFetch) {
         // Merge new/updated tickets into the existing list
-        const ticketMap = new Map(this.tickets.map(t => [t.id, t]));
-        (tickets || []).forEach(ticket => ticketMap.set(ticket.id, ticket));
-        this.tickets = Array.from(ticketMap.values());
-        logger.info(`Merged ${tickets ? tickets.length : 0} updated/new tickets into existing list, total: ${this.tickets.length}`);
+        // Only merge if we actually have existing tickets
+        if (this.tickets.length > 0) {
+          const ticketMap = new Map(this.tickets.map(t => [t.id, t]));
+          (tickets || []).forEach(ticket => ticketMap.set(ticket.id, ticket));
+          this.tickets = Array.from(ticketMap.values());
+          logger.info(`Merged ${tickets ? tickets.length : 0} updated/new tickets into existing list, total: ${this.tickets.length}`);
+        } else {
+          // If we don't have existing tickets, this is effectively a full refresh
+          logger.warn('Incremental fetch requested but no existing tickets found, treating as full refresh');
+          if (Array.isArray(tickets)) {
+            this.tickets = tickets;
+          } else {
+            this.tickets = [];
+          }
+        }
       } else {
         // Full refresh, replace the list
         if (Array.isArray(tickets)) {
@@ -1165,8 +1176,14 @@ class ZammadDashboard {
         }
       }
 
-      // Save the timestamp of the latest fetch (only if we got new data)
-      await storage.save('lastTicketFetchTimestamp', new Date().toISOString());
+      // Save the timestamp of the latest fetch only if we actually have tickets
+      // This prevents saving a timestamp when we have no baseline for incremental fetches
+      if (this.tickets.length > 0) {
+        await storage.save('lastTicketFetchTimestamp', new Date().toISOString());
+        logger.info('Saved fetch timestamp for future incremental updates');
+      } else {
+        logger.warn('No tickets loaded, not saving fetch timestamp');
+      }
 
       // Customer data enhancement is now handled automatically in the API layer
       // The tickets returned by getAssignedTickets() and getAllTickets() are already enhanced with customer data

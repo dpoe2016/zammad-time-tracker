@@ -56,6 +56,17 @@ function updateUILanguage() {
     cancelTimeBtn.textContent = t('api_cancel');
   }
 
+  // Comment label
+  const commentLabel = document.getElementById('commentLabel');
+  if (commentLabel) {
+    commentLabel.textContent = t('comment_label');
+  }
+
+  const commentInput = document.getElementById('commentInput');
+  if (commentInput) {
+    commentInput.placeholder = t('comment_placeholder');
+  }
+
   // API Settings
   document.getElementById('apiSettingsLabel').textContent = t('api_settings');
   document.getElementById('apiSettingsBtn').textContent = t('api_options');
@@ -142,6 +153,8 @@ class TimetrackingPopup {
     this.startBtn = document.getElementById('startBtn');
     this.stopBtn = document.getElementById('stopBtn');
     this.infoText = document.getElementById('infoText');
+    this.commentSection = document.getElementById('commentSection');
+    this.commentInput = document.getElementById('commentInput');
 
     // Tab elements
     this.tabs = document.querySelectorAll('.tab');
@@ -1799,6 +1812,7 @@ class TimetrackingPopup {
       // Store ticket info before resetting
       const ticketId = this.currentTicketId;
       const ticketTitle = this.currentTicketTitle;
+      const comment = this.commentInput ? this.commentInput.value.trim() : '';
 
       // Reset status immediately
       this.isTracking = false;
@@ -1826,6 +1840,7 @@ class TimetrackingPopup {
 
         const stopResponse = await chrome.tabs.sendMessage(tab.id, {
           action: 'stopTracking',
+          comment: comment,
         });
 
         if (!stopResponse || !stopResponse.success) {
@@ -1886,6 +1901,11 @@ class TimetrackingPopup {
       this.currentTicketTitle = null;
       this.currentTimeSpent = 0;
 
+      // Clear comment input
+      if (this.commentInput) {
+        this.commentInput.value = '';
+      }
+
       // Close popup after a delay to ensure all operations complete
       // Give more time if submission failed so user can see the message
       const closeDelay = timeSubmissionSuccess ? 3000 : 5000;
@@ -1906,12 +1926,20 @@ class TimetrackingPopup {
       this.statusText.textContent = 'Active';
       this.startBtn.disabled = true;
       this.stopBtn.disabled = false;
+      // Show comment section when tracking is active
+      if (this.commentSection) {
+        this.commentSection.style.display = 'block';
+      }
     } else {
       this.statusDot.className = 'status-dot inactive';
       this.statusText.textContent = 'Not active';
       this.startBtn.disabled = false;
       this.stopBtn.disabled = true;
       this.timerDisplay.textContent = '00:00:00';
+      // Hide comment section when tracking is not active
+      if (this.commentSection) {
+        this.commentSection.style.display = 'none';
+      }
     }
   }
 
