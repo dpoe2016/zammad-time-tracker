@@ -1569,10 +1569,10 @@ class ZammadAPI {
     } else {
       // Use search endpoints with timestamp filtering when possible
       if (shouldUseTimestampFilter) {
-        console.log(`Performing incremental fetch for assigned tickets updated since ${lastFetchTimestamp}`);
+        console.log(`Performing incremental fetch for assigned tickets created or updated since ${lastFetchTimestamp}`);
         const query = this.currentUserId
-          ? `owner.id:${this.currentUserId} AND updated_at:>'${lastFetchTimestamp}'`
-          : `owner.id:me AND updated_at:>'${lastFetchTimestamp}'`;
+          ? `owner.id:${this.currentUserId} AND (created_at:>'${lastFetchTimestamp}' OR updated_at:>'${lastFetchTimestamp}')`
+          : `owner.id:me AND (created_at:>'${lastFetchTimestamp}' OR updated_at:>'${lastFetchTimestamp}')`;
         endpoints = [
           `/api/v1/tickets/search?query=${encodeURIComponent(query)}&expand=true&assets=true`,
         ];
@@ -1849,8 +1849,8 @@ class ZammadAPI {
 
     let endpoints;
     if (shouldUseTimestampFilter && (!this.apiFeatures || this.apiFeatures.supportsTicketSearch !== false)) {
-      console.log(`Performing incremental fetch for all tickets updated since ${lastFetchTimestamp}`);
-      const query = `updated_at:>'${lastFetchTimestamp}'`;
+      console.log(`Performing incremental fetch for all tickets created or updated since ${lastFetchTimestamp}`);
+      const query = `created_at:>'${lastFetchTimestamp}' OR updated_at:>'${lastFetchTimestamp}'`;
       endpoints = [
         `/api/v1/tickets/search?query=${encodeURIComponent(query)}&expand=true&assets=true`,
       ];
