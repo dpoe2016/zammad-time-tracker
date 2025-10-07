@@ -1853,15 +1853,23 @@ class ZammadDashboard {
         ).toLowerCase();
 
         // Customer fields
-        const customerName = (ticket.customer_name || '').toLowerCase();
-        const customerEmail = (
-          (ticket.customer && ticket.customer.email) ||
-          ''
-        ).toLowerCase();
-        const customerLogin = (
-          (ticket.customer && ticket.customer.login) ||
-          ''
-        ).toLowerCase();
+        let customerName = '';
+        let customerEmail = '';
+        let customerLogin = '';
+
+        try {
+          if (ticket.customer_data) {
+            customerName = `${ticket.customer_data.firstname || ''} ${ticket.customer_data.lastname || ''}`.trim().toLowerCase();
+            customerEmail = (ticket.customer_data.email || '').toLowerCase();
+            customerLogin = (ticket.customer_data.login || '').toLowerCase();
+          } else if (ticket.customer && typeof ticket.customer === 'object') {
+            customerName = `${ticket.customer.firstname || ''} ${ticket.customer.lastname || ''}`.trim().toLowerCase();
+            customerEmail = (ticket.customer.email || '').toLowerCase();
+            customerLogin = (ticket.customer.login || '').toLowerCase();
+          }
+        } catch (e) {
+          console.warn(`Error processing customer data for ticket ${ticket.id}:`, e);
+        }
 
         // Group field
         const groupName = (this.getGroupName(ticket) || '').toLowerCase();
