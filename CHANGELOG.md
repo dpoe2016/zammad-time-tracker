@@ -108,3 +108,8 @@
 
 - Updated version to 3.1.7
 
+
+## [3.1.7] - 2025-10-07
+
+- Updated version to 3.1.7
+
