@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Test Timestamp Filtering</title>
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        #log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            margin-top: 20px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        button {
+            margin: 5px;
+            padding: 10px 15px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>Timestamp Filtering Test</h1>
+    <p>This page tests the new timestamp-based filtering for auto-refresh to ensure it only loads updated tickets.</p>
+
+    <div>
+        <button id="clearStorage">Clear Last Fetch Timestamp</button>
+        <button id="setOldTimestamp">Set Old Timestamp (simulate previous fetch)</button>
+        <button id="testRefresh">Test Refresh (should use timestamp filter)</button>
+        <button id="forceRefresh">Force Full Refresh</button>
+        <button id="checkStorage">Check Current Timestamp</button>
+    </div>
+
+    <div id="results"></div>
+    <div id="log"></div>
+
+    <script src="storage.js"></script>
+    <script src="logger.js"></script>
+    <script src="api.js"></script>
+    <script>
+        const resultsDiv = document.getElementById('results');
+        const logDiv = document.getElementById('log');
+
+        function addResult(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.textContent = message;
+            resultsDiv.appendChild(div);
+        }
+
+        function addLog(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `[${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        // Override console.log to capture API logs
+        const originalLog = console.log;
+        console.log = function(...args) {
+            addLog(args.join(' '));
+            originalLog.apply(console, args);
+        };
+
+        document.getElementById('clearStorage').addEventListener('click', async () => {
+            try {
+                await storage.remove('lastTicketFetchTimestamp');
+                addResult('✅ Cleared last fetch timestamp from storage', 'success');
+                addLog('Storage cleared: lastTicketFetchTimestamp');
+            } catch (error) {
+                addResult(`❌ Error clearing storage: ${error.message}`, 'error');
+                addLog(`Error: ${error.message}`);
+            }
+        });
+
+        document.getElementById('setOldTimestamp').addEventListener('click', async () => {
+            try {
+                // Set timestamp to 1 hour ago
+                const oldTimestamp = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+                await storage.save('lastTicketFetchTimestamp', oldTimestamp);
+                addResult(`✅ Set old timestamp: ${oldTimestamp}`, 'success');
+                addLog(`Old timestamp set: ${oldTimestamp}`);
+            } catch (error) {
+                addResult(`❌ Error setting timestamp: ${error.message}`, 'error');
+                addLog(`Error: ${error.message}`);
+            }
+        });
+
+        document.getElementById('checkStorage').addEventListener('click', async () => {
+            try {
+                const timestamp = await storage.load('lastTicketFetchTimestamp');
+                if (timestamp) {
+                    addResult(`📅 Current timestamp: ${timestamp}`, 'info');
+                    addLog(`Current timestamp: ${timestamp}`);
+                } else {
+                    addResult('📅 No timestamp stored', 'info');
+                    addLog('No timestamp found in storage');
+                }
+            } catch (error) {
+                addResult(`❌ Error reading timestamp: ${error.message}`, 'error');
+                addLog(`Error: ${error.message}`);
+            }
+        });
+
+        document.getElementById('testRefresh').addEventListener('click', async () => {
+            try {
+                addResult('🔄 Testing refresh with timestamp filtering...', 'info');
+                addLog('Starting refresh test with timestamp filtering...');
+
+                // Note: This would need actual API configuration to work fully
+                // But we can test the logic
+                const api = new ZammadTimeTracker();
+                // This would require proper initialization
+                addResult('⚠️ API test would require proper Zammad configuration', 'info');
+                addLog('API test would need real Zammad server configuration');
+            } catch (error) {
+                addResult(`❌ Error during test: ${error.message}`, 'error');
+                addLog(`Test error: ${error.message}`);
+            }
+        });
+
+        document.getElementById('forceRefresh').addEventListener('click', async () => {
+            try {
+                addResult('🔄 Testing force refresh (bypasses timestamp filtering)...', 'info');
+                addLog('Starting force refresh test...');
+
+                // This should bypass timestamp filtering and do a full refresh
+                const api = new ZammadTimeTracker();
+                addResult('⚠️ Force refresh test would require proper Zammad configuration', 'info');
+                addLog('Force refresh test would need real Zammad server configuration');
+            } catch (error) {
+                addResult(`❌ Error during force refresh: ${error.message}`, 'error');
+                addLog(`Force refresh error: ${error.message}`);
+            }
+        });
+
+        addLog('Test page loaded. Click buttons to test timestamp filtering functionality.');
+        addResult('Test page ready. Use buttons above to test timestamp filtering logic.', 'info');
+    </script>
+</body>
+</html>
