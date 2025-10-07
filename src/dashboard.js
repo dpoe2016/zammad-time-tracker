@@ -52,6 +52,7 @@ class ZammadDashboard {
       this.currentTicketElement = null;
 
       // Filter elements
+      this.searchFilter = document.getElementById('searchFilter');
       this.viewToggle = document.getElementById('viewToggle');
       this.viewToggleLabel = document.getElementById('viewToggleLabel');
       this.userFilter = document.getElementById('userFilter');
@@ -118,6 +119,7 @@ class ZammadDashboard {
       this.selectedOrganization = 'all'; // Default to all organizations
       this.selectedPriority = 'all'; // Default to all priorities
       this.selectedState = 'all'; // Default to all states
+      this.searchQuery = ''; // Search filter text
       this.draggedTicket = null; // Track the currently dragged ticket
       this.userCache = new Map(); // Cache user data to avoid repeated API calls
       this.baseUrl = '';
@@ -513,6 +515,19 @@ class ZammadDashboard {
         this.saveFilterSettings();
         this.applyFilters();
       });
+    }
+
+    // Search filter input
+    if (this.searchFilter) {
+      this.searchFilter.addEventListener('input', () => {
+        this.searchQuery = this.searchFilter.value.toLowerCase().trim();
+        logger.info(`Search query changed to: "${this.searchQuery}"`);
+        console.log(`Search query: "${this.searchQuery}"`);
+        this.applyFilters();
+      });
+    } else {
+      logger.warn('Search filter element not found');
+      console.warn('Search filter element not found');
     }
 
     // Column visibility button
@@ -1755,6 +1770,10 @@ class ZammadDashboard {
   applyTicketFilters(tickets) {
     if (!tickets || tickets.length === 0) return [];
 
+    logger.info(
+      `Applying filters to ${tickets.length} tickets. Search query: "${this.searchQuery}"`
+    );
+
     let filtered = tickets.filter((ticket) => {
       // Always filter out merged tickets (state_id === 9)
       if (ticket.state_id === 9) return false;
@@ -1804,6 +1823,95 @@ class ZammadDashboard {
       if (this.selectedState !== 'all') {
         const ticketCategory = this.getTicketCategory(ticket);
         if (ticketCategory !== this.selectedState) return false;
+      }
+
+      // Search filter
+      if (this.searchQuery && this.searchQuery.length > 0) {
+        const searchLower = this.searchQuery;
+
+        console.log(`Searching ticket #${ticket.id} for query: "${searchLower}"`);
+
+        // Basic ticket fields
+        const ticketId = String(ticket.id || ticket.number || '').toLowerCase();
+        const ticketTitle = (ticket.title || '').toLowerCase();
+        const ticketNumber = String(ticket.number || '').toLowerCase();
+        const ticketState = String(ticket.state || '').toLowerCase();
+
+        console.log(`  Ticket fields - ID: "${ticketId}", Title: "${ticketTitle}", Number: "${ticketNumber}", State: "${ticketState}"`);
+
+        // Owner/user fields
+        const ownerName = (this.getAgentName(ticket) || '').toLowerCase();
+        const ownerLogin = (
+          (ticket.owner_data && ticket.owner_data.login) ||
+          (ticket.owner && ticket.owner.login) ||
+          ''
+        ).toLowerCase();
+        const ownerEmail = (
+          (ticket.owner_data && ticket.owner_data.email) ||
+          (ticket.owner && ticket.owner.email) ||
+          ''
+        ).toLowerCase();
+
+        // Customer fields
+        const customerName = (ticket.customer_name || '').toLowerCase();
+        const customerEmail = (
+          (ticket.customer && ticket.customer.email) ||
+          ''
+        ).toLowerCase();
+        const customerLogin = (
+          (ticket.customer && ticket.customer.login) ||
+          ''
+        ).toLowerCase();
+
+        // Group field
+        const groupName = (this.getGroupName(ticket) || '').toLowerCase();
+
+        // Organization field
+        let organizationName = '';
+        if (
+          ticket.organization_id &&
+          this.organizations &&
+          this.organizations.length > 0
+        ) {
+          const org = this.organizations.find(
+            (o) => o.id == ticket.organization_id
+          );
+          if (org) {
+            organizationName = (org.name || '').toLowerCase();
+          }
+        }
+
+        // Priority field
+        const priorityName = (this.getTicketPriority(ticket) || '').toLowerCase();
+
+        // First article content (if available)
+        const firstArticleContent = (
+          ticket.first_article_content || ''
+        ).toLowerCase();
+
+        // Search across all fields
+        const matches =
+          ticketId.includes(searchLower) ||
+          ticketNumber.includes(searchLower) ||
+          ticketTitle.includes(searchLower) ||
+          ticketState.includes(searchLower) ||
+          ownerName.includes(searchLower) ||
+          ownerLogin.includes(searchLower) ||
+          ownerEmail.includes(searchLower) ||
+          customerName.includes(searchLower) ||
+          customerEmail.includes(searchLower) ||
+          customerLogin.includes(searchLower) ||
+          groupName.includes(searchLower) ||
+          organizationName.includes(searchLower) ||
+          priorityName.includes(searchLower) ||
+          firstArticleContent.includes(searchLower);
+
+        if (!matches) {
+          console.log(`Ticket #${ticket.id} filtered out. Title: "${ticketTitle}"`);
+          return false;
+        } else {
+          console.log(`Ticket #${ticket.id} matched! Title: "${ticketTitle}"`);
+        }
       }
 
       return true;

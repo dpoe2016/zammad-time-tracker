@@ -307,6 +307,29 @@ html {
   align-items: center;
 }
 
+.search-container {
+  margin-left: 12px;
+}
+
+.search-input {
+  padding: 6px 12px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 14px;
+  width: 250px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+.search-input::placeholder {
+  color: #6c757d;
+}
+
 .version-display {
   font-size: 14px;
   color: #6c757d;
@@ -322,19 +345,21 @@ html {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 20px;
+  gap: 12px;
 }
 
 /* Filter section organization - compact single row */
 .filters-section {
   flex: 1;
+  min-width: 0; /* Allow shrinking */
 }
 
 .filters-row {
   display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
+  gap: 8px;
+  flex-wrap: nowrap; /* Prevent wrapping */
   align-items: center;
+  overflow-x: auto; /* Add scroll if needed */
 }
 
 /* Time Tracking Section Styles - Compact */
@@ -342,29 +367,30 @@ html {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 8px 12px;
+  gap: 3px;
+  padding: 6px 10px;
   background: #f8f9fa;
   border-radius: 6px;
   border: 1px solid #dee2e6;
-  min-width: 280px;
+  min-width: 250px;
 }
 
 .time-tracking-controls {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .status-indicator {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
+  font-size: 11px;
 }
 
 .status-dot {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
 }
 
@@ -378,28 +404,33 @@ html {
 }
 
 .timer-display {
-  font-size: 18px;
+  font-size: 14px;
   font-weight: bold;
   font-family: 'Courier New', monospace;
   color: #333;
   background: white;
-  padding: 4px 8px;
+  padding: 2px 6px;
   border-radius: 4px;
   border: 1px solid #ced4da;
-  min-width: 80px;
+  min-width: 70px;
   text-align: center;
 }
 
 .tracking-buttons {
   display: flex;
-  gap: 8px;
+  gap: 6px;
+}
+
+.tracking-buttons .btn {
+  padding: 3px 8px;
+  font-size: 11px;
 }
 
 .current-ticket-info {
-  font-size: 12px;
+  font-size: 10px;
   color: #666;
   background: white;
-  padding: 8px;
+  padding: 4px 6px;
   border-radius: 4px;
   border-left: 3px solid #007bff;
   max-width: 250px;
@@ -408,8 +439,8 @@ html {
 .current-ticket-info .ticket-title {
   font-weight: 600;
   color: #333;
-  margin-bottom: 4px;
-  font-size: 13px;
+  margin-bottom: 2px;
+  font-size: 11px;
   line-height: 1.2;
   word-wrap: break-word;
 }
@@ -417,8 +448,9 @@ html {
 .current-ticket-info .ticket-details {
   display: flex;
   justify-content: space-between;
-  font-size: 11px;
+  font-size: 10px;
   color: #666;
+  gap: 4px;
 }
 
 .current-ticket-info .time-spent {
@@ -1194,23 +1226,23 @@ html {
 .filter-container {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   flex-shrink: 0;
 }
 
 .filter-container label {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   color: #6c757d;
   white-space: nowrap;
 }
 
 .filter-select {
-  padding: 4px 8px;
+  padding: 3px 6px;
   border-radius: 4px;
   border: 1px solid #ced4da;
-  font-size: 13px;
-  min-width: 100px;
+  font-size: 12px;
+  min-width: 90px;
   background-color: #fff;
   color: #495057;
 }
@@ -1246,6 +1278,18 @@ html {
   .header-actions {
     width: 100%;
     justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .search-container {
+    width: 100%;
+    order: -1;
+    margin-left: 0;
+    margin-bottom: 8px;
+  }
+
+  .search-input {
+    width: 100%;
   }
 
   .header-content {

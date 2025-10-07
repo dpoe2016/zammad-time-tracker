@@ -504,6 +504,10 @@ const translations = {
     [LANGUAGES.DE]: 'Lade Tickets...',
     [LANGUAGES.EN]: 'Loading tickets...',
   },
+  dashboard_search_filter: {
+    [LANGUAGES.DE]: 'Suche:',
+    [LANGUAGES.EN]: 'Search:',
+  },
   dashboard_user_filter: {
     [LANGUAGES.DE]: 'Benutzer:',
     [LANGUAGES.EN]: 'User:',
