@@ -265,6 +265,30 @@ if (typeof window.ZammadTimetracker === 'undefined') {
         console.log('Content script receiving message:', request.action);
 
         switch (request.action) {
+          case 'showCommentDialog':
+            // Handle showing comment dialog
+            (async () => {
+              try {
+                const currentTicketId = await this.getCurrentTicketId();
+                if (!currentTicketId) {
+                  sendResponse({ success: false, error: 'No ticket ID found' });
+                  chrome.runtime.sendMessage({
+                    action: 'showNotification',
+                    title: 'Error',
+                    message: 'Could not find ticket ID on this page',
+                  });
+                  return;
+                }
+
+                // Show comment input dialog
+                this.showCommentDialog(currentTicketId);
+                sendResponse({ success: true, ticketId: currentTicketId });
+              } catch (error) {
+                console.error('Error showing comment dialog:', error);
+                sendResponse({ success: false, error: error.message });
+              }
+            })();
+            return true; // Indicate we'll send response asynchronously
           case 'startTracking':
             const startResult = this.startTracking();
             sendResponse({ success: startResult });
@@ -736,6 +760,216 @@ if (typeof window.ZammadTimetracker === 'undefined') {
       await storage.remove('zammadTrackingState');
       this.startTime = null;
       this.ticketId = null;
+    }
+
+    showCommentDialog(ticketId) {
+      // Check if dialog already exists
+      if (document.getElementById('zammad-comment-dialog')) {
+        return;
+      }
+
+      // Create dialog overlay
+      const overlay = document.createElement('div');
+      overlay.id = 'zammad-comment-dialog';
+      overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 999999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      `;
+
+      // Create dialog box
+      const dialog = document.createElement('div');
+      dialog.style.cssText = `
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        max-width: 500px;
+        width: 90%;
+      `;
+
+      // Dialog title
+      const title = document.createElement('h3');
+      title.textContent = `Add Comment to Ticket #${ticketId}`;
+      title.style.cssText = `
+        margin: 0 0 15px 0;
+        font-size: 18px;
+        color: #333;
+      `;
+
+      // Comment textarea
+      const textarea = document.createElement('textarea');
+      textarea.id = 'zammad-comment-input';
+      textarea.placeholder = 'Enter your comment here...';
+      textarea.style.cssText = `
+        width: 100%;
+        min-height: 150px;
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 14px;
+        font-family: inherit;
+        resize: vertical;
+        box-sizing: border-box;
+      `;
+
+      // Internal checkbox container
+      const checkboxContainer = document.createElement('div');
+      checkboxContainer.style.cssText = `
+        margin: 10px 0;
+        display: flex;
+        align-items: center;
+      `;
+
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.id = 'zammad-comment-internal';
+      checkbox.checked = true;
+      checkbox.style.cssText = `
+        margin-right: 8px;
+      `;
+
+      const checkboxLabel = document.createElement('label');
+      checkboxLabel.htmlFor = 'zammad-comment-internal';
+      checkboxLabel.textContent = 'Internal note (not visible to customer)';
+      checkboxLabel.style.cssText = `
+        font-size: 14px;
+        color: #555;
+        cursor: pointer;
+      `;
+
+      checkboxContainer.appendChild(checkbox);
+      checkboxContainer.appendChild(checkboxLabel);
+
+      // Buttons container
+      const buttonsContainer = document.createElement('div');
+      buttonsContainer.style.cssText = `
+        margin-top: 15px;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+      `;
+
+      // Cancel button
+      const cancelButton = document.createElement('button');
+      cancelButton.textContent = 'Cancel';
+      cancelButton.style.cssText = `
+        padding: 8px 16px;
+        border: 1px solid #ccc;
+        background: white;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+      `;
+      cancelButton.onclick = () => {
+        overlay.remove();
+      };
+
+      // Submit button
+      const submitButton = document.createElement('button');
+      submitButton.textContent = 'Add Comment';
+      submitButton.style.cssText = `
+        padding: 8px 16px;
+        border: none;
+        background: #007bff;
+        color: white;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+      `;
+      submitButton.onclick = async () => {
+        const comment = textarea.value.trim();
+        const isInternal = checkbox.checked;
+
+        if (!comment) {
+          alert('Please enter a comment');
+          return;
+        }
+
+        // Disable button to prevent double submission
+        submitButton.disabled = true;
+        submitButton.textContent = 'Submitting...';
+
+        try {
+          // Submit comment via API
+          if (
+            this.apiInitialized &&
+            window.zammadApi &&
+            window.zammadApi.isInitialized()
+          ) {
+            const result = await window.zammadApi.createArticle(
+              ticketId,
+              comment,
+              'note',
+              isInternal
+            );
+
+            console.log('Comment created successfully:', result);
+
+            // Show success notification
+            chrome.runtime.sendMessage({
+              action: 'showNotification',
+              title: 'Success',
+              message: `Comment added to ticket #${ticketId}`,
+            });
+
+            overlay.remove();
+          } else {
+            throw new Error('API not initialized. Please configure API settings.');
+          }
+        } catch (error) {
+          console.error('Error submitting comment:', error);
+
+          // Show error notification
+          chrome.runtime.sendMessage({
+            action: 'showNotification',
+            title: 'Error',
+            message: `Failed to add comment: ${error.message}`,
+          });
+
+          alert(`Error: ${error.message}`);
+          submitButton.disabled = false;
+          submitButton.textContent = 'Add Comment';
+        }
+      }.bind(this);
+
+      buttonsContainer.appendChild(cancelButton);
+      buttonsContainer.appendChild(submitButton);
+
+      // Assemble dialog
+      dialog.appendChild(title);
+      dialog.appendChild(textarea);
+      dialog.appendChild(checkboxContainer);
+      dialog.appendChild(buttonsContainer);
+      overlay.appendChild(dialog);
+
+      // Add to page
+      document.body.appendChild(overlay);
+
+      // Focus textarea
+      textarea.focus();
+
+      // Close on overlay click
+      overlay.onclick = (e) => {
+        if (e.target === overlay) {
+          overlay.remove();
+        }
+      };
+
+      // Close on Escape key
+      document.addEventListener('keydown', function escapeHandler(e) {
+        if (e.key === 'Escape' && document.getElementById('zammad-comment-dialog')) {
+          overlay.remove();
+          document.removeEventListener('keydown', escapeHandler);
+        }
+      });
     }
   };
 }

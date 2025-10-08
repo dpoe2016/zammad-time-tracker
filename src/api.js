@@ -1837,6 +1837,45 @@ class ZammadAPI {
   }
 
   /**
+   * Create a new article (comment) for a ticket
+   * @param {string|number} ticketId - Ticket ID to add the article to
+   * @param {string} body - Comment body text
+   * @param {string} type - Article type (note, email, phone, etc.) - defaults to 'note'
+   * @param {boolean} internal - Whether the article is internal (not visible to customer)
+   * @returns {Object} Created article object
+   */
+  async createArticle(ticketId, body, type = 'note', internal = true) {
+    if (!ticketId) {
+      throw new Error('Ticket ID is required');
+    }
+
+    if (!body || body.trim().length === 0) {
+      throw new Error('Article body is required');
+    }
+
+    console.log(`Creating article for ticket ID: ${ticketId}`);
+
+    const endpoint = `/api/v1/ticket_articles`;
+
+    const data = {
+      ticket_id: parseInt(ticketId),
+      body: body.trim(),
+      type: type,
+      internal: internal,
+      content_type: 'text/html',
+    };
+
+    try {
+      const result = await this.request(endpoint, 'POST', data);
+      console.log(`Successfully created article for ticket ${ticketId}`);
+      return result;
+    } catch (error) {
+      console.error(`Error creating article for ticket ${ticketId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
    * Get all tickets without filtering
    * @returns {Array} Array of tickets
    */
