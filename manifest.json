@@ -10,7 +10,8 @@
     "storage",
     "scripting",
     "notifications",
-    "cookies"
+    "cookies",
+    "contextMenus"
   ],
 
   "host_permissions": [

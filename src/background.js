@@ -101,6 +101,26 @@ chrome.runtime.onInstalled.addListener(function (details) {
     logger.info('First installation - showing welcome message');
     showNotification(t('extension_title'), t('extension_installed'));
   }
+
+  // Create context menu for adding comments to tickets
+  if (chrome.contextMenus && chrome.contextMenus.create) {
+    try {
+      chrome.contextMenus.create({
+        id: 'addCommentToTicket',
+        title: 'Add comment to Zammad ticket',
+        contexts: ['page'],
+        documentUrlPatterns: [
+          'https://zammad.lohmann-breeders.com/*',
+          'https://*.zammad.com/*',
+        ],
+      });
+      logger.info('Context menu created for adding comments');
+    } catch (error) {
+      logger.error('Error creating context menu:', error);
+    }
+  } else {
+    logger.warn('Context menus API not available');
+  }
 });
 
 // Message Handler - Main communication
@@ -329,3 +349,35 @@ if (chrome.action && chrome.action.onClicked) {
 // Ensure the click handler is registered
 logger.info('Background script fully loaded with onClicked handler registered');
 console.log('Background script fully loaded with onClicked handler registered');
+
+// Handle context menu clicks
+if (chrome.contextMenus && chrome.contextMenus.onClicked) {
+  chrome.contextMenus.onClicked.addListener(function (info, tab) {
+    if (info.menuItemId === 'addCommentToTicket') {
+      logger.info('Add comment context menu clicked');
+
+      // Send message to content script to get ticket ID and show comment input
+      chrome.tabs.sendMessage(
+        tab.id,
+        { action: 'showCommentDialog' },
+        function (response) {
+          if (chrome.runtime.lastError) {
+            logger.error(
+              'Error sending message to content script:',
+              chrome.runtime.lastError
+            );
+            showNotification(
+              'Error',
+              'Could not communicate with Zammad page. Please refresh and try again.'
+            );
+          } else {
+            logger.debug('Comment dialog request sent to content script');
+          }
+        }
+      );
+    }
+  });
+  logger.info('Context menu click handler registered');
+} else {
+  logger.warn('Context menus API not available');
+}
