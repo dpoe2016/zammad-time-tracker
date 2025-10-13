@@ -128,3 +128,8 @@
 
 - Updated version to 3.1.9
 
+
+## [3.1.9] - 2025-10-13
+
+- Updated version to 3.1.9
+
