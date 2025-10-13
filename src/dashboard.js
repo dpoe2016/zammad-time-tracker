@@ -3858,9 +3858,10 @@ class ZammadDashboard {
 
     try {
       // Calculate elapsed time
-      const elapsed = Math.floor(
+      const rawElapsed = Math.floor(
         (Date.now() - this.startTime.getTime()) / 60000
       ); // minutes
+      const elapsed = roundUpToNext15Minutes(rawElapsed);
 
       // Update time spent
       this.currentTimeSpent += elapsed;
