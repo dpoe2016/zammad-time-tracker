@@ -27,7 +27,7 @@
         "https://*.zammad.com/*",
         "https://*/*"
       ],
-      "js": ["src/translations.js", "src/utilities.js", "src/logger.js", "src/storage.js", "src/api.js", "src/content.js"],
+      "js": ["src/translations.js", "src/utilities.js", "src/logger.js", "src/storage.js", "src/indexdb.js", "src/api.js", "src/content.js"],
       "run_at": "document_end"
     }
   ],
