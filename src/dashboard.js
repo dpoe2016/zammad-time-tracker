@@ -50,7 +50,6 @@ class ZammadDashboard {
         'editTimeTrackingItem'
       );
       this.addCommentItem = document.getElementById('addCommentItem');
-      this.addAnswerItem = document.getElementById('addAnswerItem');
       this.currentTicketElement = null;
 
       // Filter elements
@@ -98,7 +97,6 @@ class ZammadDashboard {
         'editTimeTrackingText'
       );
       this.addCommentText = document.getElementById('addCommentText');
-      this.addAnswerText = document.getElementById('addAnswerText');
 
       // Debug context menu elements
       console.log('Context menu elements found:', {
@@ -4252,20 +4250,6 @@ class ZammadDashboard {
       console.error('addCommentItem not found in DOM');
     }
 
-    if (this.addAnswerItem) {
-      console.log('Adding event listener to addAnswerItem');
-      this.addAnswerItem.addEventListener('click', (e) => {
-        console.log('Add answer item clicked');
-        e.preventDefault();
-        e.stopPropagation(); // Prevent click from closing menu
-        logger.info('Add answer context menu item clicked');
-
-        this.addAnswerToTicket();
-      });
-    } else {
-      console.error('addAnswerItem not found in DOM');
-    }
-
     // Hide context menu when clicking elsewhere
     document.addEventListener('click', (e) => {
       if (!this.contextMenu.contains(e.target)) {
@@ -4512,50 +4496,6 @@ class ZammadDashboard {
   }
 
   /**
-   * Add answer to ticket from context menu
-   */
-  async addAnswerToTicket() {
-    console.log('addAnswerToTicket called');
-    logger.info('Add answer context menu clicked');
-
-    // Store the ticket data BEFORE hiding the context menu
-    const ticketData = this.currentTicketData;
-    console.log('Stored ticket data:', ticketData);
-
-    this.hideContextMenu();
-
-    if (!ticketData) {
-      console.error('No current ticket data available for adding answer');
-      logger.error('No current ticket data available for adding answer');
-      alert(
-        'No ticket data available. Please try right-clicking on the ticket again.'
-      );
-      return;
-    }
-
-    try {
-      const ticketId = ticketData.id || ticketData.number;
-
-      if (!ticketId) {
-        console.error('No ticket ID found in ticket data', ticketData);
-        logger.error('No ticket ID found in ticket data', ticketData);
-        alert('No ticket ID found. Please try again.');
-        return;
-      }
-
-      console.log('Opening answer dialog for ticket', ticketId);
-      logger.info('Opening answer dialog for ticket', { ticketId });
-
-      // Show answer dialog
-      this.showAnswerDialog(ticketId);
-    } catch (error) {
-      console.error('Failed to add answer to ticket:', error);
-      logger.error('Failed to add answer to ticket:', error);
-      alert('Error opening answer dialog: ' + error.message);
-    }
-  }
-
-  /**
    * Show dialog for adding a comment to a ticket
    */
   showCommentDialog(ticketId) {
@@ -4762,204 +4702,6 @@ class ZammadDashboard {
     // Close on Escape key
     const escapeHandler = (e) => {
       if (e.key === 'Escape' && document.getElementById('zammad-comment-dialog')) {
-        overlay.remove();
-        document.removeEventListener('keydown', escapeHandler);
-      }
-    };
-    document.addEventListener('keydown', escapeHandler);
-  }
-
-  /**
-   * Show dialog for adding an answer (public reply) to a ticket
-   */
-  showAnswerDialog(ticketId) {
-    console.log('showAnswerDialog called for ticket:', ticketId);
-
-    // Check if dialog already exists
-    if (document.getElementById('zammad-answer-dialog')) {
-      return;
-    }
-
-    // Create dialog overlay
-    const overlay = document.createElement('div');
-    overlay.id = 'zammad-answer-dialog';
-    overlay.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.5);
-      z-index: 999999;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    `;
-
-    // Create dialog box
-    const dialog = document.createElement('div');
-    dialog.style.cssText = `
-      background: white;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-      max-width: 500px;
-      width: 90%;
-    `;
-
-    // Dialog title
-    const title = document.createElement('h3');
-    title.textContent = `Add Answer to Ticket #${ticketId}`;
-    title.style.cssText = `
-      margin: 0 0 15px 0;
-      font-size: 18px;
-      color: #333;
-    `;
-
-    // Answer textarea
-    const textarea = document.createElement('textarea');
-    textarea.id = 'zammad-answer-input';
-    textarea.placeholder = 'Enter your answer here...';
-    textarea.style.cssText = `
-      width: 100%;
-      min-height: 150px;
-      padding: 10px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      font-size: 14px;
-      font-family: inherit;
-      resize: vertical;
-      box-sizing: border-box;
-    `;
-
-    // Info message
-    const infoMessage = document.createElement('div');
-    infoMessage.textContent = 'This will send a public reply visible to the customer.';
-    infoMessage.style.cssText = `
-      margin: 10px 0;
-      padding: 8px;
-      background: #e3f2fd;
-      border-left: 3px solid #2196f3;
-      font-size: 13px;
-      color: #1976d2;
-      border-radius: 4px;
-    `;
-
-    // Buttons container
-    const buttonsContainer = document.createElement('div');
-    buttonsContainer.style.cssText = `
-      margin-top: 15px;
-      display: flex;
-      justify-content: flex-end;
-      gap: 10px;
-    `;
-
-    // Cancel button
-    const cancelButton = document.createElement('button');
-    cancelButton.textContent = 'Cancel';
-    cancelButton.style.cssText = `
-      padding: 8px 16px;
-      border: 1px solid #ccc;
-      background: white;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 14px;
-    `;
-    cancelButton.onclick = () => {
-      overlay.remove();
-    };
-
-    // Submit button
-    const submitButton = document.createElement('button');
-    submitButton.textContent = 'Send Answer';
-    submitButton.style.cssText = `
-      padding: 8px 16px;
-      border: none;
-      background: #28a745;
-      color: white;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 14px;
-    `;
-    const self = this; // Capture the dashboard instance
-    submitButton.onclick = async () => {
-      const answer = textarea.value.trim();
-
-      if (!answer) {
-        alert('Please enter an answer');
-        return;
-      }
-
-      // Disable button to prevent double submission
-      submitButton.disabled = true;
-      submitButton.textContent = 'Sending...';
-
-      try {
-        // Submit answer via API (use global zammadApi object)
-        console.log('Checking API availability:', {
-          hasZammadApi: typeof zammadApi !== 'undefined',
-          isInitialized: typeof zammadApi !== 'undefined' ? zammadApi.isInitialized() : false
-        });
-
-        if (typeof zammadApi !== 'undefined' && zammadApi.isInitialized()) {
-          console.log('Submitting answer via API...');
-          const result = await zammadApi.createArticle(
-            ticketId,
-            answer,
-            'note',
-            false  // NOT internal - this is a public reply
-          );
-
-          console.log('Answer created successfully:', result);
-          logger.info('Answer created successfully for ticket', { ticketId });
-
-          alert(`Answer sent to ticket #${ticketId}`);
-          overlay.remove();
-
-          // Refresh the tickets to show the updated article count
-          self.loadTickets();
-        } else {
-          console.error('API not available:', {
-            hasZammadApi: typeof zammadApi !== 'undefined',
-            isInitialized: typeof zammadApi !== 'undefined' ? zammadApi.isInitialized() : false
-          });
-          throw new Error('API not initialized. Please configure API settings in Options.');
-        }
-      } catch (error) {
-        console.error('Error submitting answer:', error);
-        logger.error('Error submitting answer:', error);
-        alert(`Error: ${error.message}`);
-        submitButton.disabled = false;
-        submitButton.textContent = 'Send Answer';
-      }
-    };
-
-    buttonsContainer.appendChild(cancelButton);
-    buttonsContainer.appendChild(submitButton);
-
-    // Assemble dialog
-    dialog.appendChild(title);
-    dialog.appendChild(textarea);
-    dialog.appendChild(infoMessage);
-    dialog.appendChild(buttonsContainer);
-    overlay.appendChild(dialog);
-
-    // Add to page
-    document.body.appendChild(overlay);
-
-    // Focus textarea
-    textarea.focus();
-
-    // Close on overlay click
-    overlay.onclick = (e) => {
-      if (e.target === overlay) {
-        overlay.remove();
-      }
-    };
-
-    // Close on Escape key
-    const escapeHandler = (e) => {
-      if (e.key === 'Escape' && document.getElementById('zammad-answer-dialog')) {
         overlay.remove();
         document.removeEventListener('keydown', escapeHandler);
       }
