@@ -568,6 +568,14 @@ const translations = {
     [LANGUAGES.DE]: 'Zeiterfassung bearbeiten',
     [LANGUAGES.EN]: 'Edit Time Tracking',
   },
+  add_comment_text: {
+    [LANGUAGES.DE]: 'Kommentar hinzufügen',
+    [LANGUAGES.EN]: 'Add Comment',
+  },
+  add_answer_text: {
+    [LANGUAGES.DE]: 'Antwort senden',
+    [LANGUAGES.EN]: 'Add Answer',
+  },
 
   // Pin functionality
   pin_ticket: {

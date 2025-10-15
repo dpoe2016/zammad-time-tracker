@@ -293,6 +293,12 @@ class ZammadDashboard {
     if (this.editTimeTrackingText) {
       this.editTimeTrackingText.textContent = t('edit_time_tracking_text');
     }
+    if (this.addCommentText) {
+      this.addCommentText.textContent = t('add_comment_text');
+    }
+    if (this.addAnswerText) {
+      this.addAnswerText.textContent = t('add_answer_text');
+    }
 
     logger.info('UI language updated');
   }
@@ -3850,9 +3856,10 @@ class ZammadDashboard {
 
     try {
       // Calculate elapsed time
-      const elapsed = Math.floor(
+      const rawElapsed = Math.floor(
         (Date.now() - this.startTime.getTime()) / 60000
       ); // minutes
+      const elapsed = roundUpToNext15Minutes(rawElapsed);
 
       // Update time spent
       this.currentTimeSpent += elapsed;

@@ -579,10 +579,11 @@ if (typeof window.ZammadTimetracker === 'undefined') {
 
         // Show appropriate error notification based on error type
         let errorMessage;
+        const roundedMinutes = roundUpToNext15Minutes(Math.round(duration / 60));
         if (error.message.includes('API not configured')) {
-          errorMessage = `Time tracking stopped (${formatDuration(duration)}) but entry not saved. Please configure API settings or manually enter ${Math.round(duration / 60)} minutes for ticket #${this.ticketId}.`;
+          errorMessage = `Time tracking stopped (${formatDuration(duration)}) but entry not saved. Please configure API settings or manually enter ${roundedMinutes} minutes for ticket #${this.ticketId}.`;
         } else {
-          errorMessage = `Time tracking stopped (${formatDuration(duration)}) but entry not saved. API Error: ${error.message}. Please manually enter ${Math.round(duration / 60)} minutes for ticket #${this.ticketId}.`;
+          errorMessage = `Time tracking stopped (${formatDuration(duration)}) but entry not saved. API Error: ${error.message}. Please manually enter ${roundedMinutes} minutes for ticket #${this.ticketId}.`;
         }
 
         // Show single error notification via background script
@@ -609,9 +610,10 @@ if (typeof window.ZammadTimetracker === 'undefined') {
 
     async submitTimeEntry(durationInSeconds, userComment = '') {
       try {
-        const durationInMinutes = Math.round(durationInSeconds / 60);
+        const rawMinutes = Math.round(durationInSeconds / 60);
+        const durationInMinutes = roundUpToNext15Minutes(rawMinutes);
         console.log(
-          `Submitting time entry: ${durationInMinutes} minutes for ticket #${this.ticketId}`
+          `Submitting time entry: ${durationInMinutes} minutes (rounded from ${rawMinutes} minutes) for ticket #${this.ticketId}`
         );
 
         // First try to submit via API if initialized

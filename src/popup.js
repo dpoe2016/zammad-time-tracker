@@ -1802,11 +1802,12 @@ class TimetrackingPopup {
       // Calculate time
       const endTime = new Date();
       const duration = Math.round((endTime - this.startTime) / 1000);
-      const durationMinutes = Math.round(duration / 60);
+      const rawMinutes = Math.round(duration / 60);
+      const durationMinutes = roundUpToNext15Minutes(rawMinutes);
       const durationText = formatDuration(duration);
 
       this.debug(
-        'Duration: ' + durationText + ' (' + durationMinutes + ' min)'
+        'Duration: ' + durationText + ' (' + durationMinutes + ' min, rounded from ' + rawMinutes + ' min)'
       );
 
       // Store ticket info before resetting
