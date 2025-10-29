@@ -138,3 +138,8 @@
 
 - Updated version to 3.1.8
 
+
+## [3.1.8] - 2025-10-29
+
+- Updated version to 3.1.8
+
