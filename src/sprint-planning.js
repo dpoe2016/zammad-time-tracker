@@ -164,11 +164,21 @@ class SprintPlanningUI {
       const sprints = await sprintManager.getSprints();
       this.populateSprintSelect(sprints);
       
-      // Load tickets
+      // Load tickets from API or IndexedDB cache
       if (this.api) {
-        this.tickets = await this.api.getTickets();
-        await this.renderTickets();
+        try {
+          this.tickets = await this.api.getTickets();
+        } catch (apiError) {
+          logger.warn('Failed to load from API, trying cache:', apiError);
+          // Fallback to IndexedDB cache
+          this.tickets = await this.loadTicketsFromCache();
+        }
+      } else {
+        // No API configured, load from cache
+        this.tickets = await this.loadTicketsFromCache();
       }
+      
+      await this.renderTickets();
       
       this.showLoading(false);
       this.sprintBoard.style.display = 'grid';
@@ -177,6 +187,67 @@ class SprintPlanningUI {
       this.showError('Failed to load data: ' + error.message);
       this.showLoading(false);
     }
+  }
+  
+  async loadTicketsFromCache() {
+    logger.info('Loading tickets from IndexedDB cache');
+    
+    try {
+      const db = await this.openDatabase();
+      
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction(['ticketCache'], 'readonly');
+        const store = transaction.objectStore('ticketCache');
+        const request = store.getAll();
+        
+        request.onsuccess = () => {
+          const cachedData = request.result;
+          
+          if (cachedData && cachedData.length > 0) {
+            // Extract tickets from cache entries
+            const allTickets = [];
+            cachedData.forEach(entry => {
+              if (entry.tickets && Array.isArray(entry.tickets)) {
+                allTickets.push(...entry.tickets);
+              }
+            });
+            
+            // Remove duplicates by ticket ID
+            const uniqueTickets = Array.from(
+              new Map(allTickets.map(t => [t.id, t])).values()
+            );
+            
+            logger.info(`Loaded ${uniqueTickets.length} tickets from cache`);
+            resolve(uniqueTickets);
+          } else {
+            logger.warn('No tickets found in cache');
+            resolve([]);
+          }
+        };
+        
+        request.onerror = () => {
+          logger.error('Error reading ticket cache:', request.error);
+          reject(request.error);
+        };
+      });
+    } catch (error) {
+      logger.error('Error accessing IndexedDB:', error);
+      return [];
+    }
+  }
+  
+  async openDatabase() {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open('ZammadTimeTracker', 2);
+      
+      request.onsuccess = () => {
+        resolve(request.result);
+      };
+      
+      request.onerror = () => {
+        reject(request.error);
+      };
+    });
   }
   
   populateSprintSelect(sprints) {

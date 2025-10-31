@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Check API Connection</title>
+    <style>
+        body { font-family: Arial; padding: 20px; background: #f5f5f5; }
+        .box { background: white; padding: 30px; border-radius: 8px; max-width: 800px; margin: 0 auto; }
+        h1 { color: #333; }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin: 5px; }
+        button:hover { background: #0056b3; }
+        pre { background: #f8f9fa; padding: 15px; border-radius: 4px; overflow-x: auto; font-size: 12px; max-height: 400px; overflow-y: auto; }
+        .success { color: #28a745; font-weight: bold; }
+        .error { color: #dc3545; font-weight: bold; }
+        .warning { color: #ffc107; font-weight: bold; }
+        .step { background: #e7f3ff; padding: 15px; margin: 15px 0; border-left: 4px solid #007bff; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h1>🔍 Check API Connection</h1>
+        
+        <div class="step">
+            <strong>This tool will check:</strong>
+            <ul>
+                <li>If API URL and token are configured</li>
+                <li>If connection to Zammad works</li>
+                <li>If tickets can be loaded</li>
+            </ul>
+        </div>
+
+        <button onclick="checkConfig()">Step 1: Check Configuration</button>
+        <button onclick="testConnection()">Step 2: Test Connection</button>
+        <button onclick="loadTickets()">Step 3: Load Tickets</button>
+        <button onclick="clearLog()">Clear Log</button>
+        
+        <h3>Output:</h3>
+        <pre id="output">Click Step 1 to start...</pre>
+    </div>
+
+    <script>
+        const output = document.getElementById('output');
+        
+        function log(msg) {
+            output.textContent += msg + '\n';
+        }
+        
+        function clearLog() {
+            output.textContent = '';
+        }
+        
+        async function checkConfig() {
+            clearLog();
+            log('Checking configuration...\n');
+            
+            try {
+                const result = await chrome.storage.local.get(['baseUrl', 'apiToken']);
+                
+                if (result.baseUrl) {
+                    log('✅ Base URL configured: ' + result.baseUrl);
+                } else {
+                    log('❌ Base URL NOT configured');
+                }
+                
+                if (result.apiToken) {
+                    log('✅ API Token configured: ' + result.apiToken.substring(0, 10) + '...');
+                } else {
+                    log('❌ API Token NOT configured');
+                }
+                
+                log('');
+                
+                if (!result.baseUrl || !result.apiToken) {
+                    log('⚠️  Configuration is incomplete!');
+                    log('');
+                    log('To fix:');
+                    log('1. Click the extension icon');
+                    log('2. Click on a tab (Current/Tickets/History)');
+                    log('3. Scroll down to "Settings"');
+                    log('4. Click "Options" button');
+                    log('5. Enter your Zammad URL and API token');
+                    log('6. Click "Save Settings"');
+                } else {
+                    log('✅ Configuration looks good!');
+                    log('');
+                    log('Now click Step 2 to test connection...');
+                }
+                
+            } catch (error) {
+                log('❌ Error reading configuration: ' + error.message);
+            }
+        }
+        
+        async function testConnection() {
+            clearLog();
+            log('Testing connection to Zammad...\n');
+            
+            try {
+                const result = await chrome.storage.local.get(['baseUrl', 'apiToken']);
+                
+                if (!result.baseUrl || !result.apiToken) {
+                    log('❌ Configuration missing. Run Step 1 first.');
+                    return;
+                }
+                
+                const baseUrl = result.baseUrl;
+                const token = result.apiToken;
+                
+                log('Testing connection to: ' + baseUrl);
+                log('');
+                
+                // Test API endpoint
+                const testUrl = baseUrl + '/api/v1/users/me';
+                log('Calling: ' + testUrl);
+                
+                const response = await fetch(testUrl, {
+                    headers: {
+                        'Authorization': 'Token token=' + token,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                log('Response status: ' + response.status + ' ' + response.statusText);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log('✅ Connection successful!');
+                    log('');
+                    log('User info:');
+                    log('  Name: ' + (data.firstname || '') + ' ' + (data.lastname || ''));
+                    log('  Email: ' + (data.email || 'N/A'));
+                    log('  ID: ' + data.id);
+                    log('');
+                    log('Now click Step 3 to load tickets...');
+                } else {
+                    log('❌ Connection failed!');
+                    log('');
+                    const text = await response.text();
+                    log('Error response:');
+                    log(text.substring(0, 500));
+                    log('');
+                    log('Possible issues:');
+                    log('- API token is invalid or expired');
+                    log('- Base URL is incorrect');
+                    log('- Zammad server is not accessible');
+                }
+                
+            } catch (error) {
+                log('❌ Exception during connection test:');
+                log(error.message);
+                log('');
+                log('Possible issues:');
+                log('- Network error (check internet connection)');
+                log('- CORS issue (Zammad needs to allow requests)');
+                log('- Base URL is malformed');
+            }
+        }
+        
+        async function loadTickets() {
+            clearLog();
+            log('Loading tickets from Zammad...\n');
+            
+            try {
+                const result = await chrome.storage.local.get(['baseUrl', 'apiToken']);
+                
+                if (!result.baseUrl || !result.apiToken) {
+                    log('❌ Configuration missing. Run Step 1 first.');
+                    return;
+                }
+                
+                const baseUrl = result.baseUrl;
+                const token = result.apiToken;
+                
+                // Try to get tickets
+                const ticketsUrl = baseUrl + '/api/v1/tickets?per_page=10&expand=true';
+                log('Calling: ' + ticketsUrl);
+                log('');
+                
+                const response = await fetch(ticketsUrl, {
+                    headers: {
+                        'Authorization': 'Token token=' + token,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                log('Response status: ' + response.status);
+                
+                if (response.ok) {
+                    const tickets = await response.json();
+                    log('✅ Successfully loaded ' + tickets.length + ' tickets!');
+                    log('');
+                    
+                    if (tickets.length > 0) {
+                        log('Sample tickets:');
+                        tickets.slice(0, 5).forEach((t, i) => {
+                            log(`  ${i + 1}. #${t.number} - ${t.title}`);
+                            log(`     State: ${t.state}, Priority: ${t.priority_id || 'N/A'}`);
+                        });
+                        log('');
+                        log('🎉 Everything works! Tickets are loading.');
+                        log('');
+                        log('Next steps:');
+                        log('1. Go to main dashboard (click extension icon)');
+                        log('2. Click "Refresh" button');
+                        log('3. Tickets should appear');
+                        log('4. Then open Sprint Planning - backlog will show tickets');
+                    } else {
+                        log('⚠️  No tickets found in your Zammad instance.');
+                        log('');
+                        log('This could mean:');
+                        log('- No tickets exist yet');
+                        log('- User has no access to tickets');
+                        log('- Filters are excluding all tickets');
+                    }
+                } else {
+                    log('❌ Failed to load tickets!');
+                    log('Status: ' + response.status);
+                    const text = await response.text();
+                    log('Response:');
+                    log(text.substring(0, 500));
+                }
+                
+            } catch (error) {
+                log('❌ Exception during ticket loading:');
+                log(error.message);
+            }
+        }
+    </script>
+</body>
+</html>

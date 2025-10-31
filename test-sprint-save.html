@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Sprint Save</title>
+    <style>
+        body { font-family: Arial; padding: 20px; background: #f5f5f5; }
+        .box { background: white; padding: 30px; border-radius: 8px; max-width: 600px; margin: 0 auto; }
+        input, textarea { width: 100%; padding: 8px; margin: 5px 0; box-sizing: border-box; }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin: 10px 5px; }
+        button:hover { background: #0056b3; }
+        pre { background: #f8f9fa; padding: 10px; font-size: 12px; overflow-x: auto; }
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h1>🧪 Test Sprint Creation</h1>
+        
+        <h3>Create a Test Sprint</h3>
+        <label>Sprint Name *</label>
+        <input type="text" id="name" value="Test Sprint 1" />
+        
+        <label>Start Date *</label>
+        <input type="date" id="startDate" />
+        
+        <label>End Date *</label>
+        <input type="date" id="endDate" />
+        
+        <label>Goal (optional)</label>
+        <textarea id="goal" rows="2">Test sprint goal</textarea>
+        
+        <button onclick="testCreate()">Create Sprint</button>
+        <button onclick="checkDB()">Check Database</button>
+        
+        <h3>Output:</h3>
+        <pre id="output">Ready...</pre>
+    </div>
+
+    <script>
+        const output = document.getElementById('output');
+        
+        // Set default dates
+        const today = new Date();
+        const twoWeeks = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000);
+        document.getElementById('startDate').value = today.toISOString().split('T')[0];
+        document.getElementById('endDate').value = twoWeeks.toISOString().split('T')[0];
+        
+        function log(msg) {
+            output.textContent += msg + '\n';
+        }
+        
+        function clearLog() {
+            output.textContent = '';
+        }
+        
+        async function checkDB() {
+            clearLog();
+            log('Checking database...\n');
+            
+            try {
+                const request = indexedDB.open('ZammadTimeTracker', 2);
+                
+                request.onsuccess = function(e) {
+                    const db = e.target.result;
+                    log('✅ Database opened');
+                    log('Version: ' + db.version);
+                    log('Stores: ' + Array.from(db.objectStoreNames).join(', '));
+                    log('');
+                    log('Has sprints store? ' + db.objectStoreNames.contains('sprints'));
+                    log('Has sprintAssignments store? ' + db.objectStoreNames.contains('sprintAssignments'));
+                    
+                    // Try to read from sprints store
+                    const tx = db.transaction(['sprints'], 'readonly');
+                    const store = tx.objectStore('sprints');
+                    const getAllRequest = store.getAll();
+                    
+                    getAllRequest.onsuccess = function() {
+                        log('\nExisting sprints: ' + getAllRequest.result.length);
+                        if (getAllRequest.result.length > 0) {
+                            log('Sprint data:');
+                            getAllRequest.result.forEach(s => {
+                                log('  - ' + s.name + ' (ID: ' + s.id + ', Status: ' + s.status + ')');
+                            });
+                        }
+                    };
+                    
+                    db.close();
+                };
+                
+                request.onerror = function(e) {
+                    log('❌ Error opening database: ' + e.target.error);
+                };
+            } catch (error) {
+                log('❌ Exception: ' + error.message);
+            }
+        }
+        
+        async function testCreate() {
+            clearLog();
+            log('Starting sprint creation test...\n');
+            
+            const name = document.getElementById('name').value.trim();
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            const goal = document.getElementById('goal').value.trim();
+            
+            if (!name || !startDate || !endDate) {
+                log('❌ Please fill in all required fields');
+                return;
+            }
+            
+            log('Sprint data:');
+            log('  Name: ' + name);
+            log('  Start: ' + startDate);
+            log('  End: ' + endDate);
+            log('  Goal: ' + goal);
+            log('');
+            
+            try {
+                log('Opening database...');
+                const request = indexedDB.open('ZammadTimeTracker', 2);
+                
+                request.onsuccess = async function(e) {
+                    const db = e.target.result;
+                    log('✅ Database opened');
+                    
+                    if (!db.objectStoreNames.contains('sprints')) {
+                        log('❌ ERROR: sprints store not found!');
+                        db.close();
+                        return;
+                    }
+                    
+                    log('Creating sprint object...');
+                    const sprint = {
+                        name: name,
+                        startDate: new Date(startDate).toISOString(),
+                        endDate: new Date(endDate).toISOString(),
+                        goal: goal,
+                        status: 'planned',
+                        createdAt: new Date().toISOString()
+                    };
+                    log('Sprint object: ' + JSON.stringify(sprint, null, 2));
+                    log('');
+                    
+                    try {
+                        log('Opening transaction...');
+                        const tx = db.transaction(['sprints'], 'readwrite');
+                        const store = tx.objectStore('sprints');
+                        
+                        log('Adding sprint to store...');
+                        const addRequest = store.add(sprint);
+                        
+                        addRequest.onsuccess = function() {
+                            log('✅ SUCCESS! Sprint created with ID: ' + addRequest.result);
+                            sprint.id = addRequest.result;
+                            log('');
+                            log('Full sprint data:');
+                            log(JSON.stringify(sprint, null, 2));
+                            log('');
+                            log('🎉 Sprint saved successfully!');
+                        };
+                        
+                        addRequest.onerror = function(e) {
+                            log('❌ Error adding sprint: ' + e.target.error);
+                        };
+                        
+                        tx.oncomplete = function() {
+                            log('Transaction completed');
+                            db.close();
+                        };
+                        
+                        tx.onerror = function(e) {
+                            log('❌ Transaction error: ' + e.target.error);
+                            db.close();
+                        };
+                        
+                    } catch (error) {
+                        log('❌ Exception during save: ' + error.message);
+                        db.close();
+                    }
+                };
+                
+                request.onerror = function(e) {
+                    log('❌ Error opening database: ' + e.target.error);
+                };
+                
+            } catch (error) {
+                log('❌ Exception: ' + error.message);
+                log('Stack: ' + error.stack);
+            }
+        }
+    </script>
+</body>
+</html>
