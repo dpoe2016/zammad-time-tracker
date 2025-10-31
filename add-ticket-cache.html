@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Add Ticket Cache Store</title>
+    <style>
+        body { font-family: Arial; padding: 20px; background: #f5f5f5; }
+        .box { background: white; padding: 30px; border-radius: 8px; max-width: 700px; margin: 0 auto; }
+        h1 { color: #333; }
+        button { background: #007bff; color: white; border: none; padding: 15px 30px; font-size: 16px; border-radius: 4px; cursor: pointer; margin: 10px; }
+        button:hover { background: #0056b3; }
+        .success { color: #28a745; font-weight: bold; }
+        .error { color: #dc3545; font-weight: bold; }
+        pre { background: #f8f9fa; padding: 15px; border-radius: 4px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h1>🔧 Add Ticket Cache Store</h1>
+        <p>The database is missing the ticketCache store. This will add it.</p>
+        
+        <button onclick="checkStores()">Step 1: Check Current Stores</button>
+        <button onclick="addStore()">Step 2: Add Ticket Cache</button>
+        
+        <h3>Output:</h3>
+        <pre id="output">Click Step 1 to check...</pre>
+    </div>
+
+    <script>
+        const output = document.getElementById('output');
+        
+        function log(msg) {
+            output.textContent += msg + '\n';
+        }
+        
+        function clearLog() {
+            output.textContent = '';
+        }
+        
+        function checkStores() {
+            clearLog();
+            log('Checking database stores...\n');
+            
+            const request = indexedDB.open('ZammadTimeTracker', 2);
+            
+            request.onsuccess = function(e) {
+                const db = e.target.result;
+                log('Database version: ' + db.version);
+                log('\nCurrent stores:');
+                const stores = Array.from(db.objectStoreNames);
+                stores.forEach(s => log('  - ' + s));
+                
+                log('\nChecking for ticketCache:');
+                if (db.objectStoreNames.contains('ticketCache')) {
+                    log('✅ ticketCache EXISTS');
+                } else {
+                    log('❌ ticketCache MISSING');
+                    log('\nClick Step 2 to add it.');
+                }
+                
+                db.close();
+            };
+            
+            request.onerror = function(e) {
+                log('❌ Error: ' + e.target.error);
+            };
+        }
+        
+        function addStore() {
+            clearLog();
+            log('Adding ticketCache store...\n');
+            log('Step 1: Closing all connections...\n');
+            
+            // First delete and recreate at version 3
+            const deleteRequest = indexedDB.deleteDatabase('ZammadTimeTracker');
+            
+            deleteRequest.onsuccess = function() {
+                log('✅ Database deleted\n');
+                log('Step 2: Creating version 3 with all stores...\n');
+                
+                const openRequest = indexedDB.open('ZammadTimeTracker', 3);
+                
+                openRequest.onupgradeneeded = function(event) {
+                    const db = event.target.result;
+                    const oldVersion = event.oldVersion;
+                    
+                    log('Upgrading from version ' + oldVersion + ' to 3\n');
+                    
+                    // Create all stores
+                    const storesToCreate = [
+                        { name: 'customerCache', keyPath: 'id', indexes: [{ name: 'timestamp', key: 'timestamp' }] },
+                        { name: 'ticketCache', keyPath: 'cacheKey', indexes: [{ name: 'timestamp', key: 'timestamp' }] },
+                        { name: 'apiEndpoints', keyPath: 'id' },
+                        { name: 'apiFeatures', keyPath: 'id' },
+                        { name: 'userProfile', keyPath: 'id' },
+                        { name: 'timeEntryCache', keyPath: 'cacheKey', indexes: [{ name: 'timestamp', key: 'timestamp' }] },
+                        { 
+                            name: 'sprints', 
+                            keyPath: 'id', 
+                            autoIncrement: true, 
+                            indexes: [
+                                { name: 'status', key: 'status' },
+                                { name: 'startDate', key: 'startDate' }
+                            ]
+                        },
+                        { 
+                            name: 'sprintAssignments', 
+                            keyPath: 'id', 
+                            autoIncrement: true, 
+                            indexes: [
+                                { name: 'sprintId', key: 'sprintId' },
+                                { name: 'ticketId', key: 'ticketId' }
+                            ]
+                        }
+                    ];
+                    
+                    storesToCreate.forEach(storeConfig => {
+                        if (!db.objectStoreNames.contains(storeConfig.name)) {
+                            const options = { keyPath: storeConfig.keyPath };
+                            if (storeConfig.autoIncrement) options.autoIncrement = true;
+                            
+                            const store = db.createObjectStore(storeConfig.name, options);
+                            
+                            if (storeConfig.indexes) {
+                                storeConfig.indexes.forEach(index => {
+                                    store.createIndex(index.name, index.key, { unique: false });
+                                });
+                            }
+                            
+                            log('✅ Created: ' + storeConfig.name);
+                        }
+                    });
+                };
+                
+                openRequest.onsuccess = function(e) {
+                    const db = e.target.result;
+                    log('\n✅ Database created successfully!');
+                    log('Version: ' + db.version);
+                    log('\nAll stores:');
+                    Array.from(db.objectStoreNames).forEach(s => log('  - ' + s));
+                    
+                    if (db.objectStoreNames.contains('ticketCache')) {
+                        log('\n🎉 ticketCache is now available!');
+                        log('\nNext: Go to Sprint Planning and reload the page.');
+                    }
+                    
+                    db.close();
+                };
+                
+                openRequest.onerror = function(e) {
+                    log('❌ Error creating database: ' + e.target.error);
+                };
+            };
+            
+            deleteRequest.onerror = function(e) {
+                log('❌ Error deleting database: ' + e.target.error);
+            };
+            
+            deleteRequest.onblocked = function() {
+                log('❌ BLOCKED! Close all tabs with dashboard/sprint planning and try again.');
+            };
+        }
+    </script>
+</body>
+</html>
