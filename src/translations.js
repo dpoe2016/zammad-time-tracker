@@ -600,23 +600,7 @@ const translations = {
     [LANGUAGES.DE]: 'Tooltip-Verzögerung (Millisekunden)',
     [LANGUAGES.EN]: 'Tooltip delay (milliseconds)',
   },
-};
-
-// Get translation by key
-function t(key, placeholders = []) {
-  let text = translations[key]?.[currentLanguage] || key;
-
-  // Replace placeholders if any
-  if (placeholders.length > 0) {
-    placeholders.forEach((value, index) => {
-      text = text.replace(`{${index}}`, value);
-    });
-  }
-
-  return text;
-}
-
-// Initialize language when script is loaded
+  
   // Sprint Planning
   sprintPlanningBtnText: {
     [LANGUAGES.DE]: '📋 Sprint-Planung',
@@ -643,6 +627,20 @@ function t(key, placeholders = []) {
     [LANGUAGES.EN]: 'Sprint Tickets',
   },
 };
+
+// Get translation by key
+function t(key, placeholders = []) {
+  let text = translations[key]?.[currentLanguage] || key;
+
+  // Replace placeholders if any
+  if (placeholders.length > 0) {
+    placeholders.forEach((value, index) => {
+      text = text.replace(`{${index}}`, value);
+    });
+  }
+
+  return text;
+}
 
 initLanguage();
 
