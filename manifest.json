@@ -33,7 +33,8 @@
   ],
 
   "action": {
-    "default_title": "Zammad Time Tracking"
+    "default_title": "Zammad Time Tracking",
+    "default_popup": "src/popup.html"
   },
 
   "background": {
