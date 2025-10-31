@@ -153,3 +153,8 @@
 
 - Updated version to 3.2.0
 
+
+## [3.3.0] - 2025-10-31
+
+- Updated version to 3.3.0
+
