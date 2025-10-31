@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Reset Database</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .box {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        h1 { color: #333; }
+        button {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px;
+        }
+        button:hover { background: #c82333; }
+        .success { color: #28a745; font-weight: bold; }
+        .error { color: #dc3545; font-weight: bold; }
+        #result { margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h1>🔧 Reset Database</h1>
+        <p>This will delete and recreate the ZammadTimeTracker database with sprint stores.</p>
+        <p><strong>⚠️ Warning:</strong> This will clear all cached data (tickets, time entries, etc.)</p>
+        <button onclick="resetDatabase()">Reset Database Now</button>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        function resetDatabase() {
+            const result = document.getElementById('result');
+            result.innerHTML = '<p>⏳ Deleting database...</p>';
+            
+            // Delete the database
+            const deleteRequest = indexedDB.deleteDatabase('ZammadTimeTracker');
+            
+            deleteRequest.onsuccess = function() {
+                result.innerHTML = '<p class="success">✅ Database deleted successfully!</p>';
+                
+                // Now open it again to trigger creation
+                result.innerHTML += '<p>⏳ Creating new database with version 2...</p>';
+                
+                const openRequest = indexedDB.open('ZammadTimeTracker', 2);
+                
+                openRequest.onupgradeneeded = function(event) {
+                    const db = event.target.result;
+                    result.innerHTML += '<p>⏳ Creating stores...</p>';
+                    
+                    // Create all stores
+                    const stores = [
+                        { name: 'customerCache', keyPath: 'id', indexes: [{ name: 'timestamp', key: 'timestamp' }] },
+                        { name: 'ticketCache', keyPath: 'cacheKey', indexes: [{ name: 'timestamp', key: 'timestamp' }] },
+                        { name: 'apiEndpoints', keyPath: 'id' },
+                        { name: 'apiFeatures', keyPath: 'id' },
+                        { name: 'userProfile', keyPath: 'id' },
+                        { name: 'timeEntryCache', keyPath: 'cacheKey', indexes: [{ name: 'timestamp', key: 'timestamp' }] },
+                        { name: 'sprints', keyPath: 'id', autoIncrement: true, indexes: [
+                            { name: 'status', key: 'status' },
+                            { name: 'startDate', key: 'startDate' }
+                        ]},
+                        { name: 'sprintAssignments', keyPath: 'id', autoIncrement: true, indexes: [
+                            { name: 'sprintId', key: 'sprintId' },
+                            { name: 'ticketId', key: 'ticketId' }
+                        ]}
+                    ];
+                    
+                    stores.forEach(storeConfig => {
+                        if (!db.objectStoreNames.contains(storeConfig.name)) {
+                            const options = { keyPath: storeConfig.keyPath };
+                            if (storeConfig.autoIncrement) options.autoIncrement = true;
+                            
+                            const store = db.createObjectStore(storeConfig.name, options);
+                            
+                            if (storeConfig.indexes) {
+                                storeConfig.indexes.forEach(index => {
+                                    store.createIndex(index.name, index.key, { unique: false });
+                                });
+                            }
+                            
+                            result.innerHTML += `<p>✅ Created: ${storeConfig.name}</p>`;
+                        }
+                    });
+                };
+                
+                openRequest.onsuccess = function(event) {
+                    const db = event.target.result;
+                    result.innerHTML += '<p class="success">✅ Database recreated successfully!</p>';
+                    result.innerHTML += '<p><strong>Version:</strong> ' + db.version + '</p>';
+                    result.innerHTML += '<p><strong>Stores:</strong> ' + Array.from(db.objectStoreNames).join(', ') + '</p>';
+                    result.innerHTML += '<hr><p class="success">🎉 Done! Now go back to Sprint Planning and try again!</p>';
+                    db.close();
+                };
+                
+                openRequest.onerror = function(event) {
+                    result.innerHTML += '<p class="error">❌ Error creating database: ' + event.target.error + '</p>';
+                };
+            };
+            
+            deleteRequest.onerror = function(event) {
+                result.innerHTML = '<p class="error">❌ Error deleting database: ' + event.target.error + '</p>';
+            };
+            
+            deleteRequest.onblocked = function() {
+                result.innerHTML = '<p class="error">❌ Database is blocked! Close all tabs with the dashboard or sprint planning open, then try again.</p>';
+            };
+        }
+    </script>
+</body>
+</html>
