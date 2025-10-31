@@ -198,121 +198,53 @@ class SprintPlanningUI {
   }
   
   async loadTicketsFromCache() {
-    logger.info('Loading tickets from IndexedDB cache');
+    logger.info('Loading tickets from Chrome storage');
     
     try {
-      const db = await this.openDatabase();
-      
       return new Promise((resolve, reject) => {
-        const transaction = db.transaction(['ticketCache'], 'readonly');
-        const store = transaction.objectStore('ticketCache');
-        const request = store.getAll();
-        
-        request.onsuccess = () => {
-          const cachedData = request.result;
+        chrome.storage.local.get(['cachedTickets'], (result) => {
+          if (chrome.runtime.lastError) {
+            logger.error('Error reading from storage:', chrome.runtime.lastError);
+            reject(chrome.runtime.lastError);
+            return;
+          }
           
-          if (cachedData && cachedData.length > 0) {
-            // Extract tickets from cache entries
-            const allTickets = [];
-            cachedData.forEach(entry => {
-              if (entry.tickets && Array.isArray(entry.tickets)) {
-                allTickets.push(...entry.tickets);
-              }
-            });
-            
-            // Remove duplicates by ticket ID
-            const uniqueTickets = Array.from(
-              new Map(allTickets.map(t => [t.id, t])).values()
-            );
-            
-            logger.info(`Loaded ${uniqueTickets.length} tickets from cache`);
-            resolve(uniqueTickets);
+          if (result.cachedTickets && Array.isArray(result.cachedTickets)) {
+            logger.info(`Loaded ${result.cachedTickets.length} tickets from Chrome storage`);
+            resolve(result.cachedTickets);
           } else {
-            logger.warn('No tickets found in cache');
+            logger.warn('No tickets found in Chrome storage');
             resolve([]);
           }
-        };
-        
-        request.onerror = () => {
-          logger.error('Error reading ticket cache:', request.error);
-          reject(request.error);
-        };
+        });
       });
     } catch (error) {
-      logger.error('Error accessing IndexedDB:', error);
+      logger.error('Error accessing Chrome storage:', error);
       return [];
     }
   }
   
   async cacheTickets(tickets) {
-    logger.info('Caching tickets to IndexedDB...');
+    logger.info('Caching tickets to Chrome storage...');
     
     try {
-      const db = await this.openDatabase();
-      
-      // Check if ticketCache store exists
-      if (!db.objectStoreNames.contains('ticketCache')) {
-        logger.warn('ticketCache store does not exist, skipping cache');
-        db.close();
-        return;
-      }
-      
       return new Promise((resolve, reject) => {
-        const transaction = db.transaction(['ticketCache'], 'readwrite');
-        const store = transaction.objectStore('ticketCache');
-        
-        // Create a cache entry with timestamp
-        const cacheEntry = {
-          cacheKey: 'sprint-planning-' + Date.now(),
-          tickets: tickets,
-          timestamp: Date.now(),
-          source: 'sprint-planning'
-        };
-        
-        // Add to cache
-        const request = store.add(cacheEntry);
-        
-        request.onsuccess = () => {
-          logger.info(`Successfully cached ${tickets.length} tickets`);
-          
-          // Clean up old cache entries (keep only last 5)
-          this.cleanupOldCache(store);
-          
-          resolve();
-        };
-        
-        request.onerror = () => {
-          logger.error('Error caching tickets:', request.error);
-          reject(request.error);
-        };
-        
-        transaction.oncomplete = () => {
-          db.close();
-        };
+        chrome.storage.local.set({ 
+          cachedTickets: tickets,
+          cachedTicketsTimestamp: Date.now()
+        }, () => {
+          if (chrome.runtime.lastError) {
+            logger.error('Error caching tickets:', chrome.runtime.lastError);
+            reject(chrome.runtime.lastError);
+          } else {
+            logger.info(`Successfully cached ${tickets.length} tickets to Chrome storage`);
+            resolve();
+          }
+        });
       });
     } catch (error) {
-      logger.error('Error accessing IndexedDB for caching:', error);
+      logger.error('Error accessing Chrome storage for caching:', error);
     }
-  }
-  
-  cleanupOldCache(store) {
-    // Get all cache entries
-    const getAllRequest = store.getAll();
-    
-    getAllRequest.onsuccess = () => {
-      const entries = getAllRequest.result;
-      
-      // Sort by timestamp, newest first
-      entries.sort((a, b) => b.timestamp - a.timestamp);
-      
-      // Delete entries older than the 5 newest
-      if (entries.length > 5) {
-        for (let i = 5; i < entries.length; i++) {
-          store.delete(entries[i].cacheKey);
-          logger.debug('Deleted old cache entry:', entries[i].cacheKey);
-        }
-      }
-    };
   }
   
   async openDatabase() {
