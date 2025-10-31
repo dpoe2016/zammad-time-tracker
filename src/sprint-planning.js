@@ -169,12 +169,8 @@ class SprintPlanningUI {
         try {
           logger.info('Loading tickets from Zammad API...');
           this.tickets = await this.api.getTickets();
-          
-          // Cache the tickets to IndexedDB for future use
-          if (this.tickets && this.tickets.length > 0) {
-            logger.info(`Loaded ${this.tickets.length} tickets from API, caching...`);
-            await this.cacheTickets(this.tickets);
-          }
+          logger.info(`Loaded ${this.tickets.length} tickets from API (auto-cached by API)`);
+          // API automatically caches tickets to chrome.storage
         } catch (apiError) {
           logger.warn('Failed to load from API, trying cache:', apiError);
           // Fallback to IndexedDB cache
@@ -198,22 +194,37 @@ class SprintPlanningUI {
   }
   
   async loadTicketsFromCache() {
-    logger.info('Loading tickets from Chrome storage');
+    logger.info('Loading tickets from Chrome storage (zammadTicketCache)');
     
     try {
       return new Promise((resolve, reject) => {
-        chrome.storage.local.get(['cachedTickets'], (result) => {
+        chrome.storage.local.get(['zammadTicketCache'], (result) => {
           if (chrome.runtime.lastError) {
             logger.error('Error reading from storage:', chrome.runtime.lastError);
             reject(chrome.runtime.lastError);
             return;
           }
           
-          if (result.cachedTickets && Array.isArray(result.cachedTickets)) {
-            logger.info(`Loaded ${result.cachedTickets.length} tickets from Chrome storage`);
-            resolve(result.cachedTickets);
+          if (result.zammadTicketCache) {
+            // zammadTicketCache is an object with cache keys
+            // Collect all tickets from all cache keys
+            const allTickets = [];
+            for (const key in result.zammadTicketCache) {
+              const tickets = result.zammadTicketCache[key];
+              if (Array.isArray(tickets)) {
+                allTickets.push(...tickets);
+              }
+            }
+            
+            // Remove duplicates by ticket ID
+            const uniqueTickets = Array.from(
+              new Map(allTickets.map(t => [t.id, t])).values()
+            );
+            
+            logger.info(`Loaded ${uniqueTickets.length} unique tickets from Chrome storage`);
+            resolve(uniqueTickets);
           } else {
-            logger.warn('No tickets found in Chrome storage');
+            logger.warn('No zammadTicketCache found in Chrome storage');
             resolve([]);
           }
         });
@@ -224,28 +235,6 @@ class SprintPlanningUI {
     }
   }
   
-  async cacheTickets(tickets) {
-    logger.info('Caching tickets to Chrome storage...');
-    
-    try {
-      return new Promise((resolve, reject) => {
-        chrome.storage.local.set({ 
-          cachedTickets: tickets,
-          cachedTicketsTimestamp: Date.now()
-        }, () => {
-          if (chrome.runtime.lastError) {
-            logger.error('Error caching tickets:', chrome.runtime.lastError);
-            reject(chrome.runtime.lastError);
-          } else {
-            logger.info(`Successfully cached ${tickets.length} tickets to Chrome storage`);
-            resolve();
-          }
-        });
-      });
-    } catch (error) {
-      logger.error('Error accessing Chrome storage for caching:', error);
-    }
-  }
   
   async openDatabase() {
     return new Promise((resolve, reject) => {
