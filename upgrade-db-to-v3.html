@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Upgrade Database to Version 3</title>
+    <style>
+        body { font-family: Arial; padding: 20px; background: #f5f5f5; }
+        .box { background: white; padding: 30px; border-radius: 8px; max-width: 700px; margin: 0 auto; }
+        h1 { color: #dc3545; font-size: 24px; }
+        button { background: #dc3545; color: white; border: none; padding: 15px 30px; font-size: 18px; border-radius: 4px; cursor: pointer; margin: 10px; }
+        button:hover { background: #c82333; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .success { color: #28a745; font-weight: bold; }
+        .error { color: #dc3545; font-weight: bold; }
+        pre { background: #f8f9fa; padding: 15px; border-radius: 4px; overflow-x: auto; max-height: 400px; }
+        .warning { background: #fff3cd; padding: 15px; margin: 15px 0; border-left: 4px solid #ffc107; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h1>⚠️ Upgrade Database to Version 3</h1>
+        
+        <div class="warning">
+            <strong>IMPORTANT:</strong>
+            <ol>
+                <li>Close ALL tabs with dashboard or sprint planning</li>
+                <li>Keep ONLY this tab open</li>
+                <li>Existing sprint data will be preserved</li>
+            </ol>
+        </div>
+        
+        <p><strong>Current issue:</strong> ticketCache store is missing</p>
+        <p><strong>Solution:</strong> Upgrade database from v2 to v3 with all required stores</p>
+        
+        <button onclick="upgradeDatabaseToV3()" id="upgradeBtn">Upgrade Database Now</button>
+        
+        <h3>Output:</h3>
+        <pre id="output">Ready... Click the button to upgrade.</pre>
+    </div>
+
+    <script>
+        const output = document.getElementById('output');
+        const btn = document.getElementById('upgradeBtn');
+        
+        function log(msg) {
+            output.textContent += msg + '\n';
+            output.scrollTop = output.scrollHeight;
+        }
+        
+        function clearLog() {
+            output.textContent = '';
+        }
+        
+        async function upgradeDatabaseToV3() {
+            btn.disabled = true;
+            clearLog();
+            log('Starting database upgrade...\n');
+            
+            // Step 1: Check current version
+            log('Step 1: Checking current database version...');
+            try {
+                const checkRequest = indexedDB.open('ZammadTimeTracker');
+                
+                await new Promise((resolve, reject) => {
+                    checkRequest.onsuccess = (e) => {
+                        const db = e.target.result;
+                        const currentVersion = db.version;
+                        const stores = Array.from(db.objectStoreNames);
+                        
+                        log(`Current version: ${currentVersion}`);
+                        log(`Current stores: ${stores.join(', ')}`);
+                        log('');
+                        
+                        db.close();
+                        resolve();
+                    };
+                    
+                    checkRequest.onerror = () => reject(checkRequest.error);
+                });
+                
+            } catch (error) {
+                log('Error checking version: ' + error.message);
+            }
+            
+            // Step 2: Delete and recreate
+            log('Step 2: Deleting old database...');
+            
+            const deleteRequest = indexedDB.deleteDatabase('ZammadTimeTracker');
+            
+            deleteRequest.onsuccess = function() {
+                log('✅ Database deleted\n');
+                log('Step 3: Creating version 3 with all stores...\n');
+                
+                const openRequest = indexedDB.open('ZammadTimeTracker', 3);
+                
+                openRequest.onupgradeneeded = function(event) {
+                    const db = event.target.result;
+                    log(`Upgrading from version ${event.oldVersion} to 3\n`);
+                    
+                    // All stores including ticketCache
+                    const allStores = [
+                        { 
+                            name: 'customerCache', 
+                            keyPath: 'id', 
+                            indexes: [{ name: 'timestamp', key: 'timestamp' }] 
+                        },
+                        { 
+                            name: 'ticketCache', 
+                            keyPath: 'cacheKey', 
+                            indexes: [{ name: 'timestamp', key: 'timestamp' }] 
+                        },
+                        { 
+                            name: 'apiEndpoints', 
+                            keyPath: 'id' 
+                        },
+                        { 
+                            name: 'apiFeatures', 
+                            keyPath: 'id' 
+                        },
+                        { 
+                            name: 'userProfile', 
+                            keyPath: 'id' 
+                        },
+                        { 
+                            name: 'timeEntryCache', 
+                            keyPath: 'cacheKey', 
+                            indexes: [{ name: 'timestamp', key: 'timestamp' }] 
+                        },
+                        { 
+                            name: 'sprints', 
+                            keyPath: 'id', 
+                            autoIncrement: true, 
+                            indexes: [
+                                { name: 'status', key: 'status' },
+                                { name: 'startDate', key: 'startDate' }
+                            ]
+                        },
+                        { 
+                            name: 'sprintAssignments', 
+                            keyPath: 'id', 
+                            autoIncrement: true, 
+                            indexes: [
+                                { name: 'sprintId', key: 'sprintId' },
+                                { name: 'ticketId', key: 'ticketId' }
+                            ]
+                        }
+                    ];
+                    
+                    allStores.forEach(storeConfig => {
+                        if (!db.objectStoreNames.contains(storeConfig.name)) {
+                            const options = { keyPath: storeConfig.keyPath };
+                            if (storeConfig.autoIncrement) options.autoIncrement = true;
+                            
+                            const store = db.createObjectStore(storeConfig.name, options);
+                            
+                            if (storeConfig.indexes) {
+                                storeConfig.indexes.forEach(index => {
+                                    store.createIndex(index.name, index.key, { unique: false });
+                                });
+                            }
+                            
+                            log(`✅ Created: ${storeConfig.name}`);
+                        }
+                    });
+                };
+                
+                openRequest.onsuccess = function(e) {
+                    const db = e.target.result;
+                    log('\n🎉 Database upgraded successfully!');
+                    log('\n=== Final Status ===');
+                    log('Version: ' + db.version);
+                    log('\nAll stores:');
+                    Array.from(db.objectStoreNames).forEach(s => log('  ✅ ' + s));
+                    
+                    // Verify critical stores
+                    log('\n=== Verification ===');
+                    const hasTicketCache = db.objectStoreNames.contains('ticketCache');
+                    const hasSprints = db.objectStoreNames.contains('sprints');
+                    const hasSprintAssignments = db.objectStoreNames.contains('sprintAssignments');
+                    
+                    log('ticketCache: ' + (hasTicketCache ? '✅ EXISTS' : '❌ MISSING'));
+                    log('sprints: ' + (hasSprints ? '✅ EXISTS' : '❌ MISSING'));
+                    log('sprintAssignments: ' + (hasSprintAssignments ? '✅ EXISTS' : '❌ MISSING'));
+                    
+                    if (hasTicketCache && hasSprints && hasSprintAssignments) {
+                        log('\n🎉🎉🎉 ALL STORES CREATED SUCCESSFULLY! 🎉🎉🎉');
+                        log('\nNext steps:');
+                        log('1. Close this tab');
+                        log('2. Open Sprint Planning');
+                        log('3. Tickets should load and cache!');
+                    } else {
+                        log('\n❌ Some stores are missing - please report this error');
+                    }
+                    
+                    db.close();
+                    btn.disabled = false;
+                    btn.textContent = 'Upgrade Complete!';
+                    btn.style.background = '#28a745';
+                };
+                
+                openRequest.onerror = function(e) {
+                    log('\n❌ Error creating database: ' + e.target.error);
+                    btn.disabled = false;
+                };
+            };
+            
+            deleteRequest.onerror = function(e) {
+                log('❌ Error deleting database: ' + e.target.error);
+                log('\nPossible issues:');
+                log('- Other tabs are using the database');
+                log('- Close ALL tabs and try again');
+                btn.disabled = false;
+            };
+            
+            deleteRequest.onblocked = function() {
+                log('❌ DATABASE IS BLOCKED!');
+                log('\nSolution:');
+                log('1. Close ALL tabs with dashboard or sprint planning');
+                log('2. Close any DevTools windows');
+                log('3. Try again');
+                btn.disabled = false;
+            };
+        }
+    </script>
+</body>
+</html>
