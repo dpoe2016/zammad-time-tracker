@@ -1760,6 +1760,17 @@ class ZammadAPI {
   }
 
   /**
+   * Get all tickets (alias for getAssignedTickets for compatibility)
+   * Used by sprint planning and other modules
+   * @param {boolean} forceRefresh - Force refresh from API
+   * @returns {Array} Array of tickets
+   */
+  async getTickets(forceRefresh = false) {
+    console.log('getTickets() called - delegating to getAssignedTickets()');
+    return await this.getAssignedTickets(forceRefresh);
+  }
+
+  /**
    * Get tickets for a specific user
    * @param {string|number} userId - User ID to get tickets for
    * @returns {Array} Array of tickets
