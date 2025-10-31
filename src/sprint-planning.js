@@ -167,7 +167,14 @@ class SprintPlanningUI {
       // Load tickets from API or IndexedDB cache
       if (this.api) {
         try {
+          logger.info('Loading tickets from Zammad API...');
           this.tickets = await this.api.getTickets();
+          
+          // Cache the tickets to IndexedDB for future use
+          if (this.tickets && this.tickets.length > 0) {
+            logger.info(`Loaded ${this.tickets.length} tickets from API, caching...`);
+            await this.cacheTickets(this.tickets);
+          }
         } catch (apiError) {
           logger.warn('Failed to load from API, trying cache:', apiError);
           // Fallback to IndexedDB cache
@@ -175,6 +182,7 @@ class SprintPlanningUI {
         }
       } else {
         // No API configured, load from cache
+        logger.info('No API configured, loading from cache...');
         this.tickets = await this.loadTicketsFromCache();
       }
       
@@ -234,6 +242,77 @@ class SprintPlanningUI {
       logger.error('Error accessing IndexedDB:', error);
       return [];
     }
+  }
+  
+  async cacheTickets(tickets) {
+    logger.info('Caching tickets to IndexedDB...');
+    
+    try {
+      const db = await this.openDatabase();
+      
+      // Check if ticketCache store exists
+      if (!db.objectStoreNames.contains('ticketCache')) {
+        logger.warn('ticketCache store does not exist, skipping cache');
+        db.close();
+        return;
+      }
+      
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction(['ticketCache'], 'readwrite');
+        const store = transaction.objectStore('ticketCache');
+        
+        // Create a cache entry with timestamp
+        const cacheEntry = {
+          cacheKey: 'sprint-planning-' + Date.now(),
+          tickets: tickets,
+          timestamp: Date.now(),
+          source: 'sprint-planning'
+        };
+        
+        // Add to cache
+        const request = store.add(cacheEntry);
+        
+        request.onsuccess = () => {
+          logger.info(`Successfully cached ${tickets.length} tickets`);
+          
+          // Clean up old cache entries (keep only last 5)
+          this.cleanupOldCache(store);
+          
+          resolve();
+        };
+        
+        request.onerror = () => {
+          logger.error('Error caching tickets:', request.error);
+          reject(request.error);
+        };
+        
+        transaction.oncomplete = () => {
+          db.close();
+        };
+      });
+    } catch (error) {
+      logger.error('Error accessing IndexedDB for caching:', error);
+    }
+  }
+  
+  cleanupOldCache(store) {
+    // Get all cache entries
+    const getAllRequest = store.getAll();
+    
+    getAllRequest.onsuccess = () => {
+      const entries = getAllRequest.result;
+      
+      // Sort by timestamp, newest first
+      entries.sort((a, b) => b.timestamp - a.timestamp);
+      
+      // Delete entries older than the 5 newest
+      if (entries.length > 5) {
+        for (let i = 5; i < entries.length; i++) {
+          store.delete(entries[i].cacheKey);
+          logger.debug('Deleted old cache entry:', entries[i].cacheKey);
+        }
+      }
+    };
   }
   
   async openDatabase() {
