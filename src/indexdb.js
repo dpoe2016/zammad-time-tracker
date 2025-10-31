@@ -6,7 +6,7 @@
 class ZammadIndexedDB {
   constructor() {
     this.dbName = 'ZammadTimeTracker';
-    this.version = 1;
+    this.version = 2; // Incremented for sprint planning stores
     this.db = null;
     this.initPromise = null;
   }
@@ -82,6 +82,22 @@ class ZammadIndexedDB {
           const timeEntryStore = db.createObjectStore('timeEntryCache', { keyPath: 'cacheKey' });
           timeEntryStore.createIndex('timestamp', 'timestamp', { unique: false });
           console.log('Created timeEntryCache object store');
+        }
+
+        // Sprint stores
+        if (!db.objectStoreNames.contains('sprints')) {
+          const sprintStore = db.createObjectStore('sprints', { keyPath: 'id', autoIncrement: true });
+          sprintStore.createIndex('status', 'status', { unique: false });
+          sprintStore.createIndex('startDate', 'startDate', { unique: false });
+          console.log('Created sprints object store');
+        }
+
+        // Sprint assignments store
+        if (!db.objectStoreNames.contains('sprintAssignments')) {
+          const assignmentStore = db.createObjectStore('sprintAssignments', { keyPath: 'id', autoIncrement: true });
+          assignmentStore.createIndex('sprintId', 'sprintId', { unique: false });
+          assignmentStore.createIndex('ticketId', 'ticketId', { unique: false });
+          console.log('Created sprintAssignments object store');
         }
       };
     });

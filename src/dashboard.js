@@ -30,6 +30,7 @@ class ZammadDashboard {
       // Buttons
       this.refreshBtn = document.getElementById('refreshBtn');
       this.optionsBtn = document.getElementById('optionsBtn');
+      this.sprintPlanningBtn = document.getElementById('sprintPlanningBtn');
 
       // Time tracking elements
       this.statusDot = document.getElementById('statusDot');
@@ -453,6 +454,14 @@ class ZammadDashboard {
       logger.info('Refresh button clicked - forcing refresh');
       this.loadTickets(true);
     });
+
+    // Sprint Planning button
+    if (this.sprintPlanningBtn) {
+      this.sprintPlanningBtn.addEventListener('click', () => {
+        logger.info('Sprint Planning button clicked');
+        window.location.href = 'sprint-planning.html';
+      });
+    }
 
     // Options button
     this.optionsBtn.addEventListener('click', () => {

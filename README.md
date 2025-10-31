@@ -16,6 +16,7 @@ A comprehensive Chrome extension for tracking time on Zammad tickets with advanc
 ### 📊 Dashboard & Interface
 - **Tabbed Interface** - Organized into Current, Tickets, and History tabs
 - **Full-Page Kanban Board** - Comprehensive ticket management with drag & drop
+- **Sprint Planning** - Agile sprint management with backlog and capacity planning
 - **Multiple View Modes**:
   - State View (by ticket status: New, Open, In Progress, Waiting, Closed)
   - Agent View (by assigned user)
@@ -27,6 +28,15 @@ A comprehensive Chrome extension for tracking time on Zammad tickets with advanc
   - Priority Filter (Low, Normal, High, Urgent)
   - State Filter (by ticket status)
 - **Real-time Updates** - Instant filtering and updates without page reload
+
+### 🎯 Sprint Planning (NEW in v3.3.0)
+- **Sprint Management** - Create, start, and complete sprints with goals and dates
+- **Backlog Organization** - Drag-and-drop tickets between backlog and sprint
+- **Time Estimation** - Estimate hours for sprint tickets
+- **Capacity Planning** - Track total estimated hours and progress
+- **Sprint Statistics** - Monitor completion rates and ticket counts
+- **Sprint History** - Keep track of completed sprints
+- See [SPRINT_PLANNING.md](SPRINT_PLANNING.md) for detailed documentation
 
 ### 🔗 Integration Capabilities
 - **Dual API Strategy**:

@@ -617,6 +617,33 @@ function t(key, placeholders = []) {
 }
 
 // Initialize language when script is loaded
+  // Sprint Planning
+  sprintPlanningBtnText: {
+    [LANGUAGES.DE]: '📋 Sprint-Planung',
+    [LANGUAGES.EN]: '📋 Sprint Planning',
+  },
+  sprintPlanningTitle: {
+    [LANGUAGES.DE]: 'Sprint-Planung',
+    [LANGUAGES.EN]: 'Sprint Planning',
+  },
+  createSprintBtnText: {
+    [LANGUAGES.DE]: '+ Neuer Sprint',
+    [LANGUAGES.EN]: '+ New Sprint',
+  },
+  sprintSelectLabel: {
+    [LANGUAGES.DE]: 'Aktueller Sprint:',
+    [LANGUAGES.EN]: 'Current Sprint:',
+  },
+  backlogTitle: {
+    [LANGUAGES.DE]: 'Backlog',
+    [LANGUAGES.EN]: 'Backlog',
+  },
+  sprintTitle: {
+    [LANGUAGES.DE]: 'Sprint-Tickets',
+    [LANGUAGES.EN]: 'Sprint Tickets',
+  },
+};
+
 initLanguage();
 
 // Export functions for use in other scripts

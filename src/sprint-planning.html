@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sprint Planning - Zammad Time Tracker</title>
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="sprint-planning.css" />
+    <script src="translations.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <div class="header-top">
+          <h1 id="sprintPlanningTitle">Sprint Planning</h1>
+          <div class="header-actions">
+            <button id="backToDashboardBtn" class="btn btn-secondary">
+              <span>← Dashboard</span>
+            </button>
+            <button id="createSprintBtn" class="btn btn-primary">
+              <span id="createSprintBtnText">+ New Sprint</span>
+            </button>
+            <button id="refreshBtn" class="btn btn-secondary">
+              <span class="refresh-icon">↻</span>
+              <span id="refreshBtnText">Refresh</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Sprint Selector -->
+        <div class="sprint-selector-row">
+          <div class="filter-container">
+            <label for="sprintSelect" id="sprintSelectLabel">Current Sprint:</label>
+            <select id="sprintSelect" class="filter-select">
+              <option value="backlog">Backlog (No Sprint)</option>
+              <!-- Sprints will be populated dynamically -->
+            </select>
+          </div>
+          <div id="sprintInfo" class="sprint-info" style="display: none;">
+            <div class="sprint-dates">
+              <span id="sprintDates"></span>
+            </div>
+            <div class="sprint-actions">
+              <button id="editSprintBtn" class="btn btn-small btn-secondary">Edit</button>
+              <button id="startSprintBtn" class="btn btn-small btn-success" style="display: none;">Start Sprint</button>
+              <button id="completeSprintBtn" class="btn btn-small btn-warning" style="display: none;">Complete Sprint</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sprint Stats -->
+        <div id="sprintStats" class="sprint-stats" style="display: none;">
+          <div class="stat-card">
+            <div class="stat-label">Total Tickets</div>
+            <div class="stat-value" id="statTotalTickets">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Completed</div>
+            <div class="stat-value" id="statCompletedTickets">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Estimated Hours</div>
+            <div class="stat-value" id="statEstimatedHours">0h</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Progress</div>
+            <div class="stat-value" id="statProgress">0%</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="errorContainer" style="display: none" class="error-message"></div>
+      <div id="loadingContainer" class="loading">
+        <span id="loadingText">Loading sprint data...</span>
+      </div>
+
+      <!-- Sprint Planning Board -->
+      <div id="sprintBoard" class="sprint-board" style="display: none;">
+        <!-- Backlog Column -->
+        <div class="sprint-column backlog-column">
+          <div class="column-header">
+            <span id="backlogTitle">Backlog</span>
+            <span class="count" id="backlogCount">0</span>
+          </div>
+          <div class="column-filters">
+            <input type="text" id="backlogSearch" class="search-input-small" placeholder="Search..." />
+            <select id="backlogFilter" class="filter-select-small">
+              <option value="all">All States</option>
+              <option value="new">New</option>
+              <option value="open">Open</option>
+              <option value="progress">In Progress</option>
+              <option value="waiting">Waiting</option>
+            </select>
+          </div>
+          <div class="ticket-list sprint-ticket-list" id="backlogTickets" data-droppable="backlog">
+            <div class="empty-state">No tickets in backlog</div>
+          </div>
+        </div>
+
+        <!-- Sprint Column -->
+        <div class="sprint-column sprint-tickets-column">
+          <div class="column-header">
+            <span id="sprintTitle">Sprint Tickets</span>
+            <span class="count" id="sprintCount">0</span>
+          </div>
+          <div class="column-filters">
+            <input type="text" id="sprintSearch" class="search-input-small" placeholder="Search..." />
+            <select id="sprintStateFilter" class="filter-select-small">
+              <option value="all">All States</option>
+              <option value="new">New</option>
+              <option value="open">Open</option>
+              <option value="progress">In Progress</option>
+              <option value="waiting">Waiting</option>
+              <option value="closed">Closed</option>
+            </select>
+          </div>
+          <div class="ticket-list sprint-ticket-list" id="sprintTickets" data-droppable="sprint">
+            <div class="empty-state">Drag tickets here to add to sprint</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Create/Edit Sprint Modal -->
+    <div id="sprintModal" class="modal" style="display: none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 id="sprintModalTitle">Create New Sprint</h2>
+          <button class="modal-close" id="closeSprintModal">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="sprintName">Sprint Name *</label>
+            <input type="text" id="sprintName" class="form-input" placeholder="e.g., Sprint 1, Week 45" required />
+          </div>
+          <div class="form-group">
+            <label for="sprintStartDate">Start Date *</label>
+            <input type="date" id="sprintStartDate" class="form-input" required />
+          </div>
+          <div class="form-group">
+            <label for="sprintEndDate">End Date *</label>
+            <input type="date" id="sprintEndDate" class="form-input" required />
+          </div>
+          <div class="form-group">
+            <label for="sprintGoal">Sprint Goal</label>
+            <textarea id="sprintGoal" class="form-textarea" rows="3" placeholder="What do you want to achieve in this sprint?"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="cancelSprintBtn" class="btn btn-secondary">Cancel</button>
+          <button id="saveSprintBtn" class="btn btn-primary">Save Sprint</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ticket Estimation Modal -->
+    <div id="estimationModal" class="modal" style="display: none;">
+      <div class="modal-content modal-small">
+        <div class="modal-header">
+          <h2 id="estimationModalTitle">Set Time Estimate</h2>
+          <button class="modal-close" id="closeEstimationModal">×</button>
+        </div>
+        <div class="modal-body">
+          <p id="estimationTicketInfo">Ticket: #<span id="estimationTicketId"></span></p>
+          <div class="form-group">
+            <label for="estimatedHours">Estimated Hours</label>
+            <input type="number" id="estimatedHours" class="form-input" min="0" step="0.5" placeholder="0" />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="cancelEstimationBtn" class="btn btn-secondary">Cancel</button>
+          <button id="saveEstimationBtn" class="btn btn-primary">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="utilities.js"></script>
+    <script src="logger.js"></script>
+    <script src="storage.js"></script>
+    <script src="api.js"></script>
+    <script src="sprint.js"></script>
+    <script src="sprint-planning.js"></script>
+  </body>
+</html>

@@ -1,0 +1,464 @@
+/* Sprint Planning Specific Styles */
+
+.sprint-selector-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-top: 15px;
+  padding: 10px 0;
+  border-top: 1px solid #e1e4e8;
+}
+
+.sprint-info {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  flex: 1;
+}
+
+.sprint-dates {
+  color: #586069;
+  font-size: 14px;
+}
+
+.sprint-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-small {
+  padding: 4px 12px;
+  font-size: 13px;
+}
+
+.btn-success {
+  background-color: #28a745;
+  color: white;
+}
+
+.btn-success:hover {
+  background-color: #218838;
+}
+
+.btn-warning {
+  background-color: #ffc107;
+  color: #212529;
+}
+
+.btn-warning:hover {
+  background-color: #e0a800;
+}
+
+/* Sprint Stats */
+.sprint-stats {
+  display: flex;
+  gap: 15px;
+  margin-top: 15px;
+  padding: 15px 0;
+  border-top: 1px solid #e1e4e8;
+}
+
+.stat-card {
+  flex: 1;
+  background: #f6f8fa;
+  border: 1px solid #e1e4e8;
+  border-radius: 6px;
+  padding: 12px;
+  text-align: center;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #586069;
+  text-transform: uppercase;
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: bold;
+  color: #24292e;
+}
+
+/* Sprint Board Layout */
+.sprint-board {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  padding: 20px 0;
+  height: calc(100vh - 350px);
+  min-height: 400px;
+}
+
+.sprint-column {
+  display: flex;
+  flex-direction: column;
+  background: #f6f8fa;
+  border: 2px solid #e1e4e8;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.backlog-column {
+  border-color: #0366d6;
+}
+
+.sprint-tickets-column {
+  border-color: #28a745;
+}
+
+.column-filters {
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px;
+  background: white;
+  border-bottom: 1px solid #e1e4e8;
+}
+
+.search-input-small {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid #e1e4e8;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.filter-select-small {
+  padding: 6px 10px;
+  border: 1px solid #e1e4e8;
+  border-radius: 4px;
+  font-size: 13px;
+  background: white;
+}
+
+.sprint-ticket-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  min-height: 200px;
+}
+
+.sprint-ticket-list.drag-over {
+  background: #e3f2fd;
+  border: 2px dashed #2196f3;
+}
+
+.empty-state {
+  text-align: center;
+  color: #586069;
+  padding: 40px 20px;
+  font-style: italic;
+}
+
+/* Sprint Ticket Card */
+.sprint-ticket-card {
+  background: white;
+  border: 1px solid #e1e4e8;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 8px;
+  cursor: grab;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.sprint-ticket-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.sprint-ticket-card.dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+}
+
+.sprint-ticket-card.in-sprint {
+  border-left: 4px solid #28a745;
+}
+
+.ticket-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.ticket-number {
+  font-weight: bold;
+  color: #0366d6;
+  font-size: 13px;
+}
+
+.ticket-state-badge {
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.state-new {
+  background: #ffd700;
+  color: #333;
+}
+
+.state-open {
+  background: #28a745;
+  color: white;
+}
+
+.state-progress {
+  background: #0366d6;
+  color: white;
+}
+
+.state-waiting {
+  background: #6f42c1;
+  color: white;
+}
+
+.state-closed {
+  background: #6c757d;
+  color: white;
+}
+
+.ticket-title-text {
+  font-size: 14px;
+  color: #24292e;
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+
+.ticket-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  color: #586069;
+  flex-wrap: wrap;
+}
+
+.ticket-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.priority-badge {
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.priority-1 {
+  background: #d1ecf1;
+  color: #0c5460;
+}
+
+.priority-2 {
+  background: #d4edda;
+  color: #155724;
+}
+
+.priority-3 {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.priority-4 {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.ticket-estimate {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e1e4e8;
+  font-size: 12px;
+  color: #586069;
+}
+
+.estimate-value {
+  font-weight: 600;
+  color: #0366d6;
+}
+
+.estimate-edit-btn {
+  margin-left: auto;
+  padding: 2px 8px;
+  font-size: 11px;
+  background: #f6f8fa;
+  border: 1px solid #e1e4e8;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.estimate-edit-btn:hover {
+  background: #e1e4e8;
+}
+
+/* Modal Styles */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.modal-small {
+  max-width: 400px;
+}
+
+.modal-header {
+  padding: 20px;
+  border-bottom: 1px solid #e1e4e8;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 20px;
+  color: #24292e;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 28px;
+  color: #586069;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.modal-close:hover {
+  background: #f6f8fa;
+}
+
+.modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.modal-footer {
+  padding: 20px;
+  border-top: 1px solid #e1e4e8;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 600;
+  color: #24292e;
+  font-size: 14px;
+}
+
+.form-input,
+.form-textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #e1e4e8;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+
+.form-input:focus,
+.form-textarea:focus {
+  outline: none;
+  border-color: #0366d6;
+  box-shadow: 0 0 0 3px rgba(3, 102, 214, 0.1);
+}
+
+.form-textarea {
+  resize: vertical;
+}
+
+/* Scrollbar Styling */
+.sprint-ticket-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.sprint-ticket-list::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.sprint-ticket-list::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.sprint-ticket-list::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .sprint-board {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+
+  .sprint-column {
+    min-height: 400px;
+  }
+}
+
+@media (max-width: 768px) {
+  .sprint-stats {
+    flex-wrap: wrap;
+  }
+
+  .stat-card {
+    flex: 1 1 calc(50% - 8px);
+  }
+
+  .sprint-selector-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .sprint-info {
+    width: 100%;
+  }
+}
