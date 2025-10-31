@@ -29,12 +29,39 @@ class SprintManager {
       request.onsuccess = () => {
         this.db = request.result;
         console.log('Sprint DB initialized successfully');
+        
+        // Verify stores exist
+        if (!this.db.objectStoreNames.contains('sprints') || 
+            !this.db.objectStoreNames.contains('sprintAssignments')) {
+          console.error('Sprint stores not found! Database needs upgrade.');
+          this.db.close();
+          this.db = null;
+          reject(new Error('Sprint stores not found. Please reload the extension.'));
+          return;
+        }
+        
         resolve(this.db);
       };
 
-      request.onupgradeneeded = () => {
-        // Schema is handled by indexdb.js
-        console.log('Sprint DB upgrade handled by shared indexdb.js');
+      request.onupgradeneeded = (event) => {
+        const db = event.target.result;
+        console.log('Sprint DB upgrade needed, creating stores...');
+
+        // Sprint store
+        if (!db.objectStoreNames.contains('sprints')) {
+          const sprintStore = db.createObjectStore('sprints', { keyPath: 'id', autoIncrement: true });
+          sprintStore.createIndex('status', 'status', { unique: false });
+          sprintStore.createIndex('startDate', 'startDate', { unique: false });
+          console.log('Created sprints object store');
+        }
+
+        // Sprint assignments store
+        if (!db.objectStoreNames.contains('sprintAssignments')) {
+          const assignmentStore = db.createObjectStore('sprintAssignments', { keyPath: 'id', autoIncrement: true });
+          assignmentStore.createIndex('sprintId', 'sprintId', { unique: false });
+          assignmentStore.createIndex('ticketId', 'ticketId', { unique: false });
+          console.log('Created sprintAssignments object store');
+        }
       };
     });
   }
