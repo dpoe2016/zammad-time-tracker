@@ -1766,3 +1766,30 @@ html {
 .sidebar-content .state-closed {
   color: #95a5a6;
 }
+
+/* Details/Summary styling for articles section */
+.ticket-tooltip-section details > summary {
+  transition: opacity 0.2s ease;
+}
+
+.ticket-tooltip-section details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.ticket-tooltip-section details > summary::marker {
+  display: none;
+}
+
+.ticket-tooltip-section details > summary:hover {
+  opacity: 0.7;
+}
+
+.ticket-tooltip-section details[open] > summary .details-arrow {
+  transform: rotate(90deg);
+  transition: transform 0.2s ease;
+}
+
+.ticket-tooltip-section details:not([open]) > summary .details-arrow {
+  transform: rotate(0deg);
+  transition: transform 0.2s ease;
+}
