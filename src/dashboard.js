@@ -5231,7 +5231,7 @@ ${content}
                   articleCount > 0
                     ? `
                 <div class="ticket-tooltip-section">
-                    <details>
+                    <details open>
                         <summary style="cursor: pointer; user-select: none; list-style: none; display: flex; align-items: center; gap: 8px; padding: 4px 0;">
                             <span class="details-arrow" style="font-size: 10px;">▶</span>
                             <span class="ticket-tooltip-label" style="margin: 0; text-transform: none;">Articles (${articleCount})${hasAttachments ? ' 📎' : ''}</span>
