@@ -286,6 +286,22 @@ class SprintManager {
   }
 
   /**
+   * Get all sprint assignments (across all sprints)
+   */
+  async getAllSprintAssignments() {
+    await this.init();
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db.transaction(['sprintAssignments'], 'readonly');
+      const store = transaction.objectStore('sprintAssignments');
+      const request = store.getAll();
+
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  /**
    * Get sprint for ticket
    */
   async getTicketSprint(ticketId) {

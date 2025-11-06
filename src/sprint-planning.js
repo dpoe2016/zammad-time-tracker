@@ -315,22 +315,31 @@ class SprintPlanningUI {
   }
   
   async renderTickets() {
-    const sprintAssignments = this.currentSprintId !== 'backlog' 
+    // When viewing backlog, we need to filter out ALL tickets assigned to ANY sprint
+    // When viewing a specific sprint, we only care about that sprint's assignments
+    const sprintAssignments = this.currentSprintId !== 'backlog'
       ? await sprintManager.getSprintTickets(parseInt(this.currentSprintId))
       : [];
-    
+
+    // For backlog view, get all assignments across all sprints to filter them out
+    const allAssignments = this.currentSprintId === 'backlog'
+      ? await sprintManager.getAllSprintAssignments()
+      : sprintAssignments;
+
     const sprintTicketIds = new Set(sprintAssignments.map(a => a.ticketId));
+    const allAssignedTicketIds = new Set(allAssignments.map(a => a.ticketId));
     const assignmentMap = new Map(sprintAssignments.map(a => [a.ticketId, a]));
-    
-    const backlogTickets = this.tickets.filter(t => !sprintTicketIds.has(t.id));
+
+    // Backlog shows only tickets NOT assigned to any sprint
+    const backlogTickets = this.tickets.filter(t => !allAssignedTicketIds.has(t.id));
     const currentSprintTickets = this.tickets.filter(t => sprintTicketIds.has(t.id));
-    
+
     this.renderTicketList(this.backlogTickets, backlogTickets, assignmentMap, false);
     this.renderTicketList(this.sprintTickets, currentSprintTickets, assignmentMap, true);
-    
+
     this.backlogCount.textContent = backlogTickets.length;
     this.sprintCount.textContent = currentSprintTickets.length;
-    
+
     this.filterTickets();
   }
   
