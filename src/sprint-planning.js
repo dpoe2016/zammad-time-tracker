@@ -81,8 +81,10 @@ class SprintPlanningUI {
       this.showError('API not configured. Please go to Options and set your Zammad URL and API token.');
       return;
     }
-    
-    this.api = new ZammadAPI(config.baseUrl, config.apiToken);
+
+    this.api = new ZammadAPI();
+    await this.api.init(config.baseUrl, config.apiToken);
+    logger.info('Zammad API initialized for sprint planning');
   }
   
   initEventListeners() {
@@ -504,19 +506,38 @@ class SprintPlanningUI {
       if (targetZone === 'backlog') {
         // Remove from sprint in Zammad (synced across users)
         if (this.api) {
-          await this.api.removeTicketFromSprint(ticketId);
+          try {
+            logger.info(`Removing tag from ticket ${ticketId} in Zammad...`);
+            await this.api.removeTicketFromSprint(ticketId);
+            logger.info(`✓ Tag removed from ticket ${ticketId} in Zammad`);
+          } catch (tagError) {
+            logger.error(`Failed to remove tag from ticket ${ticketId} in Zammad:`, tagError);
+            // Continue with local assignment removal even if Zammad fails
+          }
+        } else {
+          logger.warn('API not initialized - skipping Zammad tag removal');
         }
         // Also remove local assignment for time estimates
         await sprintManager.removeTicketFromSprint(ticketId);
-        logger.info(`Ticket ${ticketId} removed from sprint`);
+        logger.info(`Ticket ${ticketId} removed from sprint (local)`);
       } else if (targetZone === 'sprint' && this.currentSprintId !== 'backlog') {
         // Assign to sprint in Zammad (synced across users)
         if (this.api) {
-          await this.api.assignTicketToSprint(ticketId, parseInt(this.currentSprintId));
+          try {
+            logger.info(`Adding tag sprint-${this.currentSprintId} to ticket ${ticketId} in Zammad...`);
+            await this.api.assignTicketToSprint(ticketId, parseInt(this.currentSprintId));
+            logger.info(`✓ Tag sprint-${this.currentSprintId} added to ticket ${ticketId} in Zammad`);
+          } catch (tagError) {
+            logger.error(`Failed to add tag to ticket ${ticketId} in Zammad:`, tagError);
+            this.showError(`Warning: Tag not added in Zammad. ${tagError.message}`);
+            // Continue with local assignment even if Zammad fails
+          }
+        } else {
+          logger.warn('API not initialized - skipping Zammad tag assignment');
         }
         // Also create local assignment for time estimates
         await sprintManager.assignTicketToSprint(ticketId, parseInt(this.currentSprintId));
-        logger.info(`Ticket ${ticketId} assigned to sprint ${this.currentSprintId}`);
+        logger.info(`Ticket ${ticketId} assigned to sprint ${this.currentSprintId} (local)`);
       }
 
       await this.renderTickets();

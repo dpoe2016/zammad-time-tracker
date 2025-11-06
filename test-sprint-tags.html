@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Sprint Tags API</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 3px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .success { color: green; }
+        .error { color: red; }
+        .warning { color: orange; }
+    </style>
+</head>
+<body>
+    <h1>Sprint Tags API Test</h1>
+    <p>This page tests the Zammad tag API for sprint planning sync.</p>
+
+    <div class="test-section">
+        <h2>1. API Initialization</h2>
+        <button onclick="testAPIInit()">Initialize API</button>
+        <div id="init-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>2. Add Tag to Ticket</h2>
+        <label>Ticket ID: <input type="number" id="ticket-id" value="" placeholder="e.g., 123"></label>
+        <label>Tag Name: <input type="text" id="tag-name" value="sprint-1" placeholder="e.g., sprint-1"></label>
+        <button onclick="testAddTag()">Add Tag</button>
+        <div id="add-tag-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>3. Get Ticket Tags</h2>
+        <label>Ticket ID: <input type="number" id="get-ticket-id" value="" placeholder="e.g., 123"></label>
+        <button onclick="testGetTags()">Get Tags</button>
+        <div id="get-tags-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>4. Remove Tag from Ticket</h2>
+        <label>Ticket ID: <input type="number" id="remove-ticket-id" value="" placeholder="e.g., 123"></label>
+        <label>Tag Name: <input type="text" id="remove-tag-name" value="sprint-1" placeholder="e.g., sprint-1"></label>
+        <button onclick="testRemoveTag()">Remove Tag</button>
+        <div id="remove-tag-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>5. Full Sprint Assignment Test</h2>
+        <label>Ticket ID: <input type="number" id="sprint-ticket-id" value="" placeholder="e.g., 123"></label>
+        <label>Sprint ID: <input type="number" id="sprint-id" value="1" placeholder="e.g., 1"></label>
+        <button onclick="testSprintAssignment()">Assign to Sprint</button>
+        <div id="sprint-result" class="result"></div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="utilities.js"></script>
+    <script src="logger.js"></script>
+    <script src="storage.js"></script>
+    <script src="api.js"></script>
+    <script src="api-sprint-tags.js"></script>
+
+    <script>
+        let api = null;
+
+        async function testAPIInit() {
+            const resultDiv = document.getElementById('init-result');
+            try {
+                resultDiv.innerHTML = 'Initializing API...';
+
+                // Load config from storage
+                const config = await storage.loadMultiple(['baseUrl', 'apiToken']);
+
+                if (!config.baseUrl || !config.apiToken) {
+                    throw new Error('API not configured. Please set baseUrl and apiToken in extension options.');
+                }
+
+                resultDiv.innerHTML = `Found config:\nBase URL: ${config.baseUrl}\nToken: ${config.apiToken.substring(0, 10)}...\n\nInitializing...`;
+
+                // Create and initialize API
+                api = new ZammadAPI();
+                await api.init(config.baseUrl, config.apiToken);
+
+                resultDiv.innerHTML = `<span class="success">✓ API Initialized Successfully!</span>\n\nBase URL: ${config.baseUrl}\nInitialized: ${api.initialized}\nToken Set: ${!!api.token}`;
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">✗ Error: ${error.message}</span>\n${error.stack}`;
+                console.error('API init error:', error);
+            }
+        }
+
+        async function testAddTag() {
+            const resultDiv = document.getElementById('add-tag-result');
+            try {
+                if (!api || !api.initialized) {
+                    throw new Error('API not initialized. Click "Initialize API" first.');
+                }
+
+                const ticketId = parseInt(document.getElementById('ticket-id').value);
+                const tagName = document.getElementById('tag-name').value;
+
+                if (!ticketId) {
+                    throw new Error('Please enter a ticket ID');
+                }
+
+                resultDiv.innerHTML = `Adding tag "${tagName}" to ticket ${ticketId}...`;
+
+                const result = await api.addTag(ticketId, tagName);
+
+                resultDiv.innerHTML = `<span class="success">✓ Tag Added Successfully!</span>\n\nTicket ID: ${ticketId}\nTag: ${tagName}\nResult: ${JSON.stringify(result, null, 2)}`;
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">✗ Error: ${error.message}</span>\n${error.stack}`;
+                console.error('Add tag error:', error);
+            }
+        }
+
+        async function testGetTags() {
+            const resultDiv = document.getElementById('get-tags-result');
+            try {
+                if (!api || !api.initialized) {
+                    throw new Error('API not initialized. Click "Initialize API" first.');
+                }
+
+                const ticketId = parseInt(document.getElementById('get-ticket-id').value);
+
+                if (!ticketId) {
+                    throw new Error('Please enter a ticket ID');
+                }
+
+                resultDiv.innerHTML = `Getting tags for ticket ${ticketId}...`;
+
+                const tags = await api.getTicketTags(ticketId);
+
+                resultDiv.innerHTML = `<span class="success">✓ Tags Retrieved Successfully!</span>\n\nTicket ID: ${ticketId}\nTags: ${JSON.stringify(tags, null, 2)}\n\nTotal: ${tags.length} tags`;
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">✗ Error: ${error.message}</span>\n${error.stack}`;
+                console.error('Get tags error:', error);
+            }
+        }
+
+        async function testRemoveTag() {
+            const resultDiv = document.getElementById('remove-tag-result');
+            try {
+                if (!api || !api.initialized) {
+                    throw new Error('API not initialized. Click "Initialize API" first.');
+                }
+
+                const ticketId = parseInt(document.getElementById('remove-ticket-id').value);
+                const tagName = document.getElementById('remove-tag-name').value;
+
+                if (!ticketId) {
+                    throw new Error('Please enter a ticket ID');
+                }
+
+                resultDiv.innerHTML = `Removing tag "${tagName}" from ticket ${ticketId}...`;
+
+                const result = await api.removeTag(ticketId, tagName);
+
+                resultDiv.innerHTML = `<span class="success">✓ Tag Removed Successfully!</span>\n\nTicket ID: ${ticketId}\nTag: ${tagName}\nResult: ${JSON.stringify(result, null, 2)}`;
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">✗ Error: ${error.message}</span>\n${error.stack}`;
+                console.error('Remove tag error:', error);
+            }
+        }
+
+        async function testSprintAssignment() {
+            const resultDiv = document.getElementById('sprint-result');
+            try {
+                if (!api || !api.initialized) {
+                    throw new Error('API not initialized. Click "Initialize API" first.');
+                }
+
+                const ticketId = parseInt(document.getElementById('sprint-ticket-id').value);
+                const sprintId = parseInt(document.getElementById('sprint-id').value);
+
+                if (!ticketId) {
+                    throw new Error('Please enter a ticket ID');
+                }
+
+                resultDiv.innerHTML = `Assigning ticket ${ticketId} to sprint ${sprintId}...\n\nStep 1: Getting current tags...`;
+
+                // Get current tags
+                const currentTags = await api.getTicketTags(ticketId);
+                resultDiv.innerHTML += `\nCurrent tags: ${JSON.stringify(currentTags)}`;
+
+                // Assign to sprint
+                resultDiv.innerHTML += `\n\nStep 2: Assigning to sprint ${sprintId}...`;
+                await api.assignTicketToSprint(ticketId, sprintId);
+
+                // Get new tags
+                resultDiv.innerHTML += `\n\nStep 3: Verifying tags...`;
+                const newTags = await api.getTicketTags(ticketId);
+
+                resultDiv.innerHTML += `\n\n<span class="success">✓ Sprint Assignment Complete!</span>\n\nTicket ID: ${ticketId}\nSprint ID: ${sprintId}\nOld Tags: ${JSON.stringify(currentTags)}\nNew Tags: ${JSON.stringify(newTags)}`;
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">✗ Error: ${error.message}</span>\n${error.stack}`;
+                console.error('Sprint assignment error:', error);
+            }
+        }
+
+        // Auto-initialize on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('Test page loaded. Click "Initialize API" to start.');
+        });
+    </script>
+</body>
+</html>
