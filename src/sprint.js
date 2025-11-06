@@ -357,11 +357,25 @@ class SprintManager {
 
   /**
    * Get sprint statistics
+   * @param {number} sprintId - Sprint ID
+   * @param {Array} tickets - All tickets OR pre-filtered sprint tickets
+   * @param {boolean} ticketsPreFiltered - If true, tickets are already filtered for this sprint
    */
-  async getSprintStats(sprintId, tickets) {
+  async getSprintStats(sprintId, tickets, ticketsPreFiltered = false) {
+    let sprintTickets;
+
+    if (ticketsPreFiltered) {
+      // Tickets are already filtered (e.g., from Zammad tags)
+      sprintTickets = tickets;
+    } else {
+      // Filter using local IndexedDB assignments (fallback)
+      const assignments = await this.getSprintTickets(sprintId);
+      const sprintTicketIds = new Set(assignments.map(a => a.ticketId));
+      sprintTickets = tickets.filter(t => sprintTicketIds.has(t.id));
+    }
+
+    // Get local assignments for time estimates
     const assignments = await this.getSprintTickets(sprintId);
-    const sprintTicketIds = new Set(assignments.map(a => a.ticketId));
-    const sprintTickets = tickets.filter(t => sprintTicketIds.has(t.id));
 
     const stats = {
       totalTickets: sprintTickets.length,

@@ -60,6 +60,7 @@ class SprintPlanningUI {
     // State
     this.tickets = [];
     this.currentSprintId = 'backlog';
+    this.currentSprintTickets = null; // Cache of filtered sprint tickets for stats
     this.editingSprintId = null;
     this.editingTicketId = null;
     this.draggedTicketId = null;
@@ -302,43 +303,77 @@ class SprintPlanningUI {
   }
   
   async updateStats(sprint) {
-    const stats = await sprintManager.getSprintStats(sprint.id, this.tickets);
-    
+    // Use pre-filtered sprint tickets if available (from Zammad tags)
+    const ticketsPreFiltered = this.currentSprintTickets ? true : false;
+    const ticketsToUse = this.currentSprintTickets || this.tickets;
+
+    const stats = await sprintManager.getSprintStats(
+      sprint.id,
+      ticketsToUse,
+      ticketsPreFiltered
+    );
+
     this.statTotalTickets.textContent = stats.totalTickets;
     this.statCompletedTickets.textContent = stats.completedTickets;
     this.statEstimatedHours.textContent = stats.estimatedHours + 'h';
-    
-    const progress = stats.totalTickets > 0 
+
+    const progress = stats.totalTickets > 0
       ? Math.round((stats.completedTickets / stats.totalTickets) * 100)
       : 0;
     this.statProgress.textContent = progress + '%';
   }
   
   async renderTickets() {
-    // When viewing backlog, we need to filter out ALL tickets assigned to ANY sprint
-    // When viewing a specific sprint, we only care about that sprint's assignments
-    const sprintAssignments = this.currentSprintId !== 'backlog'
+    // Use Zammad tags to filter tickets by sprint (synced across users)
+    let sprintTickets = [];
+    let backlogTickets = [];
+
+    if (this.api) {
+      // Filter tickets using Zammad tags
+      if (this.currentSprintId !== 'backlog') {
+        // Get tickets with this sprint tag from Zammad
+        sprintTickets = await this.api.getSprintTickets(
+          parseInt(this.currentSprintId),
+          this.tickets
+        );
+        // Backlog = all tickets without any sprint tag
+        backlogTickets = await this.api.getBacklogTickets(this.tickets);
+      } else {
+        // Viewing backlog - show only untagged tickets
+        sprintTickets = [];
+        backlogTickets = await this.api.getBacklogTickets(this.tickets);
+      }
+    } else {
+      // Fallback: use IndexedDB if API not available
+      logger.warn('API not available, using local IndexedDB for ticket filtering');
+      const sprintAssignments = this.currentSprintId !== 'backlog'
+        ? await sprintManager.getSprintTickets(parseInt(this.currentSprintId))
+        : [];
+      const allAssignments = this.currentSprintId === 'backlog'
+        ? await sprintManager.getAllSprintAssignments()
+        : sprintAssignments;
+
+      const sprintTicketIds = new Set(sprintAssignments.map(a => a.ticketId));
+      const allAssignedTicketIds = new Set(allAssignments.map(a => a.ticketId));
+
+      backlogTickets = this.tickets.filter(t => !allAssignedTicketIds.has(t.id));
+      sprintTickets = this.tickets.filter(t => sprintTicketIds.has(t.id));
+    }
+
+    // Store current sprint tickets for stats calculation
+    this.currentSprintTickets = sprintTickets;
+
+    // Get local assignments for time estimates only
+    const localAssignments = this.currentSprintId !== 'backlog'
       ? await sprintManager.getSprintTickets(parseInt(this.currentSprintId))
       : [];
-
-    // For backlog view, get all assignments across all sprints to filter them out
-    const allAssignments = this.currentSprintId === 'backlog'
-      ? await sprintManager.getAllSprintAssignments()
-      : sprintAssignments;
-
-    const sprintTicketIds = new Set(sprintAssignments.map(a => a.ticketId));
-    const allAssignedTicketIds = new Set(allAssignments.map(a => a.ticketId));
-    const assignmentMap = new Map(sprintAssignments.map(a => [a.ticketId, a]));
-
-    // Backlog shows only tickets NOT assigned to any sprint
-    const backlogTickets = this.tickets.filter(t => !allAssignedTicketIds.has(t.id));
-    const currentSprintTickets = this.tickets.filter(t => sprintTicketIds.has(t.id));
+    const assignmentMap = new Map(localAssignments.map(a => [a.ticketId, a]));
 
     this.renderTicketList(this.backlogTickets, backlogTickets, assignmentMap, false);
-    this.renderTicketList(this.sprintTickets, currentSprintTickets, assignmentMap, true);
+    this.renderTicketList(this.sprintTickets, sprintTickets, assignmentMap, true);
 
     this.backlogCount.textContent = backlogTickets.length;
-    this.sprintCount.textContent = currentSprintTickets.length;
+    this.sprintCount.textContent = sprintTickets.length;
 
     this.filterTickets();
   }
@@ -467,13 +502,23 @@ class SprintPlanningUI {
   async moveTicket(ticketId, targetZone) {
     try {
       if (targetZone === 'backlog') {
+        // Remove from sprint in Zammad (synced across users)
+        if (this.api) {
+          await this.api.removeTicketFromSprint(ticketId);
+        }
+        // Also remove local assignment for time estimates
         await sprintManager.removeTicketFromSprint(ticketId);
         logger.info(`Ticket ${ticketId} removed from sprint`);
       } else if (targetZone === 'sprint' && this.currentSprintId !== 'backlog') {
+        // Assign to sprint in Zammad (synced across users)
+        if (this.api) {
+          await this.api.assignTicketToSprint(ticketId, parseInt(this.currentSprintId));
+        }
+        // Also create local assignment for time estimates
         await sprintManager.assignTicketToSprint(ticketId, parseInt(this.currentSprintId));
         logger.info(`Ticket ${ticketId} assigned to sprint ${this.currentSprintId}`);
       }
-      
+
       await this.renderTickets();
       if (this.currentSprintId !== 'backlog') {
         const sprint = await sprintManager.getSprint(parseInt(this.currentSprintId));
