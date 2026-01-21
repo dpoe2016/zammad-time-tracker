@@ -273,3 +273,8 @@ Added comprehensive sprint planning functionality to organize and track agile sp
 
 - Updated version to 3.3.0
 
+
+## [3.3.1] - 2026-01-21
+
+- Updated version to 3.3.1
+
