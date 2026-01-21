@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Debug Chrome Storage - Zammad Time Tracker</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    h1 {
+      color: #333;
+    }
+    .section {
+      margin: 20px 0;
+      padding: 15px;
+      background: #f5f5f5;
+      border-radius: 5px;
+    }
+    pre {
+      background: #fff;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 3px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    .key {
+      font-weight: bold;
+      color: #0066cc;
+    }
+    .error {
+      color: red;
+      font-weight: bold;
+    }
+    .success {
+      color: green;
+      font-weight: bold;
+    }
+    button {
+      padding: 10px 20px;
+      margin: 5px;
+      background: #0066cc;
+      color: white;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #0052a3;
+    }
+  </style>
+</head>
+<body>
+  <h1>Debug Chrome Storage</h1>
+  <p>This page shows all data stored in chrome.storage.local for the Zammad Time Tracker extension.</p>
+
+  <button onclick="refreshStorage()">🔄 Refresh Storage</button>
+  <button onclick="clearStorage()">🗑️ Clear All Storage</button>
+
+  <div class="section">
+    <h2>API Settings (zammadApiSettings)</h2>
+    <div id="apiSettings"></div>
+  </div>
+
+  <div class="section">
+    <h2>Ticket Cache (zammadTicketCache)</h2>
+    <div id="ticketCache"></div>
+  </div>
+
+  <div class="section">
+    <h2>All Storage Keys</h2>
+    <div id="allKeys"></div>
+  </div>
+
+  <script>
+    async function refreshStorage() {
+      console.log('Loading storage data...');
+
+      try {
+        // Get all storage
+        const allData = await chrome.storage.local.get(null);
+        console.log('All storage data:', allData);
+
+        // Display API settings
+        const apiSettingsDiv = document.getElementById('apiSettings');
+        if (allData.zammadApiSettings) {
+          const settings = allData.zammadApiSettings;
+          apiSettingsDiv.innerHTML = `
+            <p class="success">✓ API Settings found</p>
+            <pre>${JSON.stringify({
+              baseUrl: settings.baseUrl,
+              tokenLength: settings.token ? settings.token.length : 0,
+              tokenPreview: settings.token ? settings.token.substring(0, 10) + '...' : 'NOT SET',
+              userIds: settings.userIds,
+              showTooltips: settings.showTooltips,
+              tooltipDelay: settings.tooltipDelay,
+              dashboardRefreshSec: settings.dashboardRefreshSec
+            }, null, 2)}</pre>
+          `;
+        } else {
+          apiSettingsDiv.innerHTML = '<p class="error">✗ No API settings found in storage</p>';
+        }
+
+        // Display ticket cache
+        const ticketCacheDiv = document.getElementById('ticketCache');
+        if (allData.zammadTicketCache) {
+          const cache = allData.zammadTicketCache;
+          let totalTickets = 0;
+          const cacheKeys = Object.keys(cache);
+
+          cacheKeys.forEach(key => {
+            if (Array.isArray(cache[key])) {
+              totalTickets += cache[key].length;
+            }
+          });
+
+          ticketCacheDiv.innerHTML = `
+            <p class="success">✓ Ticket cache found</p>
+            <p>Cache keys: ${cacheKeys.join(', ')}</p>
+            <p>Total tickets in cache: ${totalTickets}</p>
+            <pre>${JSON.stringify(Object.keys(cache).reduce((acc, key) => {
+              acc[key] = Array.isArray(cache[key]) ? `${cache[key].length} tickets` : cache[key];
+              return acc;
+            }, {}), null, 2)}</pre>
+          `;
+        } else {
+          ticketCacheDiv.innerHTML = '<p class="error">✗ No ticket cache found in storage</p>';
+        }
+
+        // Display all keys
+        const allKeysDiv = document.getElementById('allKeys');
+        const keys = Object.keys(allData);
+        allKeysDiv.innerHTML = `
+          <p>Total keys: ${keys.length}</p>
+          <pre>${JSON.stringify(keys, null, 2)}</pre>
+        `;
+
+      } catch (error) {
+        console.error('Error loading storage:', error);
+        document.getElementById('apiSettings').innerHTML = `<p class="error">Error: ${error.message}</p>`;
+      }
+    }
+
+    async function clearStorage() {
+      if (confirm('Are you sure you want to clear ALL storage? This will delete all settings and cached data.')) {
+        try {
+          await chrome.storage.local.clear();
+          alert('Storage cleared successfully');
+          refreshStorage();
+        } catch (error) {
+          alert('Error clearing storage: ' + error.message);
+        }
+      }
+    }
+
+    // Load on page load
+    document.addEventListener('DOMContentLoaded', refreshStorage);
+  </script>
+</body>
+</html>

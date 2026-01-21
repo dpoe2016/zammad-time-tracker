@@ -103,8 +103,24 @@ function extendZammadAPIWithSprintTags() {
 
     try {
       const result = await this.request(endpoint, 'GET');
-      console.log(`Got ${result ? result.length : 0} tags for ticket ${ticketId}`);
-      return result || [];
+
+      // Ensure result is an array
+      if (!result) {
+        console.log(`No tags found for ticket ${ticketId}`);
+        return [];
+      }
+
+      if (!Array.isArray(result)) {
+        console.warn(`API returned non-array for ticket ${ticketId} tags:`, result);
+        // If it's an object with tags property, try to use that
+        if (result.tags && Array.isArray(result.tags)) {
+          return result.tags;
+        }
+        return [];
+      }
+
+      console.log(`Got ${result.length} tags for ticket ${ticketId}`);
+      return result;
     } catch (error) {
       console.error(`Error getting tags for ticket ${ticketId}:`, error);
       throw error;
@@ -125,7 +141,14 @@ function extendZammadAPIWithSprintTags() {
     console.log(`Assigning ticket ${ticketId} to sprint ${sprintId}`);
 
     // First, remove any existing sprint tags
-    const existingTags = await this.getTicketTags(ticketId);
+    let existingTags = await this.getTicketTags(ticketId);
+
+    // Ensure existingTags is an array
+    if (!Array.isArray(existingTags)) {
+      console.warn(`getTicketTags returned non-array for ticket ${ticketId}:`, existingTags);
+      existingTags = [];
+    }
+
     const sprintTags = existingTags.filter(tag => tag.startsWith('sprint-'));
 
     for (const tag of sprintTags) {
@@ -151,7 +174,14 @@ function extendZammadAPIWithSprintTags() {
 
     console.log(`Removing ticket ${ticketId} from sprint`);
 
-    const existingTags = await this.getTicketTags(ticketId);
+    let existingTags = await this.getTicketTags(ticketId);
+
+    // Ensure existingTags is an array
+    if (!Array.isArray(existingTags)) {
+      console.warn(`getTicketTags returned non-array for ticket ${ticketId}:`, existingTags);
+      existingTags = [];
+    }
+
     const sprintTags = existingTags.filter(tag => tag.startsWith('sprint-'));
 
     for (const tag of sprintTags) {
@@ -171,7 +201,14 @@ function extendZammadAPIWithSprintTags() {
       throw new Error('Ticket ID is required');
     }
 
-    const tags = await this.getTicketTags(ticketId);
+    let tags = await this.getTicketTags(ticketId);
+
+    // Ensure tags is an array
+    if (!Array.isArray(tags)) {
+      console.warn(`getTicketTags returned non-array for ticket ${ticketId}:`, tags);
+      return null;
+    }
+
     const sprintTag = tags.find(tag => tag.startsWith('sprint-'));
 
     if (sprintTag) {
@@ -200,9 +237,20 @@ function extendZammadAPIWithSprintTags() {
 
     // Filter tickets by sprint tag
     const sprintTag = `sprint-${sprintId}`;
-    const sprintTickets = tickets.filter(ticket =>
-      ticket.tags && ticket.tags.includes(sprintTag)
-    );
+    const sprintTickets = tickets.filter(ticket => {
+      // Ensure tags is an array
+      if (!ticket.tags) {
+        return false;
+      }
+      if (typeof ticket.tags === 'string') {
+        // Handle case where tags might be a string
+        return ticket.tags === sprintTag;
+      }
+      if (Array.isArray(ticket.tags)) {
+        return ticket.tags.includes(sprintTag);
+      }
+      return false;
+    });
 
     console.log(`Found ${sprintTickets.length} tickets in sprint ${sprintId}`);
     return sprintTickets;
@@ -220,9 +268,25 @@ function extendZammadAPIWithSprintTags() {
     const tickets = allTickets || await this.getTickets();
 
     // Filter tickets without sprint tags
-    const backlogTickets = tickets.filter(ticket =>
-      !ticket.tags || !ticket.tags.some(tag => tag.startsWith('sprint-'))
-    );
+    const backlogTickets = tickets.filter(ticket => {
+      // No tags = backlog ticket
+      if (!ticket.tags) {
+        return true;
+      }
+
+      // Handle string tags (shouldn't happen, but be safe)
+      if (typeof ticket.tags === 'string') {
+        return !ticket.tags.startsWith('sprint-');
+      }
+
+      // Handle array tags (normal case)
+      if (Array.isArray(ticket.tags)) {
+        return !ticket.tags.some(tag => tag.startsWith('sprint-'));
+      }
+
+      // Unknown format, treat as backlog
+      return true;
+    });
 
     console.log(`Found ${backlogTickets.length} tickets in backlog`);
     return backlogTickets;

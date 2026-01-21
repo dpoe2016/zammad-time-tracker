@@ -417,7 +417,7 @@ class ZammadAPI {
   /**
    * Initialize the API with base URL and token
    */
-  init(baseUrl, token) {
+  async init(baseUrl, token) {
     if (!baseUrl) {
       throw new Error('Base URL is required');
     }
