@@ -76,40 +76,15 @@ class SprintPlanningUI {
   }
   
   async initAPI() {
-    // Load API settings from storage (same way as dashboard.js)
-    const apiSettings = await storage.load('zammadApiSettings');
-
-    logger.info('Loaded API settings from storage:', {
-      hasSettings: !!apiSettings,
-      hasBaseUrl: !!(apiSettings && apiSettings.baseUrl),
-      hasToken: !!(apiSettings && apiSettings.token),
-      baseUrl: (apiSettings && apiSettings.baseUrl) ? apiSettings.baseUrl.substring(0, 20) + '...' : 'undefined',
-      tokenLength: (apiSettings && apiSettings.token) ? apiSettings.token.length : 0
-    });
-
-    if (!apiSettings || !apiSettings.baseUrl || !apiSettings.token) {
-      logger.warn('API not configured - cannot load tickets');
-      this.showError('ERROR: Zammad API is not configured. Please go to Options and configure your Zammad URL and API token. Sprint planning requires API access to load tickets.');
-      // Leave API as null so loadData() will try to load from cache
+    const config = await storage.loadMultiple(['baseUrl', 'apiToken']);
+    if (!config.baseUrl || !config.apiToken) {
+      this.showError('API not configured. Please go to Options and set your Zammad URL and API token.');
       return;
     }
 
-    try {
-      this.api = new ZammadAPI();
-      await this.api.init(apiSettings.baseUrl, apiSettings.token);
-
-      // Verify that sprint tag methods are available
-      if (!this.api.assignTicketToSprint || !this.api.removeTicketFromSprint) {
-        logger.error('Sprint tag methods not available on ZammadAPI - api-sprint-tags.js may not be loaded');
-        throw new Error('Sprint tag functionality not available. Please reload the extension.');
-      }
-
-      logger.info('Zammad API initialized for sprint planning with tag sync support');
-    } catch (error) {
-      logger.error('Failed to initialize Zammad API:', error);
-      this.showError(`Failed to initialize API: ${error.message}. Tag sync will not work.`);
-      this.api = null; // Ensure it's null on failure
-    }
+    this.api = new ZammadAPI();
+    await this.api.init(config.baseUrl, config.apiToken);
+    logger.info('Zammad API initialized for sprint planning');
   }
   
   initEventListeners() {
@@ -186,106 +161,32 @@ class SprintPlanningUI {
   async loadData() {
     this.showLoading(true);
     this.showError('');
-
+    
     try {
       // Load sprints
       const sprints = await sprintManager.getSprints();
       this.populateSprintSelect(sprints);
-
-      // Load tickets from cache first (populated by dashboard or previous API calls)
-      logger.info('Attempting to load tickets from cache first...');
-      this.tickets = await this.loadTicketsFromCache();
-
-      // Ensure all cached tickets have a tags property (may not be set in cache)
-      if (this.tickets && Array.isArray(this.tickets)) {
-        this.tickets.forEach(ticket => {
-          if (!ticket.tags) {
-            ticket.tags = [];
-          }
-        });
-      }
-
-      // If cache is empty and API is available, fetch from API
-      if ((!this.tickets || this.tickets.length === 0) && this.api) {
+      
+      // Load tickets from API or IndexedDB cache
+      if (this.api) {
         try {
-          logger.info('Cache is empty, loading tickets from Zammad API...');
-          logger.info('API object exists:', {
-            initialized: this.api.initialized,
-            validated: this.api.validated,
-            hasBaseUrl: !!this.api.baseUrl,
-            hasToken: !!this.api.token
-          });
+          logger.info('Loading tickets from Zammad API...');
           this.tickets = await this.api.getTickets();
-          logger.info(`Loaded ${this.tickets ? this.tickets.length : 'null/undefined'} tickets from API`);
-
-          // Ensure tickets is an array
-          if (!this.tickets) {
-            logger.warn('API returned null/undefined, setting to empty array');
-            this.tickets = [];
-          }
+          logger.info(`Loaded ${this.tickets.length} tickets from API (auto-cached by API)`);
+          // API automatically caches tickets to chrome.storage
         } catch (apiError) {
-          logger.warn('Failed to load from API:', apiError);
-          // tickets already set from cache (might be empty)
+          logger.warn('Failed to load from API, trying cache:', apiError);
+          // Fallback to IndexedDB cache
+          this.tickets = await this.loadTicketsFromCache();
         }
       } else {
-        logger.info(`Using ${this.tickets.length} tickets from cache`);
-      }
-
-      // Only load tags if we have API and tickets
-      if (this.api && this.tickets && this.tickets.length > 0) {
-        // Try to enrich tickets with tags for sprint filtering
-        // This is optional - if it fails, all tickets will be considered backlog tickets
-        try {
-          logger.info('Loading tags for tickets...');
-          await this.loadTagsForTickets();
-          logger.info('Tags loaded successfully - sprint assignments will sync via Zammad');
-        } catch (tagError) {
-          logger.warn('Failed to load tags from Zammad, tickets without tags will be in backlog:', tagError);
-
-          // Check if it's an authentication error
-          if (tagError.message && (tagError.message.includes('403') || tagError.message.includes('authorization') || tagError.message.includes('Access denied'))) {
-            this.showError('Warning: Cannot access Zammad tags - authentication failed. Your API token may not have permission to read/write tags. All tickets will appear in the backlog. Please check your Zammad permissions.');
-          } else {
-            this.showError('Warning: Could not load sprint tags from Zammad. All tickets will appear in backlog. ' + tagError.message);
-          }
-
-          // Don't set api to null - just ensure all tickets have empty tags array
-          // so they'll be filtered as backlog tickets by getBacklogTickets()
-          this.tickets.forEach(ticket => {
-            if (!ticket.tags) {
-              ticket.tags = [];
-            }
-          });
-        }
-      } else if (!this.api) {
-        logger.info('No API available - tickets loaded from cache without tag filtering');
+        // No API configured, load from cache
+        logger.info('No API configured, loading from cache...');
+        this.tickets = await this.loadTicketsFromCache();
       }
       
-      // Check if we have any tickets loaded
-      if (!this.tickets || this.tickets.length === 0) {
-        logger.warn('No tickets loaded - showing detailed message to user');
-        logger.warn('Debug info:', {
-          hasApi: !!this.api,
-          ticketsValue: this.tickets,
-          ticketsIsArray: Array.isArray(this.tickets)
-        });
-
-        let errorMsg = 'No tickets found. ';
-        if (!this.api) {
-          errorMsg += 'The Zammad API is not configured or failed to initialize. Please check Options and ensure your Zammad URL and API token are correct. ';
-        } else {
-          errorMsg += 'The API is configured but returned no tickets. This could mean: (1) You have no tickets assigned to you in Zammad, (2) Your API token does not have permission to read tickets, or (3) No user IDs are configured in Options. ';
-        }
-        errorMsg += 'Check the browser console (F12) for more details.';
-
-        this.showError(errorMsg);
-        this.showLoading(false);
-        return;
-      }
-
-      logger.info(`Total tickets loaded: ${this.tickets.length}`);
       await this.renderTickets();
-
+      
       this.showLoading(false);
       this.sprintBoard.style.display = 'grid';
     } catch (error) {
@@ -297,7 +198,7 @@ class SprintPlanningUI {
   
   async loadTicketsFromCache() {
     logger.info('Loading tickets from Chrome storage (zammadTicketCache)');
-
+    
     try {
       return new Promise((resolve, reject) => {
         chrome.storage.local.get(['zammadTicketCache'], (result) => {
@@ -306,7 +207,7 @@ class SprintPlanningUI {
             reject(chrome.runtime.lastError);
             return;
           }
-
+          
           if (result.zammadTicketCache) {
             // zammadTicketCache is an object with cache keys
             // Collect all tickets from all cache keys
@@ -317,12 +218,12 @@ class SprintPlanningUI {
                 allTickets.push(...tickets);
               }
             }
-
+            
             // Remove duplicates by ticket ID
             const uniqueTickets = Array.from(
               new Map(allTickets.map(t => [t.id, t])).values()
             );
-
+            
             logger.info(`Loaded ${uniqueTickets.length} unique tickets from Chrome storage`);
             resolve(uniqueTickets);
           } else {
@@ -335,61 +236,6 @@ class SprintPlanningUI {
       logger.error('Error accessing Chrome storage:', error);
       return [];
     }
-  }
-
-  /**
-   * Load tags for all tickets from Zammad API
-   * This enriches ticket objects with their tags for sprint filtering
-   */
-  async loadTagsForTickets() {
-    if (!this.api || !this.tickets || this.tickets.length === 0) {
-      logger.warn('Cannot load tags: API not initialized or no tickets');
-      return;
-    }
-
-    logger.info(`Loading tags for ${this.tickets.length} tickets...`);
-
-    // Test with first ticket to fail fast on auth errors
-    if (this.tickets.length > 0) {
-      try {
-        logger.info(`Testing tag access with ticket ${this.tickets[0].id}...`);
-        const testTags = await this.api.getTicketTags(this.tickets[0].id);
-        this.tickets[0].tags = testTags || [];
-        logger.info(`✓ Tag access confirmed, proceeding with remaining ${this.tickets.length - 1} tickets`);
-      } catch (testError) {
-        logger.error('Failed to load tags for test ticket - aborting tag loading:', testError);
-        throw new Error(`Tag loading failed: ${testError.message}`);
-      }
-    }
-
-    // Process remaining tickets in batches to avoid overwhelming the API
-    const batchSize = 10;
-    const batches = [];
-    const remainingTickets = this.tickets.slice(1); // Skip first ticket (already loaded)
-
-    for (let i = 0; i < remainingTickets.length; i += batchSize) {
-      batches.push(remainingTickets.slice(i, i + batchSize));
-    }
-
-    let processedCount = 1; // Start at 1 since we already loaded the first ticket
-    for (const batch of batches) {
-      await Promise.all(batch.map(async (ticket) => {
-        try {
-          const tags = await this.api.getTicketTags(ticket.id);
-          ticket.tags = tags || [];
-          processedCount++;
-        } catch (error) {
-          logger.warn(`Failed to load tags for ticket ${ticket.id}:`, error);
-          ticket.tags = []; // Set empty tags array on failure
-        }
-      }));
-
-      if (batches.length > 5) { // Only log progress for large batches
-        logger.info(`Loaded tags for ${processedCount}/${this.tickets.length} tickets`);
-      }
-    }
-
-    logger.info(`✓ Finished loading tags for all ${this.tickets.length} tickets`);
   }
   
   
@@ -484,11 +330,8 @@ class SprintPlanningUI {
     let sprintTickets = [];
     let backlogTickets = [];
 
-    logger.info(`renderTickets called with ${this.tickets.length} total tickets, API available: ${!!this.api}, currentSprintId: ${this.currentSprintId}`);
-
     if (this.api) {
       // Filter tickets using Zammad tags
-      logger.info('Using API-based tag filtering for tickets');
       if (this.currentSprintId !== 'backlog') {
         // Get tickets with this sprint tag from Zammad
         sprintTickets = await this.api.getSprintTickets(
@@ -502,7 +345,6 @@ class SprintPlanningUI {
         sprintTickets = [];
         backlogTickets = await this.api.getBacklogTickets(this.tickets);
       }
-      logger.info(`After API filtering: ${backlogTickets.length} backlog tickets, ${sprintTickets.length} sprint tickets`);
     } else {
       // Fallback: use IndexedDB if API not available
       logger.warn('API not available, using local IndexedDB for ticket filtering');
@@ -518,7 +360,6 @@ class SprintPlanningUI {
 
       backlogTickets = this.tickets.filter(t => !allAssignedTicketIds.has(t.id));
       sprintTickets = this.tickets.filter(t => sprintTicketIds.has(t.id));
-      logger.info(`After IndexedDB filtering: ${backlogTickets.length} backlog tickets, ${sprintTickets.length} sprint tickets`);
     }
 
     // Store current sprint tickets for stats calculation
@@ -666,17 +507,15 @@ class SprintPlanningUI {
         // Remove from sprint in Zammad (synced across users)
         if (this.api) {
           try {
-            logger.info(`Removing sprint tag from ticket ${ticketId} in Zammad...`);
+            logger.info(`Removing tag from ticket ${ticketId} in Zammad...`);
             await this.api.removeTicketFromSprint(ticketId);
-            logger.info(`✓ Sprint tag removed from ticket ${ticketId} in Zammad`);
+            logger.info(`✓ Tag removed from ticket ${ticketId} in Zammad`);
           } catch (tagError) {
-            logger.error(`Failed to remove sprint tag from ticket ${ticketId} in Zammad:`, tagError);
-            this.showError(`Warning: Failed to remove tag from Zammad for ticket #${ticketId}. ${tagError.message}. The ticket is removed locally only.`);
+            logger.error(`Failed to remove tag from ticket ${ticketId} in Zammad:`, tagError);
             // Continue with local assignment removal even if Zammad fails
           }
         } else {
-          logger.warn('API not initialized - ticket removed locally only, not synced to Zammad');
-          this.showError(`Warning: API not configured. Ticket #${ticketId} removed from sprint locally only. Configure API in Options to sync tags to Zammad.`);
+          logger.warn('API not initialized - skipping Zammad tag removal');
         }
         // Also remove local assignment for time estimates
         await sprintManager.removeTicketFromSprint(ticketId);
@@ -690,12 +529,11 @@ class SprintPlanningUI {
             logger.info(`✓ Tag sprint-${this.currentSprintId} added to ticket ${ticketId} in Zammad`);
           } catch (tagError) {
             logger.error(`Failed to add tag to ticket ${ticketId} in Zammad:`, tagError);
-            this.showError(`Warning: Failed to sync tag to Zammad for ticket #${ticketId}. ${tagError.message}. The ticket is assigned locally only.`);
+            this.showError(`Warning: Tag not added in Zammad. ${tagError.message}`);
             // Continue with local assignment even if Zammad fails
           }
         } else {
-          logger.warn('API not initialized - ticket assigned locally only, not synced to Zammad');
-          this.showError(`Warning: API not configured. Ticket #${ticketId} assigned locally only. Configure API in Options to sync tags to Zammad.`);
+          logger.warn('API not initialized - skipping Zammad tag assignment');
         }
         // Also create local assignment for time estimates
         await sprintManager.assignTicketToSprint(ticketId, parseInt(this.currentSprintId));
