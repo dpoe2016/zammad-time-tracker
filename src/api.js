@@ -1567,6 +1567,9 @@ class ZammadAPI {
         ];
       }
     } else {
+      // Sort parameters for search endpoints - descending by updated_at
+      const sortParams = '&sort_by=updated_at&order_by=desc';
+
       // Use search endpoints with timestamp filtering when possible
       if (shouldUseTimestampFilter) {
         console.log(`Performing incremental fetch for assigned tickets created or updated since ${lastFetchTimestamp}`);
@@ -1574,7 +1577,7 @@ class ZammadAPI {
           ? `owner.id:${this.currentUserId} AND (created_at:>'${lastFetchTimestamp}' OR updated_at:>'${lastFetchTimestamp}')`
           : `owner.id:me AND (created_at:>'${lastFetchTimestamp}' OR updated_at:>'${lastFetchTimestamp}')`;
         endpoints = [
-          `/api/v1/tickets/search?query=${encodeURIComponent(query)}&expand=true&assets=true`,
+          `/api/v1/tickets/search?query=${encodeURIComponent(query)}&expand=true&assets=true${sortParams}`,
         ];
       } else {
         // Use all endpoints, with search endpoints first if search is known to be supported
@@ -1584,16 +1587,16 @@ class ZammadAPI {
           );
           if (this.currentUserId) {
             endpoints = [
-              `/api/v1/tickets/search?query=owner.id:${this.currentUserId}`,
+              `/api/v1/tickets/search?query=owner.id:${this.currentUserId}${sortParams}`,
               `/api/v1/tickets?filter[owner_id]=${this.currentUserId}`,
               `/api/v1/tickets?owner_id=${this.currentUserId}`,
-              '/api/v1/tickets/search?query=owner.id:me',
+              `/api/v1/tickets/search?query=owner.id:me${sortParams}`,
               '/api/v1/tickets?filter[owner_id]=me',
               '/api/v1/tickets?owner_id=me',
             ];
           } else {
             endpoints = [
-              '/api/v1/tickets/search?query=owner.id:me',
+              `/api/v1/tickets/search?query=owner.id:me${sortParams}`,
               '/api/v1/tickets?filter[owner_id]=me',
               '/api/v1/tickets?owner_id=me',
             ];
@@ -1603,16 +1606,16 @@ class ZammadAPI {
           // but prioritize explicit user ID endpoints
           if (this.currentUserId) {
             endpoints = [
-              `/api/v1/tickets/search?query=owner.id:${this.currentUserId}`,
+              `/api/v1/tickets/search?query=owner.id:${this.currentUserId}${sortParams}`,
               `/api/v1/tickets?filter[owner_id]=${this.currentUserId}`,
               `/api/v1/tickets?owner_id=${this.currentUserId}`,
-              '/api/v1/tickets/search?query=owner.id:me',
+              `/api/v1/tickets/search?query=owner.id:me${sortParams}`,
               '/api/v1/tickets?filter[owner_id]=me',
               '/api/v1/tickets?owner_id=me',
             ];
           } else {
             endpoints = [
-              '/api/v1/tickets/search?query=owner.id:me',
+              `/api/v1/tickets/search?query=owner.id:me${sortParams}`,
               '/api/v1/tickets?filter[owner_id]=me',
               '/api/v1/tickets?owner_id=me',
             ];
@@ -1621,31 +1624,86 @@ class ZammadAPI {
       }
     }
 
+    // Pagination settings - fetch up to 5 pages (5000 tickets) to get historical data back to June 2025
+    const perPage = 1000;
+    const maxPages = 5;
+
     for (const endpoint of endpoints) {
       try {
         console.log(`Trying assigned tickets endpoint: ${endpoint}`);
-        const result = await this.request(endpoint);
 
-        // Update API features based on the successful endpoint
-        if (this.apiFeatures) {
-          if (endpoint.includes('/search')) {
-            this.apiFeatures.supportsTicketSearch = true;
-            this.saveCachedApiFeatures();
-            console.log('API supports ticket search endpoint');
+        // For search endpoints, use pagination to fetch more results
+        if (endpoint.includes('/search')) {
+          const allTickets = [];
+          for (let page = 1; page <= maxPages; page++) {
+            const paginatedEndpoint = endpoint.includes('?')
+              ? `${endpoint}&per_page=${perPage}&page=${page}`
+              : `${endpoint}?per_page=${perPage}&page=${page}`;
+
+            console.log(`Fetching page ${page}: ${paginatedEndpoint}`);
+            const pageResult = await this.request(paginatedEndpoint);
+
+            if (Array.isArray(pageResult) && pageResult.length > 0) {
+              allTickets.push(...pageResult);
+              console.log(`Page ${page}: fetched ${pageResult.length} tickets (total: ${allTickets.length})`);
+
+              // If we got less than perPage, we've reached the last page
+              if (pageResult.length < perPage) {
+                console.log(`Reached last page at page ${page}`);
+                break;
+              }
+            } else {
+              console.log(`No more tickets at page ${page}`);
+              break;
+            }
           }
+
+          if (allTickets.length > 0) {
+            // Update API features based on the successful endpoint
+            if (this.apiFeatures) {
+              this.apiFeatures.supportsTicketSearch = true;
+              this.saveCachedApiFeatures();
+              console.log('API supports ticket search endpoint');
+            }
+
+            this.successfulEndpoints.assignedTickets = endpoint;
+            this.saveCachedEndpoints();
+
+            // Enhance tickets with customer data
+            const enhancedTickets =
+              await this.enhanceTicketsWithCustomerData(allTickets);
+
+            // Cache the results
+            await this.cacheTickets(cacheKey, enhancedTickets);
+
+            console.log(`Total tickets fetched with pagination: ${enhancedTickets.length}`);
+            return enhancedTickets;
+          }
+        } else {
+          // Non-search endpoints: single request without pagination
+          const result = await this.request(endpoint);
+
+          // Update API features based on the successful endpoint
+          if (this.apiFeatures) {
+            if (endpoint.includes('/search')) {
+              this.apiFeatures.supportsTicketSearch = true;
+              this.saveCachedApiFeatures();
+              console.log('API supports ticket search endpoint');
+            }
+          }
+
+          this.successfulEndpoints.assignedTickets = endpoint;
+          this.saveCachedEndpoints();
+
+          // Enhance tickets with customer data
+          const enhancedTickets =
+            await this.enhanceTicketsWithCustomerData(result);
+
+          // Cache the results
+          await this.cacheTickets(cacheKey, enhancedTickets);
+
+          return enhancedTickets;
         }
-
-        this.successfulEndpoints.assignedTickets = endpoint;
-        this.saveCachedEndpoints();
-
-        // Enhance tickets with customer data
-        const enhancedTickets =
-          await this.enhanceTicketsWithCustomerData(result);
-
-        // Cache the results
-        await this.cacheTickets(cacheKey, enhancedTickets);
-
-        return enhancedTickets;
       } catch (error) {
         console.error(
           `Error with assigned tickets endpoint ${endpoint}:`,
@@ -1793,14 +1851,14 @@ class ZammadAPI {
       const threeYearsAgo = new Date();
       threeYearsAgo.setFullYear(threeYearsAgo.getFullYear() - 3);
       const formattedDate = threeYearsAgo.toISOString().split('T')[0]; // Format: YYYY-MM-DD
-      query = `owner.id:${userId} AND created_at:>${formattedDate} AND !state.id:2 AND !state.id 3`;
+      query = `owner.id:${userId} AND created_at:>${formattedDate}`;
     }
     const perPage = 1000;
-    const totalPages = 2;
+    const totalPages = 5;
     const allTickets = [];
 
     for (let page = 1; page <= totalPages; page++) {
-      const endpoint = `/api/v1/tickets/search?query=${encodeURIComponent(query)}&per_page=${perPage}&page=${page}&expand=true&assets=true`;
+      const endpoint = `/api/v1/tickets/search?query=${encodeURIComponent(query)}&per_page=${perPage}&page=${page}&expand=true&assets=true&sort_by=updated_at&order_by=desc`;
       try {
         console.log(`Fetching page ${page} from endpoint: ${endpoint}`);
         const result = await this.request(endpoint);
@@ -1897,35 +1955,80 @@ class ZammadAPI {
     const lastFetchTimestamp = await storage.load('lastTicketFetchTimestamp');
     let shouldUseTimestampFilter = lastFetchTimestamp && !forceRefresh;
 
+    // Sort parameters for search endpoints - descending by updated_at
+    const sortParams = '&sort_by=updated_at&order_by=desc';
+
     let endpoints;
     if (shouldUseTimestampFilter && (!this.apiFeatures || this.apiFeatures.supportsTicketSearch !== false)) {
       console.log(`Performing incremental fetch for all tickets created or updated since ${lastFetchTimestamp}`);
       const query = `created_at:>'${lastFetchTimestamp}' OR updated_at:>'${lastFetchTimestamp}'`;
       endpoints = [
-        `/api/v1/tickets/search?query=${encodeURIComponent(query)}&expand=true&assets=true`,
+        `/api/v1/tickets/search?query=${encodeURIComponent(query)}&expand=true&assets=true${sortParams}`,
       ];
     } else {
       endpoints = [
         '/api/v1/tickets?expand=true&assets=true',
-        '/api/v1/tickets/search?query=*&expand=true&assets=true',
-        '/api/v1/tickets/search?expand=true&assets=true',
+        `/api/v1/tickets/search?query=*&expand=true&assets=true${sortParams}`,
+        `/api/v1/tickets/search?expand=true&assets=true${sortParams}`,
         '/api/v1/tickets',
-        '/api/v1/tickets/search?query=*',
-        '/api/v1/tickets/search',
+        `/api/v1/tickets/search?query=*${sortParams}`,
+        `/api/v1/tickets/search?${sortParams.substring(1)}`,
       ];
     }
+
+    // Pagination settings - fetch up to 5 pages (5000 tickets) to get historical data back to June 2025
+    const perPage = 1000;
+    const maxPages = 5;
 
     for (const endpoint of endpoints) {
       try {
         console.log(`Trying endpoint for all tickets: ${endpoint}`);
-        const result = await this.request(endpoint);
-        console.log(`Successfully got ${result ? result.length : 0} tickets from ${endpoint}`);
-        console.log(`Result type: ${typeof result}, isArray: ${Array.isArray(result)}`);
-        if (Array.isArray(result) && result.length > 0) {
-          console.log(`Sample ticket:`, result[0]);
+
+        // For search endpoints, use pagination to fetch more results
+        if (endpoint.includes('/search')) {
+          const allTickets = [];
+          for (let page = 1; page <= maxPages; page++) {
+            const paginatedEndpoint = endpoint.includes('?')
+              ? `${endpoint}&per_page=${perPage}&page=${page}`
+              : `${endpoint}?per_page=${perPage}&page=${page}`;
+
+            console.log(`Fetching page ${page}: ${paginatedEndpoint}`);
+            const pageResult = await this.request(paginatedEndpoint);
+
+            if (Array.isArray(pageResult) && pageResult.length > 0) {
+              allTickets.push(...pageResult);
+              console.log(`Page ${page}: fetched ${pageResult.length} tickets (total: ${allTickets.length})`);
+
+              // If we got less than perPage, we've reached the last page
+              if (pageResult.length < perPage) {
+                console.log(`Reached last page at page ${page}`);
+                break;
+              }
+            } else {
+              console.log(`No more tickets at page ${page}`);
+              break;
+            }
+          }
+
+          if (allTickets.length > 0) {
+            console.log(`Total tickets fetched with pagination: ${allTickets.length}`);
+            return allTickets;
+          }
+        } else {
+          // Non-search endpoints: add pagination params
+          const paginatedEndpoint = endpoint.includes('?')
+            ? `${endpoint}&per_page=${perPage}`
+            : `${endpoint}?per_page=${perPage}`;
+
+          const result = await this.request(paginatedEndpoint);
+          console.log(`Successfully got ${result ? result.length : 0} tickets from ${endpoint}`);
+          console.log(`Result type: ${typeof result}, isArray: ${Array.isArray(result)}`);
+          if (Array.isArray(result) && result.length > 0) {
+            console.log(`Sample ticket:`, result[0]);
+          }
+          // Note: Enhancement is handled by the calling getAllTickets() method
+          return result;
         }
-        // Note: Enhancement is handled by the calling getAllTickets() method
-        return result;
       } catch (error) {
         console.error(`Error with endpoint ${endpoint}:`, error);
         // Continue with next endpoint
