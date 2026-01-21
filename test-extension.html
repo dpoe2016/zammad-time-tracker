@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Zammad Extension</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-box {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .success {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .error {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .instructions {
+            background: #fff3cd;
+            padding: 15px;
+            border-left: 4px solid #ffc107;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Zammad Extension Test Page</h1>
+    
+    <div class="instructions">
+        <strong>📋 Instructions:</strong>
+        <ol>
+            <li>Make sure the Zammad Time Tracking Extension is installed and enabled</li>
+            <li>Go to <code>chrome://extensions/</code> and click the reload icon on your extension</li>
+            <li>Come back to this page and click the buttons below</li>
+        </ol>
+    </div>
+
+    <div class="test-box">
+        <h2>Test 1: Find Extension ID</h2>
+        <p>First, we need to know your extension ID:</p>
+        <button onclick="findExtensionId()">Find Extension ID</button>
+        <div id="extensionIdResult"></div>
+    </div>
+
+    <div class="test-box">
+        <h2>Test 2: Open Dashboard Directly</h2>
+        <p>Try to open the dashboard using the extension ID found above:</p>
+        <button onclick="openDashboard()">Open Dashboard</button>
+        <div id="dashboardResult"></div>
+    </div>
+
+    <div class="test-box">
+        <h2>Test 3: Check Extension Status</h2>
+        <p>Check if the extension is responding:</p>
+        <button onclick="checkExtension()">Check Extension</button>
+        <div id="statusResult"></div>
+    </div>
+
+    <div class="test-box">
+        <h2>📍 Manual Method</h2>
+        <p>If the buttons don't work, manually check:</p>
+        <ol>
+            <li>Go to: <code>chrome://extensions/</code></li>
+            <li>Find "Zammad Time Tracking Extension"</li>
+            <li>Look for the extension ID (long string like: <code>abcdef...</code>)</li>
+            <li>Click "Details" button</li>
+            <li>Copy the ID</li>
+            <li>Open a new tab and paste: <code>chrome-extension://YOUR_ID/src/dashboard.html</code></li>
+        </ol>
+    </div>
+
+    <script>
+        let extensionId = null;
+
+        function findExtensionId() {
+            const result = document.getElementById('extensionIdResult');
+            result.innerHTML = '<p>⏳ Searching...</p>';
+            
+            // Try to find the extension by checking if dashboard.html loads
+            // We'll try common patterns
+            const patterns = [
+                'zammad',
+                'time',
+                'tracking'
+            ];
+            
+            result.innerHTML = `
+                <p class="error">❌ Cannot automatically detect extension ID from web page.</p>
+                <p><strong>Manual steps:</strong></p>
+                <ol>
+                    <li>Go to <code>chrome://extensions/</code></li>
+                    <li>Find "Zammad Time Tracking Extension"</li>
+                    <li>The ID is shown under the extension name (long alphanumeric string)</li>
+                    <li>Copy the ID and paste it here:</li>
+                </ol>
+                <input type="text" id="manualId" placeholder="Paste extension ID here" style="width: 400px; padding: 8px; margin: 10px 0;">
+                <button onclick="setExtensionId()">Set ID</button>
+            `;
+        }
+
+        function setExtensionId() {
+            const input = document.getElementById('manualId');
+            extensionId = input.value.trim();
+            if (extensionId) {
+                document.getElementById('extensionIdResult').innerHTML = `
+                    <p class="success">✅ Extension ID set: <code>${extensionId}</code></p>
+                    <p>Now try Test 2 to open the dashboard!</p>
+                `;
+            } else {
+                document.getElementById('extensionIdResult').innerHTML = `
+                    <p class="error">❌ Please paste the extension ID</p>
+                `;
+            }
+        }
+
+        function openDashboard() {
+            const result = document.getElementById('dashboardResult');
+            
+            if (!extensionId) {
+                result.innerHTML = '<p class="error">❌ Please complete Test 1 first to set the extension ID</p>';
+                return;
+            }
+
+            const dashboardUrl = `chrome-extension://${extensionId}/src/dashboard.html`;
+            result.innerHTML = `
+                <p>⏳ Attempting to open dashboard...</p>
+                <p>URL: <code>${dashboardUrl}</code></p>
+            `;
+
+            // Try to open in new tab
+            window.open(dashboardUrl, '_blank');
+            
+            setTimeout(() => {
+                result.innerHTML = `
+                    <p class="success">✅ Attempted to open dashboard!</p>
+                    <p>If a new tab opened with the dashboard, it works! ✨</p>
+                    <p>If not, the extension might not be loaded or the ID is wrong.</p>
+                    <p><a href="${dashboardUrl}" target="_blank">Click here to try again</a></p>
+                `;
+            }, 1000);
+        }
+
+        function checkExtension() {
+            const result = document.getElementById('statusResult');
+            result.innerHTML = `
+                <p class="error">❌ Cannot check extension status from web page.</p>
+                <p><strong>Check manually:</strong></p>
+                <ol>
+                    <li>Go to <code>chrome://extensions/</code></li>
+                    <li>Find "Zammad Time Tracking Extension"</li>
+                    <li>Check if toggle is ON (blue)</li>
+                    <li>Look for "service worker" link and click it</li>
+                    <li>Check console for any errors</li>
+                </ol>
+            `;
+        }
+    </script>
+</body>
+</html>

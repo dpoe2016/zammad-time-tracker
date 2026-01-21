@@ -30,6 +30,7 @@ class ZammadDashboard {
       // Buttons
       this.refreshBtn = document.getElementById('refreshBtn');
       this.optionsBtn = document.getElementById('optionsBtn');
+      this.sprintPlanningBtn = document.getElementById('sprintPlanningBtn');
 
       // Time tracking elements
       this.statusDot = document.getElementById('statusDot');
@@ -453,6 +454,14 @@ class ZammadDashboard {
       logger.info('Refresh button clicked - forcing refresh');
       this.loadTickets(true);
     });
+
+    // Sprint Planning button
+    if (this.sprintPlanningBtn) {
+      this.sprintPlanningBtn.addEventListener('click', () => {
+        logger.info('Sprint Planning button clicked');
+        window.location.href = 'sprint-planning.html';
+      });
+    }
 
     // Options button
     this.optionsBtn.addEventListener('click', () => {
@@ -4805,9 +4814,84 @@ class ZammadDashboard {
     try {
       const content = await this.generateTicketDetailContent(ticket);
       this.sidebarContent.innerHTML = content;
+      
+      // Set up event listener for details toggle to load articles
+      const articlesContainer = document.getElementById(`articles-container-${ticket.id}`);
+      if (articlesContainer) {
+        const detailsElement = articlesContainer.closest('details');
+        if (detailsElement) {
+          detailsElement.addEventListener('toggle', async () => {
+            if (detailsElement.open && articlesContainer.innerHTML.includes('Loading articles')) {
+              await this.loadArticlesForSidebar(ticket.id, articlesContainer);
+            }
+          }, { once: true });
+        }
+      }
     } catch (error) {
       logger.error('Failed to load ticket details:', error);
       this.sidebarContent.innerHTML = '<p class="sidebar-placeholder">Failed to load ticket details</p>';
+    }
+  }
+
+  /**
+   * Load and display all articles for a ticket in the sidebar
+   * @param {number} ticketId - The ticket ID
+   * @param {HTMLElement} container - The container element for articles
+   */
+  async loadArticlesForSidebar(ticketId, container) {
+    try {
+      logger.info('Loading articles for sidebar:', ticketId);
+      container.innerHTML = '<div style="text-align: center; color: #95a5a6; padding: 10px; font-size: 12px;">Loading articles...</div>';
+      
+      const articles = await zammadApi.getTicketArticles(ticketId);
+      
+      if (!articles || articles.length === 0) {
+        container.innerHTML = '<div style="text-align: center; color: #95a5a6; padding: 10px; font-size: 12px;">No articles found</div>';
+        return;
+      }
+      
+      const articlesHtml = articles.map((article, index) => {
+        const date = article.created_at ? new Date(article.created_at).toLocaleString('de-DE', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit'
+        }) : 'Unknown date';
+        
+        const sender = article.from || article.created_by_id || 'Unknown';
+        const typeIcon = article.internal ? '🔒' : '📧';
+        const typeText = article.internal ? 'Internal' : 'Public';
+        const content = (article.body || article.content || 'No content')
+          .replace(/<[^>]*>/g, '')
+          .replace(/&[^;]+;/g, '')
+          .replace(/\n\n+/g, '\n\n')
+          .trim();
+        
+        return `
+          <div style="margin-bottom: 16px; padding-bottom: 16px; ${index < articles.length - 1 ? 'border-bottom: 1px solid rgba(255, 255, 255, 0.1);' : ''}">
+            <div class="ticket-tooltip-field" style="margin-bottom: 4px;">
+              <span class="ticket-tooltip-label" style="min-width: auto;">${typeIcon} #${index + 1}</span>
+              <span class="ticket-tooltip-value" style="font-size: 11px; color: #95a5a6;">${date}</span>
+            </div>
+            <div class="ticket-tooltip-field" style="margin-bottom: 8px;">
+              <span class="ticket-tooltip-label" style="min-width: auto;">From:</span>
+              <span class="ticket-tooltip-value" style="font-size: 12px;">${sender}</span>
+            </div>
+            <div style="background: rgba(0, 0, 0, 0.2); padding: 10px; border-radius: 4px; border-left: 3px solid ${article.internal ? '#9b59b6' : '#3498db'};">
+              <div class="ticket-tooltip-value" style="line-height: 1.6; max-height: 250px; overflow-y: auto; white-space: pre-wrap; word-break: break-word; font-size: 12px;">
+${content}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+      
+      container.innerHTML = articlesHtml;
+      logger.info(`Loaded ${articles.length} articles for ticket ${ticketId}`);
+    } catch (error) {
+      logger.error('Failed to load articles for sidebar:', error);
+      container.innerHTML = '<div style="text-align: center; color: #e74c3c; padding: 10px; font-size: 12px;">Failed to load articles</div>';
     }
   }
 
@@ -5147,37 +5231,15 @@ class ZammadDashboard {
                   articleCount > 0
                     ? `
                 <div class="ticket-tooltip-section">
-                    <div class="ticket-tooltip-field">
-                        <span class="ticket-tooltip-label">Articles:</span>
-                        <span class="ticket-tooltip-value">${articleSummary}</span>
-                    </div>
-                    ${hasAttachments ? '<div class="ticket-tooltip-field"><span class="ticket-tooltip-label">Attachments:</span><span class="ticket-tooltip-value">📎 Yes</span></div>' : ''}
-                </div>
-                `
-                    : ''
-                }
-
-                ${
-                  firstArticleContent
-                    ? `
-                <div class="ticket-tooltip-section content-section">
-                    <div class="ticket-tooltip-field content-field">
-                        <span class="ticket-tooltip-label">Original Request:</span>
-                        <div class="ticket-tooltip-content original-content">${firstArticleContent}</div>
-                    </div>
-                </div>
-                `
-                    : ''
-                }
-
-                ${
-                  lastArticleContent && articleCount > 1
-                    ? `
-                <div class="ticket-tooltip-section content-section">
-                    <div class="ticket-tooltip-field content-field">
-                        <span class="ticket-tooltip-label">Latest Update:</span>
-                        <div class="ticket-tooltip-content latest-content">${lastArticleContent}</div>
-                    </div>
+                    <details open>
+                        <summary style="cursor: pointer; user-select: none; list-style: none; display: flex; align-items: center; gap: 8px; padding: 4px 0;">
+                            <span class="details-arrow" style="font-size: 10px;">▶</span>
+                            <span class="ticket-tooltip-label" style="margin: 0; text-transform: none;">Articles (${articleCount})${hasAttachments ? ' 📎' : ''}</span>
+                        </summary>
+                        <div id="articles-container-${ticket.id}" style="margin-top: 8px; padding-left: 18px;">
+                            <div style="text-align: center; color: #95a5a6; padding: 10px; font-size: 12px;">Loading articles...</div>
+                        </div>
+                    </details>
                 </div>
                 `
                     : ''

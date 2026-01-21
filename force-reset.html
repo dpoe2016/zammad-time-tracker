@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Force Database Reset</title>
+    <style>
+        body { font-family: Arial; padding: 40px; background: #f5f5f5; }
+        .box { background: white; padding: 30px; border-radius: 8px; max-width: 700px; margin: 0 auto; }
+        h1 { color: #d9534f; }
+        button { 
+            background: #d9534f; 
+            color: white; 
+            border: none; 
+            padding: 15px 40px; 
+            font-size: 18px; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            margin: 10px 5px;
+        }
+        button:hover { background: #c9302c; }
+        button.success { background: #5cb85c; }
+        button.success:hover { background: #4cae4c; }
+        pre { background: #f8f9fa; padding: 15px; border-radius: 4px; font-size: 12px; overflow-x: auto; }
+        .step { background: #fff3cd; padding: 15px; margin: 15px 0; border-left: 4px solid #ffc107; }
+        #output { margin-top: 20px; }
+        .success-msg { color: #5cb85c; font-weight: bold; font-size: 16px; }
+        .error-msg { color: #d9534f; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h1>⚠️ Force Database Reset</h1>
+        
+        <div class="step">
+            <strong>IMPORTANT - Do this FIRST:</strong>
+            <ol>
+                <li>Close ALL tabs with dashboard or sprint planning</li>
+                <li>Close any Zammad website tabs</li>
+                <li>Keep ONLY this tab open</li>
+            </ol>
+        </div>
+
+        <p><strong>Current database status: Version 1 with 0 stores</strong></p>
+        <p>We need to completely delete it and recreate at version 2.</p>
+        
+        <button onclick="step1()">Step 1: Delete Old Database</button>
+        <div id="step1-result"></div>
+        
+        <button onclick="step2()" style="display:none;" id="step2-btn">Step 2: Create Version 2</button>
+        <div id="step2-result"></div>
+        
+        <button onclick="step3()" style="display:none;" id="step3-btn" class="success">Step 3: Verify & Open Sprint Planning</button>
+        <div id="step3-result"></div>
+        
+        <div id="output"></div>
+    </div>
+
+    <script>
+        function step1() {
+            const result = document.getElementById('step1-result');
+            result.innerHTML = '<p>⏳ Attempting to delete database...</p>';
+            
+            const deleteRequest = indexedDB.deleteDatabase('ZammadTimeTracker');
+            
+            deleteRequest.onsuccess = function() {
+                result.innerHTML = '<p class="success-msg">✅ Database deleted!</p>';
+                document.getElementById('step2-btn').style.display = 'inline-block';
+            };
+            
+            deleteRequest.onerror = function(e) {
+                result.innerHTML = '<p class="error-msg">❌ Delete failed: ' + e.target.error + '</p>';
+            };
+            
+            deleteRequest.onblocked = function() {
+                result.innerHTML = `
+                    <p class="error-msg">❌ BLOCKED! Something is holding the database open.</p>
+                    <p><strong>Do this:</strong></p>
+                    <ol>
+                        <li>Go to chrome://extensions/</li>
+                        <li>Find your extension</li>
+                        <li>Click "Remove" button</li>
+                        <li>Come back here and try Step 1 again</li>
+                        <li>After success, reload the extension</li>
+                    </ol>
+                `;
+            };
+        }
+        
+        function step2() {
+            const result = document.getElementById('step2-result');
+            result.innerHTML = '<p>⏳ Creating new database at version 2...</p>';
+            
+            const openRequest = indexedDB.open('ZammadTimeTracker', 2);
+            
+            openRequest.onupgradeneeded = function(event) {
+                const db = event.target.result;
+                let log = '<p>Creating stores:</p><ul>';
+                
+                // Create all stores
+                const stores = [
+                    { name: 'customerCache', keyPath: 'id', indexes: [{ name: 'timestamp', key: 'timestamp' }] },
+                    { name: 'ticketCache', keyPath: 'cacheKey', indexes: [{ name: 'timestamp', key: 'timestamp' }] },
+                    { name: 'apiEndpoints', keyPath: 'id' },
+                    { name: 'apiFeatures', keyPath: 'id' },
+                    { name: 'userProfile', keyPath: 'id' },
+                    { name: 'timeEntryCache', keyPath: 'cacheKey', indexes: [{ name: 'timestamp', key: 'timestamp' }] },
+                    { 
+                        name: 'sprints', 
+                        keyPath: 'id', 
+                        autoIncrement: true, 
+                        indexes: [
+                            { name: 'status', key: 'status' },
+                            { name: 'startDate', key: 'startDate' }
+                        ]
+                    },
+                    { 
+                        name: 'sprintAssignments', 
+                        keyPath: 'id', 
+                        autoIncrement: true, 
+                        indexes: [
+                            { name: 'sprintId', key: 'sprintId' },
+                            { name: 'ticketId', key: 'ticketId' }
+                        ]
+                    }
+                ];
+                
+                stores.forEach(storeConfig => {
+                    const options = { keyPath: storeConfig.keyPath };
+                    if (storeConfig.autoIncrement) options.autoIncrement = true;
+                    
+                    const store = db.createObjectStore(storeConfig.name, options);
+                    
+                    if (storeConfig.indexes) {
+                        storeConfig.indexes.forEach(index => {
+                            store.createIndex(index.name, index.key, { unique: false });
+                        });
+                    }
+                    
+                    log += `<li>✅ ${storeConfig.name}</li>`;
+                });
+                
+                log += '</ul>';
+                result.innerHTML = log;
+            };
+            
+            openRequest.onsuccess = function(event) {
+                const db = event.target.result;
+                const storesList = Array.from(db.objectStoreNames);
+                
+                result.innerHTML += `
+                    <p class="success-msg">✅ Database created successfully!</p>
+                    <p><strong>Version:</strong> ${db.version}</p>
+                    <p><strong>Total stores:</strong> ${storesList.length}</p>
+                    <details>
+                        <summary>Show all stores</summary>
+                        <pre>${storesList.join('\n')}</pre>
+                    </details>
+                `;
+                
+                const hasSprintStores = storesList.includes('sprints') && storesList.includes('sprintAssignments');
+                
+                if (hasSprintStores) {
+                    result.innerHTML += '<p class="success-msg">✅✅✅ SPRINT STORES CREATED! ✅✅✅</p>';
+                    document.getElementById('step3-btn').style.display = 'inline-block';
+                } else {
+                    result.innerHTML += '<p class="error-msg">❌ Sprint stores still missing!</p>';
+                }
+                
+                db.close();
+            };
+            
+            openRequest.onerror = function(e) {
+                result.innerHTML = '<p class="error-msg">❌ Error: ' + e.target.error + '</p>';
+            };
+        }
+        
+        function step3() {
+            const result = document.getElementById('step3-result');
+            result.innerHTML = `
+                <div style="background: #d4edda; padding: 20px; border-radius: 8px; margin-top: 20px;">
+                    <h2 style="color: #155724; margin-top: 0;">🎉 SUCCESS!</h2>
+                    <p><strong>Database is ready for sprint planning!</strong></p>
+                    <p>Now do this:</p>
+                    <ol style="text-align: left;">
+                        <li>Click your extension icon (dashboard opens)</li>
+                        <li>Click "📋 Sprint Planning" button</li>
+                        <li>Click "+ New Sprint"</li>
+                        <li>Fill in the form and save</li>
+                        <li>It should work now! 🚀</li>
+                    </ol>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>

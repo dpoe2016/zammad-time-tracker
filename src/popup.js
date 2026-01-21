@@ -1983,7 +1983,7 @@ class TimetrackingPopup {
       this.debug('Opening dashboard...');
 
       // Get the dashboard URL
-      const dashboardUrl = chrome.runtime.getURL('dashboard.html');
+      const dashboardUrl = chrome.runtime.getURL('src/dashboard.html');
 
       // Open in a new tab
       chrome.tabs.create({ url: dashboardUrl });

@@ -1,9 +1,7 @@
 // Minimal Background Script for Zammad Timetracking Extension
 
 // Import translations and utilities
-importScripts('translations.js');
-importScripts('logger.js');
-importScripts('storage.js');
+importScripts('translations.js', 'logger.js', 'storage.js');
 
 // Log startup
 logger.info('Background Script loaded');

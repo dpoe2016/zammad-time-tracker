@@ -182,6 +182,15 @@
         background: #c82333;
       }
 
+      .btn-success {
+        background: #28a745;
+        color: white;
+      }
+
+      .btn-success:hover:not(:disabled) {
+        background: #218838;
+      }
+
       .btn:disabled {
         opacity: 0.6;
         cursor: not-allowed;
@@ -661,6 +670,11 @@
         <div class="setting-item">
           <span id="apiSettingsLabel">API Settings</span>
           <button class="btn btn-primary" id="apiSettingsBtn">Options</button>
+        </div>
+
+        <div class="setting-item">
+          <span id="dashboardLabel">Dashboard</span>
+          <button class="btn btn-success" id="dashboardBtn">Open Dashboard</button>
         </div>
       </div>
 

@@ -600,6 +600,32 @@ const translations = {
     [LANGUAGES.DE]: 'Tooltip-Verzögerung (Millisekunden)',
     [LANGUAGES.EN]: 'Tooltip delay (milliseconds)',
   },
+  
+  // Sprint Planning
+  sprintPlanningBtnText: {
+    [LANGUAGES.DE]: '📋 Sprint-Planung',
+    [LANGUAGES.EN]: '📋 Sprint Planning',
+  },
+  sprintPlanningTitle: {
+    [LANGUAGES.DE]: 'Sprint-Planung',
+    [LANGUAGES.EN]: 'Sprint Planning',
+  },
+  createSprintBtnText: {
+    [LANGUAGES.DE]: '+ Neuer Sprint',
+    [LANGUAGES.EN]: '+ New Sprint',
+  },
+  sprintSelectLabel: {
+    [LANGUAGES.DE]: 'Aktueller Sprint:',
+    [LANGUAGES.EN]: 'Current Sprint:',
+  },
+  backlogTitle: {
+    [LANGUAGES.DE]: 'Backlog',
+    [LANGUAGES.EN]: 'Backlog',
+  },
+  sprintTitle: {
+    [LANGUAGES.DE]: 'Sprint-Tickets',
+    [LANGUAGES.EN]: 'Sprint Tickets',
+  },
 };
 
 // Get translation by key
@@ -616,7 +642,6 @@ function t(key, placeholders = []) {
   return text;
 }
 
-// Initialize language when script is loaded
 initLanguage();
 
 // Export functions for use in other scripts

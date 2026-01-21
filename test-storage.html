@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Chrome Storage</title>
+    <style>
+        body { font-family: Arial; padding: 20px; background: #f5f5f5; }
+        .box { background: white; padding: 30px; border-radius: 8px; max-width: 800px; margin: 0 auto; }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin: 5px; }
+        button:hover { background: #0056b3; }
+        pre { background: #f8f9fa; padding: 15px; border-radius: 4px; overflow-x: auto; max-height: 500px; }
+        .success { color: #28a745; font-weight: bold; }
+        .error { color: #dc3545; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h1>🔍 Check Chrome Storage for Tickets</h1>
+        
+        <button onclick="checkStorage()">Check Storage</button>
+        <button onclick="checkAllKeys()">Show All Keys</button>
+        <button onclick="clearLog()">Clear Log</button>
+        
+        <h3>Output:</h3>
+        <pre id="output">Click "Check Storage" to see what's in chrome.storage.local</pre>
+    </div>
+
+    <script>
+        const output = document.getElementById('output');
+        
+        function log(msg) {
+            output.textContent += msg + '\n';
+        }
+        
+        function clearLog() {
+            output.textContent = '';
+        }
+        
+        function checkStorage() {
+            clearLog();
+            log('Checking Chrome storage for tickets...\n');
+            
+            chrome.storage.local.get(['cachedTickets', 'cachedTicketsTimestamp'], (result) => {
+                if (chrome.runtime.lastError) {
+                    log('❌ Error: ' + chrome.runtime.lastError.message);
+                    return;
+                }
+                
+                log('=== cachedTickets ===');
+                if (result.cachedTickets) {
+                    if (Array.isArray(result.cachedTickets)) {
+                        log('✅ Found: ' + result.cachedTickets.length + ' tickets');
+                        log('\nFirst 3 tickets:');
+                        result.cachedTickets.slice(0, 3).forEach((t, i) => {
+                            log(`${i + 1}. #${t.number || t.id} - ${t.title || 'No title'}`);
+                        });
+                        log('\nSample ticket structure:');
+                        log(JSON.stringify(result.cachedTickets[0], null, 2));
+                    } else {
+                        log('❌ cachedTickets exists but is not an array!');
+                        log('Type: ' + typeof result.cachedTickets);
+                    }
+                } else {
+                    log('❌ No cachedTickets found');
+                }
+                
+                log('\n=== Timestamp ===');
+                if (result.cachedTicketsTimestamp) {
+                    const date = new Date(result.cachedTicketsTimestamp);
+                    log('Last cached: ' + date.toLocaleString());
+                    const ageMinutes = Math.floor((Date.now() - result.cachedTicketsTimestamp) / 60000);
+                    log('Age: ' + ageMinutes + ' minutes ago');
+                } else {
+                    log('No timestamp found');
+                }
+            });
+        }
+        
+        function checkAllKeys() {
+            clearLog();
+            log('Checking ALL keys in Chrome storage...\n');
+            
+            chrome.storage.local.get(null, (items) => {
+                if (chrome.runtime.lastError) {
+                    log('❌ Error: ' + chrome.runtime.lastError.message);
+                    return;
+                }
+                
+                const keys = Object.keys(items);
+                log('Total keys: ' + keys.length + '\n');
+                
+                keys.forEach(key => {
+                    const value = items[key];
+                    const type = Array.isArray(value) ? 'array' : typeof value;
+                    let size = 'unknown';
+                    
+                    if (Array.isArray(value)) {
+                        size = value.length + ' items';
+                    } else if (typeof value === 'string') {
+                        size = value.length + ' chars';
+                    } else if (typeof value === 'object') {
+                        size = Object.keys(value).length + ' keys';
+                    }
+                    
+                    log(`${key}: ${type} (${size})`);
+                });
+                
+                log('\n=== Looking for ticket-related keys ===');
+                const ticketKeys = keys.filter(k => 
+                    k.toLowerCase().includes('ticket') || 
+                    k.toLowerCase().includes('cache')
+                );
+                
+                if (ticketKeys.length > 0) {
+                    log('Found ' + ticketKeys.length + ' ticket-related keys:');
+                    ticketKeys.forEach(key => {
+                        log('  - ' + key);
+                        const value = items[key];
+                        if (Array.isArray(value)) {
+                            log('    Contains: ' + value.length + ' items');
+                        }
+                    });
+                } else {
+                    log('❌ No ticket-related keys found!');
+                }
+            });
+        }
+    </script>
+</body>
+</html>
